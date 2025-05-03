@@ -1,4 +1,4 @@
-const schema_mbta = {
+const schema = {
     'alerts': {
         'data_set': 'mbta.',
         'tables': {

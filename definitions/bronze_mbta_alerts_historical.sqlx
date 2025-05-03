@@ -1,27 +1,7 @@
 config {
-    type: 'operations'
+    type: 'incremental'
 }
 
-DELETE FROM mbta.bronze_mbta_alerts_historical
-WHERE
-  id IN (
-    SELECT DISTINCT
-      id
-    FROM mbta.external_mbta_alerts
-  );
-
-INSERT INTO mbta.bronze_mbta_alerts_historical
-SELECT
-    alert_start,
-    alert_end,
-    routes,
-    id,
-    header,
-    description,
-    cause,
-    effect,
-    severity,
-    lifecycle,
-    ingestion_datetime,
-    ingestion_source
-FROM mbta.external_mbta_alerts;
+js {
+  functions.BronzeDesert()
+}

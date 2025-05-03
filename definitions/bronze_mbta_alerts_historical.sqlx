@@ -1,0 +1,16 @@
+config {
+    type: 'operations'
+}
+
+DELETE FROM `sonic-earth-456400-s3.mbta.bronze_mbta_alerts_historical`
+WHERE
+  id IN (
+    SELECT DISTINCT
+      id
+    FROM `mbta.external_mbta_alerts`
+  );
+
+INSERT INTO `sonic-earth-456400-s3.mbta.bronze_mbta_alerts_historical`
+SELECT
+  *
+FROM `mbta.external_mbta_alerts`;

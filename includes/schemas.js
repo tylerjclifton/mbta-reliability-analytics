@@ -3,10 +3,11 @@ const alerts = {
     'tables': {
         'external': 'external_mbta_alerts',
         'bronze': 'bronze_mbta_alerts_historical',
-        's1': 's1_mbta_alerts'
+        's1': 's1_mbta_alerts',
+        'gold': 'gold_mbta_alerts'
     },
     'fields': {
-        'keys': 'id',
+        'key': 'id',
         'dates': [
             'alert_start',
             'alert_end'

@@ -3,5 +3,20 @@ config {
 }
 
 js {
-  functions.BronzeDesert()
+    const {
+        delete_statement,
+        select_statement
+    } = functions.BronzeDesert();
 }
+
+pre_operations {
+  CREATE TEMP TABLE temp AS ${select_statement}
+  
+  ${when(
+    incremental(),
+    delete_statement
+  )}
+
+}
+
+SELECT * FROM temp

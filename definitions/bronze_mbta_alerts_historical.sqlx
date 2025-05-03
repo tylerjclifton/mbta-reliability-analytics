@@ -12,12 +12,12 @@ WHERE
 
 INSERT INTO sonic-earth-456400-s3.mbta.bronze_mbta_alerts_historical
 SELECT
+    alert_start,
+    alert_end,
     routes,
     id,
     header,
     description,
-    alert_start,
-    alert_end,
     cause,
     effect,
     severity,

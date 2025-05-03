@@ -12,5 +12,16 @@ WHERE
 
 INSERT INTO sonic-earth-456400-s3.mbta.bronze_mbta_alerts_historical
 SELECT
-  *
+    routes,
+    id,
+    header,
+    description,
+    CAST(alert_start AS date) AS alert_start,
+    CAST(alert_end AS date) AS alert_end,
+    cause,
+    effect,
+    severity,
+    lifecycle,
+    ingestion_datetime,
+    ingestion_source
 FROM mbta.external_mbta_alerts;

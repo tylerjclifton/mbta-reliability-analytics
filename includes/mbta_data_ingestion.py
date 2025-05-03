@@ -41,22 +41,31 @@ if response.status_code == 200: # checks to see if request was succesful
             alert_lifecycle = alert_attributes.get('lifecycle', 'No lifecycle')
 
             for period in alert_active_period:
-                start = period.get('start', 'No period start')
-                end = period.get('end', 'No period end')
-            
+                start_str = period.get('start')
+                end_str = period.get('end')
+
+                if start_str:
+                    alert_start = datetime.datetime.fromisoformat(start_str)
+                else:
+                    alert_start = None
+
+                if end_str:
+                    alert_end = datetime.datetime.fromisoformat(end_str)
+                else:
+                    alert_end = None
+
             # bronze level additions
             current_datetime = datetime.datetime.now()
             ingestion_datetime = current_datetime.strftime("%Y-%m-%d %H:%M:%S") #Format: Year-Month-Day Hour:Minute:Second
             ingestion_source = os.path.basename(__file__) #Gets file name
-
 
             standardized_alerts.append({
                 'routes':routes,
                 'id':alert_id,
                 'header':alert_header,
                 'description':alert_description,
-                'alert_start':start,
-                'alert_end':end,
+                'alert_start':alert_start,
+                'alert_end':alert_end,
                 'cause':alert_cause,
                 'effect':alert_effect,
                 'severity':alert_severity,

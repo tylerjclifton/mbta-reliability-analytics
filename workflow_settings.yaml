@@ -1,4 +1,3 @@
-defaultProject: sonic-earth-456400-s3
 defaultLocation: northamerica-northeast1
 defaultAssertionDataset: dataform_assertions
 dataformCoreVersion: 3.0.0

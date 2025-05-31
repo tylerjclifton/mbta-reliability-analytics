@@ -1,0 +1,49 @@
+config {
+    type: 'incremental',
+    schema: 'mbta',
+    name: 'bronze_alerts'
+}
+
+js {
+    // import variables
+    const schemas = require('/includes/schemas');
+
+    // tables
+    const alertsTablesExternal = schemas.alerts.tables.external;
+    const alertsTablesBronze = schemas.alerts.tables.bronze;
+
+    // keys
+    const alertsKey = schemas.alerts.fields.key;
+
+    // dates
+    const alertsDates = schemas.alerts.fields.dates;
+
+    // dimensions
+    const alertsDimensions = schemas.alerts.fields.dimensions;
+
+    const {
+        deleteStatement,
+        selectStatement
+    } = functions.desert(
+        alertsTablesExternal,
+        alertsTablesBronze,
+        alertsKey,
+        alertsDates,
+        alertsDimensions
+    );
+}
+
+SELECT
+  *
+FROM
+  TEMP
+
+pre_operations {
+  CREATE TEMP TABLE TEMP AS ${selectStatement}
+    ${
+        when(
+            incremental(),
+            deleteStatement
+        )
+    }
+}

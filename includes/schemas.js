@@ -1,10 +1,8 @@
 const alerts = {
-    'data_set': 'mbta.',
+    'dataSet': 'mbta.',
     'tables': {
-        'external': 'external_mbta_alerts',
-        'bronze': 'bronze_mbta_alerts_historical',
-        's1': 's1_mbta_alerts',
-        'gold': 'gold_mbta_alerts'
+        'external': 'external_alerts',
+        'bronze': 'bronze_alerts'
     },
     'fields': {
         'key': 'id',
@@ -22,7 +20,7 @@ const alerts = {
             'severity',
             'lifecycle'
         ],
-        'etl_fields': [
+        'ingestionInfo': [
             'ingestion_datetime',
             'ingestion_source'
         ]

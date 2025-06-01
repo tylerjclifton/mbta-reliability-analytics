@@ -11,8 +11,8 @@ const alerts = {
             'alert_end'
         ],
         'dimensions': [
-            'route',
             'id',
+            'route',
             'header',
             'description',
             'cause',

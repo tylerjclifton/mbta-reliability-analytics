@@ -1,7 +1,8 @@
 config {
     type: 'incremental',
     schema: 'mbta',
-    name: 'bronze_alerts'
+    name: 'bronze_alerts',
+    tags: ['alerts']
 }
 
 js {

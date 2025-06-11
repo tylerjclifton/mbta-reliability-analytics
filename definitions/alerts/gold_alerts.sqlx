@@ -2,6 +2,7 @@ config {
     type: 'incremental',
     schema: 'mbta',
     name: 'gold_alerts',
+    dependencies: ['bronze_alerts'],
     tags: ['alerts']
 }
 

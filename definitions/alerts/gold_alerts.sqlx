@@ -40,6 +40,7 @@ FROM
   TEMP
 WHERE
   DATE(alert_end) >= CURRENT_DATE()
+  OR DATE(alert_end) IS NULL
 
 pre_operations {
   CREATE TEMP TABLE TEMP AS ${selectStatement}

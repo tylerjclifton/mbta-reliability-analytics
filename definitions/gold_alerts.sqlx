@@ -1,7 +1,8 @@
 config {
     type: 'incremental',
     schema: 'mbta',
-    name: 'bronze_alerts'
+    name: 'gold_alerts',
+    tags: ['alerts']
 }
 
 js {
@@ -9,8 +10,8 @@ js {
     const schemas = require('/includes/schemas');
 
     // tables
-    const alertsTablesExternal = schemas.alerts.tables.external;
     const alertsTablesBronze = schemas.alerts.tables.bronze;
+    const alertsTablesGold = schemas.alerts.tables.gold;
 
     // keys
     const alertsKey = schemas.alerts.fields.key;
@@ -25,8 +26,8 @@ js {
         deleteStatement,
         selectStatement
     } = functions.desert(
-        alertsTablesExternal,
         alertsTablesBronze,
+        alertsTablesGold,
         alertsKey,
         alertsDates,
         alertsDimensions
@@ -37,6 +38,8 @@ SELECT
   *
 FROM
   TEMP
+WHERE
+  DATE(alert_end) >= CURRENT_DATE()
 
 pre_operations {
   CREATE TEMP TABLE TEMP AS ${selectStatement}

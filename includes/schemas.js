@@ -2,7 +2,8 @@ const alerts = {
     'dataSet': 'mbta.',
     'tables': {
         'external': 'external_alerts',
-        'bronze': 'bronze_alerts'
+        'bronze': 'bronze_alerts',
+        'gold': 'gold_alerts'
     },
     'fields': {
         'key': 'id',

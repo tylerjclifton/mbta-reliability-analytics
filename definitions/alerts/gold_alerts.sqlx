@@ -10,28 +10,33 @@ js {
     // import variables
     const schemas = require('/includes/schemas');
 
+    // data set
+    const dataSet = schemas.alerts.dataSet;
+
     // tables
-    const alertsTablesBronze = schemas.alerts.tables.bronze;
-    const alertsTablesGold = schemas.alerts.tables.gold;
+    const tableBronze = schemas.alerts.tables.bronze;
+    const tableGold = schemas.alerts.tables.gold;
 
-    // keys
-    const alertsKey = schemas.alerts.fields.key;
-
-    // dates
-    const alertsDates = schemas.alerts.fields.dates;
+    // key
+    const key = schemas.alerts.fields.key;
 
     // dimensions
-    const alertsDimensions = schemas.alerts.fields.dimensions;
+    const dimensions = schemas.alerts.fields.dimensions;
+    const endDateTime = schemas.alerts.fields.dimensions[1];
+
+    // ingestion info
+    const ingestionInfo = schemas.alerts.fields.ingestionInfo;
 
     const {
         deleteStatement,
         selectStatement
     } = functions.desert(
-        alertsTablesBronze,
-        alertsTablesGold,
-        alertsKey,
-        alertsDates,
-        alertsDimensions
+        dataSet,
+        tableBronze,
+        tableGold,
+        key,
+        dimensions,
+        ingestionInfo
     );
 }
 
@@ -40,8 +45,8 @@ SELECT
 FROM
   TEMP
 WHERE
-  DATE(alert_end) >= CURRENT_DATE()
-  OR DATE(alert_end) IS NULL
+  DATE(${endDateTime}) >= CURRENT_DATE()
+  OR DATE(${endDateTime}) IS NULL
 
 pre_operations {
   CREATE TEMP TABLE TEMP AS ${selectStatement}

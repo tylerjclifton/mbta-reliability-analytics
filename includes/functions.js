@@ -1,54 +1,52 @@
-// import variables
-const schemas = require('./schemas');
-
-// data set
-const dataSet = schemas.alerts.dataSet;
-
-// ingestion info
-const ingestionInfo = schemas.alerts.fields.ingestionInfo;
-
-
 function createSelectStatement(
+    dataSet,
     sourceTable,
-    dates,
     dimensions,
     ingestionInfo
 ) {
     return `
     SELECT
-        ${dates},
         ${dimensions},
         ${ingestionInfo}
-    FROM ${dataSet + sourceTable}
+    FROM ${dataSet + '.' + sourceTable}
     GROUP BY ALL;`
 }
 
 function createDeleteStatement(
+    dataSet,
     sourceTable,
     destinationTable,
     key
 ) {
     return `
-    DELETE FROM ${dataSet + destinationTable}
+    DELETE FROM ${dataSet + '.' + destinationTable}
     WHERE
         ${key} IN (
             SELECT DISTINCT
                 ${key}
-            FROM ${dataSet + sourceTable}
+            FROM ${dataSet + '.' + sourceTable}
         );`
 }
 
-function desert(sourceTable, destinationTable, key, dates, dimensions) {
+function desert(
+    dataSet,
+    sourceTable,
+    destinationTable,
+    key,
+    dimensions,
+    ingestionInfo
+) {
 
     const deleteStatement = createDeleteStatement(
+        dataSet,
         sourceTable,
         destinationTable,
         key
     )
 
     const selectStatement = createSelectStatement(
+        dataSet,
         sourceTable,
-        dates,
         dimensions,
         ingestionInfo
     )

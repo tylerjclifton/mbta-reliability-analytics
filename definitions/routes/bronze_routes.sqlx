@@ -1,7 +1,7 @@
 config {
     type: 'incremental',
     schema: 'mbta',
-    name: 'bronze_alerts'
+    name: 'bronze_routes'
 }
 
 js {
@@ -12,28 +12,27 @@ js {
     const dataSet = schemas.alerts.dataSet;
 
     // tables
-    const tableExternal = schemas.alerts.tables.external;
-    const tableBronze = schemas.alerts.tables.bronze;
+    const tableExternal = schemas.routes.tables.external;
+    const tableBronze = schemas.routes.tables.bronze;
 
-    // key
-    const key = schemas.alerts.fields.key;
+    // keys
+    const key = schemas.routes.fields.key;
+
+    // dates
+    const routesDates = schemas.routes.fields.dates;
 
     // dimensions
-    const dimensions = schemas.alerts.fields.dimensions;
-
-    // ingestion info
-    const ingestionInfo = schemas.alerts.fields.ingestionInfo;
+    const routesDimensions = schemas.routes.fields.dimensions;
 
     const {
         deleteStatement,
         selectStatement
     } = functions.desert(
-        dataSet,
         tableExternal,
         tableBronze,
         key,
-        dimensions,
-        ingestionInfo
+        routesDates,
+        routesDimensions
     );
 }
 

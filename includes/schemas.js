@@ -45,14 +45,7 @@ const routes = {
             'direction_name_2',
             'fare_class',
             'long_name',
-            'short_name',
-            'sort_order',
-            'text_color',
             'links',
-            'agency_id',
-            'agency_type',
-            'line_id',
-            'line_type'
         ],
         'ingestionInfo': [
             'ingestion_datetime',

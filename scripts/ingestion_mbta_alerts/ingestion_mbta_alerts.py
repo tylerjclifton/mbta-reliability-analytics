@@ -1,97 +1,113 @@
-import requests
+# Import standard libraries
 import datetime
-import pandas as pd
-from pandas_gbq import to_gbq
 import os
 
-# API endpoint for Red Line alerts
+# Import third party libraries
+import pandas
+import requests
+from pandas_gbq import to_gbq
+
+# Make a GET request to the MBTA alerts API
 response = requests.get('https://api-v3.mbta.com/alerts')
 
-# Check if request was successful
-if response.status_code == 200: # checks to see if request was succesful
-    data = response.json() # converts response into Python dictionary
+# Check if the request was successful (HTTP status 200)
+if response.status_code == 200:
+
+    # Convert the response JSON into a Python dictionary
+    data = response.json()
+
+    # Extract the list of alerts from the response
     alerts = data['data']
 
+    # Proceed only if there are any alerts
     if alerts:
         standardized_alerts = []
 
+        # Loop through each alert in the list
         for alert in alerts:
+            # Get the alert ID and attributes
             alert_id = alert.get('id', 'No id')
-            alert_attributes = alert.get('attributes', {})
-            alert_informed_entity = alert_attributes.get('informed_entity', [])
+            attributes = alert.get('attributes', {})
 
-            alert_header = alert_attributes.get('header', 'No header')
-            alert_description = alert_attributes.get('description', 'No description')
-            alert_active_period = alert_attributes.get('active_period', [])
-            alert_cause = alert_attributes.get('cause', 'No cause')
-            alert_effect = alert_attributes.get('effect', 'No effect')
-            alert_severity = alert_attributes.get('severity', 'No severity')
-            alert_lifecycle = alert_attributes.get('lifecycle', 'No lifecycle')
-
-            if alert_active_period:
-                period = alert_active_period[0]
-                alert_start = datetime.datetime.fromisoformat(period.get('start')) if period.get('start') else None
-                alert_end = datetime.datetime.fromisoformat(period.get('end')) if period.get('end') else None
+            # Extract relevant alert fields
+            informed_entity = attributes.get('informed_entity', [])
+            header = attributes.get('header', 'No header')
+            description = attributes.get('description', 'No description')
+            active_period = attributes.get('active_period', [])
+            cause = attributes.get('cause', 'No cause')
+            effect = attributes.get('effect', 'No effect')
+            severity = attributes.get('severity', 'No severity')
+            lifecycle = attributes.get('lifecycle', 'No lifecycle')
+            
+            # Extract the start and end times of the alert, if available
+            if active_period:
+                period = active_period[0]
+                start = datetime.datetime.fromisoformat(period.get('start')) if period.get('start') else None
+                end = datetime.datetime.fromisoformat(period.get('end')) if period.get('end') else None
             else:
-                alert_start = None
-                alert_end = None
+                start = None
+                end = None
             
-            # Creates ingestion info fields
+            # Record metadata about ingestion
             current_datetime = datetime.datetime.now()
-            ingestion_datetime = current_datetime.strftime("%Y-%m-%d %H:%M:%S") #Format: Year-Month-Day Hour:Minute:Second
-            ingestion_source = os.path.basename(__file__) if '__file__' in globals() else 'mbta_alerts_ingestion.py' #Gets file name
+            ingestion_datetime = current_datetime.strftime("%Y-%m-%d %H:%M:%S")
+            ingestion_source = os.path.basename(__file__) if '__file__' in globals() else 'mbta_alerts_ingestion.py'
             
-            # If routes are listed, create one row per route
+            # If the alert affects any routes, create one row per route
             has_route = False
-            for entity in alert_informed_entity:
+            for entity in informed_entity:
                 route = entity.get('route')
                 if route:
                     has_route = True
                     standardized_alerts.append({
-                        'alert_start': alert_start,
-                        'alert_end': alert_end,
+                        'start': start,
+                        'end': end,
+                        'alert_id': alert_id,
                         'route': route,
-                        'id': alert_id,
-                        'header': alert_header,
-                        'description': alert_description,
-                        'cause': alert_cause,
-                        'effect': alert_effect,
-                        'severity': alert_severity,
-                        'lifecycle': alert_lifecycle,
+                        'header': header,
+                        'description': description,
+                        'cause': cause,
+                        'effect': effect,
+                        'severity': severity,
+                        'lifecycle': lifecycle,
                         'ingestion_datetime': ingestion_datetime,
                         'ingestion_source': ingestion_source
                     })
             
-            # If no routes found, adds single row with 'No route'
+            # If no routes are listed, add a single row with 'No route'
             if not has_route:
                 standardized_alerts.append({
-                    'alert_start': alert_start,
-                    'alert_end': alert_end,
+                    'start': start,
+                    'end': end,
                     'route': 'No route',
-                    'id': alert_id,
-                    'header': alert_header,
-                    'description': alert_description,
-                    'cause': alert_cause,
-                    'effect': alert_effect,
-                    'severity': alert_severity,
-                    'lifecycle': alert_lifecycle,
+                    'alert_id': alert_id,
+                    'header': header,
+                    'description': description,
+                    'cause': cause,
+                    'effect': effect,
+                    'severity': severity,
+                    'lifecycle': lifecycle,
                     'ingestion_datetime': ingestion_datetime,
                     'ingestion_source': ingestion_source
                 })
 
     else:
+        # No alerts found in the response
         print("No current alerts.")
 else:
+    # The API request failed; print the HTTP status code
     print(f"Error: {response.status_code}")
 
-output = pd.DataFrame(standardized_alerts)
+# Convert the list of alert dictionaries into a pandas DataFrame
+output = pandas.DataFrame(standardized_alerts)
 
-# Upload to BigQuery
+# Define BigQuery project, dataset, and table
 project_id = 'sonic-earth-456400-s3'
 dataset_id = 'mbta'
 table_id = 'external_alerts'
 
-# Upload DataFrame to BigQuery (if table doesn't exist, it will be created)
+# Upload the DataFrame to BigQuery (replace table if it already exists)
 to_gbq(output, f'{dataset_id}.{table_id}', project_id=project_id, if_exists='replace')
 
+# Print number of uploaded rows
 print(f"{len(output)} rows uploaded to BigQuery.")

@@ -25,11 +25,12 @@ if response.status_code == 200:
 
         # Loop through each alert in the list
         for alert in alerts:
-            # Get the alert ID and attributes
-            alert_id = alert.get('id', 'No id')
+
+            # Safely extract the alert ID and its attributes dictionary
+            alert_id = alert.get('id', 'No alert id')
             attributes = alert.get('attributes', {})
 
-            # Extract relevant alert fields
+            # Extract specific alert details from the attributes dictionary
             informed_entity = attributes.get('informed_entity', [])
             header = attributes.get('header', 'No header')
             description = attributes.get('description', 'No description')

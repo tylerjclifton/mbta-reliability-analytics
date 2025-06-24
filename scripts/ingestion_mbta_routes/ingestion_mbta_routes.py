@@ -1,92 +1,84 @@
-# imports
-import requests
+# Import standard libraries
 import datetime
-import pandas as pd
-from pandas_gbq import to_gbq
 import os
 
-response = requests.get('https://api-v3.mbta.com/routes') # makes api call to mbta routes
+# Import third party libraries
+import pandas
+import requests
+from pandas_gbq import to_gbq
 
-if response.status_code == 200: # checks to see if request was succesful
-    data = response.json() # converts response into python dictionary
+# Make a GET request to the MBTA routes API
+response = requests.get('https://api-v3.mbta.com/routes')
+
+# Check if the request was successful (HTTP status 200)
+if response.status_code == 200:
+
+    # Convert the response JSON into a Python dictionary
+    data = response.json()
+
+    # Extract the list of routes from the response
     routes = data['data']
 
+    # Proceed only if there are any routes
     if routes:
         standardized_routes = []
 
+        # Loop through each route in the list
         for route in routes:
-            # id
-            route_id = route.get('id', 'No id')
 
-            # type
-            # route_type = route.get('type','No type') -- is always 'route' so don't need
+            # Safely extract the alert ID and its attributes dictionary
+            route_id = route.get('id', 'No route id')
+            attributes = route.get('attributes', {})
 
-            # attributes
-            route_attributes = route.get('attributes', {})
-            route_color = route_attributes.get('color', 'No color')
-            route_description = route_attributes.get('description', 'No description')
+            # Extract specific route details from the attributes dictionary
+            color = attributes.get('color', 'No color')
+            description = attributes.get('description', 'No description')
+            direction_destinations = attributes.get('direction_destinations', [])
+            direction_destination_1 = direction_destinations[0] if len(direction_destinations) > 0 else "Unknown direction destination"
+            direction_destination_2 = direction_destinations[1] if len(direction_destinations) > 1 else "Unknown direction destination"
+            direction_names = attributes.get('direction_names', [])
+            direction_name_1 = direction_names[0] if len(direction_names) > 0 else "Unknown destination name"
+            direction_name_2 = direction_names[1] if len(direction_names) > 1 else "Unknown destination name"
+            fare_class = attributes.get('fare_class', 'No fare class')
+            long_name = attributes.get('long_name', 'No long name')
+            short_name = attributes.get('short_name', 'No short name')
+            text_color = attributes.get('text_color', 'No text color')
+            type = attributes.get('type', 'No type')
 
-            # direction destinations
-            route_direction_destinations = route_attributes.get('direction_destinations', [])
-            route_direction_destination_1 = route_direction_destinations[0] if len(route_direction_destinations) > 0 else "Unknown direction destination"
-            route_direction_destination_2 = route_direction_destinations[1] if len(route_direction_destinations) > 1 else "Unknown direction destination"
-
-            # direction names
-            route_direction_names = route_attributes.get('direction_names', [])
-            route_direction_name_1 = route_direction_names[0] if len(route_direction_names) > 0 else "Unknown destination name"
-            route_direction_name_2 = route_direction_names[1] if len(route_direction_names) > 1 else "Unknown destination name"
-
-            route_fare_class = route_attributes.get('fare_class', 'No fare class')
-            route_long_name = route_attributes.get('long_name', 'No long name')
-            route_short_name = route_attributes.get('short_name', 'No short name')
-            route_sort_order = route_attributes.get('sort_order', 'No sort order')
-            route_text_color = route_attributes.get('text_color', 'No text color')
-            route_type = route_attributes.get('type', 'No type')
-
-            # links
-            route_links = route.get('links', {}).get('self', 'No link')
-            
-            # relationships
-            route_relationships = route.get('relationships', {}).get('agency', {}).get('data', {})
-            route_agency_id = route_relationships.get('id')
-            route_agency_type = route_relationships.get('type')
-
-            # line
-            route_line = route.get('line', {}).get('data', {})
-            route_line_id = route_line.get('id')
-            route_line_type = route_line.get('type')
-
+            # Append route to standardized routes list
             standardized_routes.append({
                 'route_id': route_id,
-                'route_color': route_color,
-                'route_description': route_description,
-                'route_direction_destination_1': route_direction_destination_1,
-                'route_direction_destination_2': route_direction_destination_2,
-                'route_direction_name_1': route_direction_name_1,
-                'route_direction_name_2': route_direction_name_2,
-                'route_fare_class': route_fare_class,
-                'route_long_name': route_long_name,
-                'route_short_name': route_short_name,
-                'route_sort_order': route_sort_order,
-                'route_text_color': route_text_color,
-                'route_links': route_links,
-                'route_agency_id': route_agency_id,
-                'route_agency_type': route_agency_type,
-                'route_line_id': route_line_id,
-                'route_line_type': route_line_type,
+                'color': color,
+                'description': description,
+                'direction_destination_1': direction_destination_1,
+                'direction_destination_2': direction_destination_2,
+                'direction_name_1': direction_name_1,
+                'direction_name_2': direction_name_2,
+                'fare_class': fare_class,
+                'long_name': long_name,
+                'short_name': short_name,
+                'text_color': text_color,
+                'type': type
             })
 
     else:
+        # No routes found in the response
         print("No routes found.")
 
-output = pd.DataFrame(standardized_routes)
+else:
+    # The API request failed; print the HTTP status code
+    print(f"Error: {response.status_code}")
 
-# Upload to BigQuery
+# Convert the list of route dictionaries into a pandas DataFrame
+output = pandas.DataFrame(standardized_routes)
+
+# Define BigQuery project, dataset, and table
 project_id = 'sonic-earth-456400-s3'
 dataset_id = 'mbta'
 table_id = 'external_routes'
 
-# Upload DataFrame to BigQuery (if table doesn't exist, it will be created)
+# Upload the DataFrame to BigQuery (replace table if it already exists)
 to_gbq(output, f'{dataset_id}.{table_id}', project_id=project_id, if_exists='replace')
 
+# Print number of uploaded rows
 print(f"{len(output)} rows uploaded to BigQuery.")

@@ -45,6 +45,11 @@ if response.status_code == 200:
             text_color = attributes.get('text_color', 'No text color')
             type = attributes.get('type', 'No type')
 
+            # Record metadata about ingestion
+            current_datetime = datetime.datetime.now()
+            ingestion_datetime = current_datetime.strftime("%Y-%m-%d %H:%M:%S")
+            ingestion_source = os.path.basename(__file__) if '__file__' in globals() else 'mbta_routes_ingestion.py'
+
             # Append route to standardized routes list
             standardized_routes.append({
                 'route_id': route_id,
@@ -58,7 +63,9 @@ if response.status_code == 200:
                 'long_name': long_name,
                 'short_name': short_name,
                 'text_color': text_color,
-                'type': type
+                'type': type,
+                'ingestion_datetime': ingestion_datetime,
+                'ingestion_source': ingestion_source
             })
 
     else:

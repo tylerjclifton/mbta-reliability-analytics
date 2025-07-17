@@ -1,0 +1,7 @@
+{
+    "name": "bigquery-cloud-funtion",
+    "version": "1.0.0",
+    "dependencies": {
+        "@google-cloud/bigquery": "^7.7.0"
+    }
+}

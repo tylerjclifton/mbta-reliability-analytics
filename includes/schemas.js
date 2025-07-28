@@ -1,12 +1,22 @@
 const schemaMap = {
-    'alerts': {
-        'dataSet': 'mbta',
-        'tables': {
-            'external': 'external_alerts',
-            'bronze': 'bronze_alerts',
-            'gold': 'gold_alerts'
+    'dataSets': 'mbta',
+    'tables': {
+        'external': {
+            'alerts': 'external_alerts',
+            'routes': 'external_routes'
         },
-        'fields': {
+        'bronze': {
+            'alerts': 'bronze_alerts',
+            'routes': 'bronze_routes'
+        },
+        'silver': {
+            's1': 's1_route_alerts',
+            's2': 's2_route_alerts'
+        },
+        'gold': 'gold_route_alerts'
+    },
+    'fields': {
+        'alerts': {
             'key': 'id',
             'dimensions': [
                 'alert_start',
@@ -19,21 +29,9 @@ const schemaMap = {
                 'effect',
                 'severity',
                 'lifecycle'
-            ],
-            'ingestionInfo': [
-                'ingestion_datetime',
-                'ingestion_source'
             ]
-        }
-    },
-    'routes': {
-        'dataSet': 'mbta',
-        'tables': {
-            'external': 'external_routes',
-            'bronze': 'bronze_routes',
-            'gold': 'gold_routes'
         },
-        'fields': {
+        'routes': {
             'key': 'id',
             'dimensions': [
                 'id',
@@ -46,15 +44,10 @@ const schemaMap = {
                 'fare_class',
                 'long_name',
                 'links',
-            ],
-            'ingestionInfo': [
-                'ingestion_datetime',
-                'ingestion_source'
             ]
         }
     }
 }
-
 module.exports = {
     schemaMap
 }

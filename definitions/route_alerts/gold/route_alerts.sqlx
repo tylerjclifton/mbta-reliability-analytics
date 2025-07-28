@@ -1,32 +1,12 @@
-config {
+/*config {
     type: 'incremental',
     schema: 'mbta',
     name: 'gold_alerts',
     dependencies: ['bronze_alerts'],
-    tags: ['alerts']
+    tags: ['mbta']
 }
 
 js {
-    // import variables
-    const schemas = require('/includes/schemas');
-
-    // data set
-    const dataSet = schemas.alerts.dataSet;
-
-    // tables
-    const tableBronze = schemas.alerts.tables.bronze;
-    const tableGold = schemas.alerts.tables.gold;
-
-    // key
-    const key = schemas.alerts.fields.key;
-
-    // dimensions
-    const dimensions = schemas.alerts.fields.dimensions;
-    const endDateTime = schemas.alerts.fields.dimensions[1];
-
-    // ingestion info
-    const ingestionInfo = schemas.alerts.fields.ingestionInfo;
-
     const {
         deleteStatement,
         selectStatement
@@ -57,3 +37,6 @@ pre_operations {
         )
     }
 }
+(
+
+)*/

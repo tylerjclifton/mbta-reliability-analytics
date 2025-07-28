@@ -2,9 +2,7 @@ config {
     type: 'incremental',
     schema: 'mbta',
     name: 'bronze_routes',
-    tags: [
-        'mbta'
-    ]
+    tags: ['route_alerts']
 }
 
 js {

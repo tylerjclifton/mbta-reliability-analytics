@@ -1,0 +1,30 @@
+config {
+    type: 'incremental',
+    schema: 'mbta',
+    name: 'bronze_alerts',
+    tags: [
+        'mbta'
+    ]
+}
+
+js {
+    const {
+        deleteStatement,
+        selectStatement
+    } = functions.desertBronze('alerts');
+}
+
+SELECT
+  *
+FROM
+  TEMP
+
+pre_operations {
+  CREATE TEMP TABLE TEMP AS ${selectStatement}
+    ${
+        when(
+            incremental(),
+            deleteStatement
+        )
+    }
+}

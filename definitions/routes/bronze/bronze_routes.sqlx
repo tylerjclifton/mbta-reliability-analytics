@@ -1,0 +1,30 @@
+config {
+    type: 'incremental',
+    schema: 'mbta',
+    name: 'bronze_routes',
+    tags: [
+        'mbta'
+    ]
+}
+
+js {
+    const {
+        deleteStatement,
+        selectStatement
+    } = functions.desertBronze('routes');
+}
+
+SELECT
+  *
+FROM
+  TEMP
+
+pre_operations {
+  CREATE TEMP TABLE TEMP AS ${selectStatement}
+    ${
+        when(
+            incremental(),
+            deleteStatement
+        )
+    }
+}

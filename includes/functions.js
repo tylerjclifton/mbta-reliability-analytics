@@ -143,8 +143,8 @@ function desertS1() {
 }
 
 function desertGold() {
-    const sourceTable = schemaMap.tables.external.gold;
-    const destinationTable = schemaMap.tables.bronze.gold;
+    const sourceTable = schemaMap.tables.silver.s1;
+    const destinationTable = schemaMap.tables.gold;
     const key = schemaMap.fields.alerts.key;
     const dimensionsAlerts = schemaMap.fields.alerts.dimensions.map(dimension => Object.keys(dimension)[0]);
     const dimensionsRoutes = schemaMap.fields.routes.dimensions.map(dimension => Object.keys(dimension)[0]);

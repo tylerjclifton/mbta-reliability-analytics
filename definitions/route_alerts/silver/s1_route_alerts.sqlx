@@ -1,0 +1,32 @@
+config {
+    type: 'incremental',
+    schema: 'mbta',
+    name: 's1_route_alerts',
+    dependencies: [
+        'bronze_alerts',
+        'bronze_routes'
+    ],
+    tags: ['route_alerts']
+}
+
+js {
+    const {
+        deleteStatement,
+        selectStatement
+    } = functions.desertS1();
+}
+
+SELECT
+  *
+FROM
+  TEMP
+
+pre_operations {
+  CREATE TEMP TABLE TEMP AS ${selectStatement}
+    ${
+        when(
+            incremental(),
+            deleteStatement
+        )
+    }
+}

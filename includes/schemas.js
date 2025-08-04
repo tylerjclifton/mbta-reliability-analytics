@@ -1,5 +1,5 @@
 const schemaMap = {
-    'dataSets': 'mbta',
+    'dataSet': 'mbta',
     'tables': {
         'external': {
             'alerts': 'external_alerts',
@@ -10,44 +10,92 @@ const schemaMap = {
             'routes': 'bronze_routes'
         },
         'silver': {
-            's1': 's1_route_alerts',
-            's2': 's2_route_alerts'
+            's1': 's1_route_alerts'
         },
         'gold': 'gold_route_alerts'
     },
     'fields': {
         'alerts': {
-            'key': 'id',
-            'dimensions': [
-                'alert_start',
-                'alert_end',
-                'id',
-                'route',
-                'header',
-                'description',
-                'cause',
-                'effect',
-                'severity',
-                'lifecycle'
+            'key': 'alert_id',
+            'dimensions': [{
+                    'alert_start': 'TIMESTAMP'
+                },
+                {
+                    'alert_end': 'TIMESTAMP'
+                },
+                {
+                    'alert_id': 'STRING'
+                },
+                {
+                    'route': 'STRING'
+                },
+                {
+                    'header': 'STRING'
+                },
+                {
+                    'description': 'STRING'
+                },
+                {
+                    'cause': 'STRING'
+                },
+                {
+                    'effect': 'STRING'
+                },
+                {
+                    'severity': 'INTEGER'
+                },
+                {
+                    'lifecycle': 'STRING'
+                }
             ]
         },
         'routes': {
-            'key': 'id',
-            'dimensions': [
-                'id',
-                'color',
-                'description',
-                'direction_destination_1',
-                'direction_destination_2',
-                'direction_name_1',
-                'direction_name_2',
-                'fare_class',
-                'long_name',
-                'links',
+            'key': 'route_id',
+            'dimensions': [{
+                    'route_id': 'STRING'
+                },
+                {
+                    'color': 'STRING'
+                },
+                {
+                    'description': 'STRING'
+                },
+                {
+                    'direction_destination_1': 'STRING'
+                },
+                {
+                    'direction_destination_2': 'STRING'
+                },
+                {
+                    'direction_name_1': 'STRING'
+                },
+                {
+                    'direction_name_2': 'STRING'
+                },
+                {
+                    'fare_class': 'STRING'
+                },
+                {
+                    'long_name': 'STRING'
+                },
+                {
+                    'short_name': 'STRING'
+                },
+                {
+                    'text_color': 'STRING'
+                },
+                {
+                    'type': 'STRING'
+                }
             ]
+        },
+        'ingestion': {
+            'source': 'ingestion_source',
+            'timestamp': 'ingestion_timestamp'
         }
     }
 }
+
 module.exports = {
     schemaMap
 }

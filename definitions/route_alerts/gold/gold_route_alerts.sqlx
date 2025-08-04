@@ -1,0 +1,29 @@
+config {
+    type: 'incremental',
+    schema: 'mbta',
+    name: 'gold_alerts',
+    dependencies: ['s1_route_alerts'],
+    tags: ['mbta']
+}
+
+js {
+    const {
+        deleteStatement,
+        selectStatement
+    } = functions.desertGold();
+}
+
+SELECT
+  *
+FROM
+  TEMP
+
+pre_operations {
+  CREATE TEMP TABLE TEMP AS ${selectStatement}
+    ${
+        when(
+            incremental(),
+            deleteStatement
+        )
+    }
+}

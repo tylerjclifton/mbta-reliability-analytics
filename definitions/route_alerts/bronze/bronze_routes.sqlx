@@ -1,8 +1,7 @@
 config {
     type: 'incremental',
     schema: 'mbta',
-    name: 'bronze_routes',
-    tags: ['route_alerts']
+    name: 'bronze_routes'
 }
 
 js {

@@ -12,11 +12,12 @@ function castDataTypes(fields) {
     })
 }
 
-function appendToString(
-    itemToAppend,
-    targetString
+function prependAppendString(
+    targetString,
+    stringToPrepend,
+    stringToAppend,
 ) {
-    return `${targetString}${itemToAppend}`
+    return `${stringToPrepend}${targetString}${stringToAppend}`
 }
 
 function createDeleteStatement(
@@ -53,18 +54,22 @@ function createJoinStatement(
     leftKey,
     rightKey
 ) {
+
     const leftDimensions = schemaMap.fields[leftSource].dimensions.map(dimension => Object.keys(dimension)[0]);
     const rightDimensions = schemaMap.fields[rightSource].dimensions.map(dimension => Object.keys(dimension)[0]);
     const leftDimensionsWithPrefix = leftDimensions.map(dimension => `${leftSource}.${dimension}`);
     const rightDimensionsWithPrefix = rightDimensions.map(dimension => `${rightSource}.${dimension}`);
 
     return `
-    SELECT
-        ${leftDimensionsWithAlias},
-        ${rightDimensionsWithAlias}`
-
+        SELECT
+            ${leftDimensionsWithPrefix},
+            ${rightDimensionsWithPrefix}
+        FROM ${leftSource}
+        LEFT JOIN ${rightSource}
+            ON ${leftSource}.${leftKey} = ${rightSource}.${rightKey}
+    `
 }
-
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 function desertBronze(dataSource) {
     const sourceTable = schemaMap.tables.external[dataSource];
     const destinationTable = schemaMap.tables.bronze[dataSource];
@@ -77,12 +82,13 @@ function desertBronze(dataSource) {
         key
     );
 
-    const selectStatement = appendToString(
-        ';',
+    const selectStatement = prependAppendString(
         createSelectStatement(
             sourceTable,
             dimensions
-        )
+        ),
+        '',
+        ';'
     );
 
     return {
@@ -125,14 +131,13 @@ function desertS1() {
             )}
         )
 
-        SELECT
-            alerts.${dimensionsAlerts},
-            routes.${dimensionsRoutes},
-            ${ingestionSource},
-            ${ingestionTimestamp}
-        FROM alerts
-        LEFT JOIN routes
-            ON alerts.route = routes.${keyRoutes}
+        ${createJoinStatement(
+            'alerts',
+            'routes',
+            keyAlerts,
+            keyRoutes,
+            'bronze'
+        )}
         ;
     `
 
@@ -156,12 +161,13 @@ function desertGold() {
         key
     );
 
-    const selectStatement = appendToString(
-        ';',
+    const selectStatement = prependAppendString(
         createSelectStatement(
             sourceTable,
             fields
-        )
+        ),
+        '',
+        ';'
     );
 
     return {

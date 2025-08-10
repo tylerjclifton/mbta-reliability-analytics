@@ -12,7 +12,9 @@ const schemaMap = {
         'silver': {
             's1': 's1_route_alerts'
         },
-        'gold': 'gold_route_alerts'
+        'gold': {
+            'route_alerts': 'gold_route_alerts'
+        }
     },
     'fields': {
         'alerts': {

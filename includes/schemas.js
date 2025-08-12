@@ -20,74 +20,118 @@ const schemaMap = {
         'alerts': {
             'key': 'alert_id',
             'dimensions': [{
-                    'alert_start': 'TIMESTAMP'
+                    'rawName': 'alert_start',
+                    'newName': 'alert_start',
+                    'dataType': 'TIMESTAMP'
                 },
                 {
-                    'alert_end': 'TIMESTAMP'
+                    'rawName': 'alert_end',
+                    'newName': 'alert_end',
+                    'dataType': 'TIMESTAMP'
                 },
                 {
-                    'alert_id': 'STRING'
+                    'rawName': 'alert_id',
+                    'newName': 'alert_id',
+                    'dataType': 'STRING'
                 },
                 {
-                    'route': 'STRING'
+                    'rawName': 'route',
+                    'newName': 'route',
+                    'dataType': 'STRING'
                 },
                 {
-                    'header': 'STRING'
+                    'rawName': 'header',
+                    'newName': 'alert_header',
+                    'dataType': 'STRING'
                 },
                 {
-                    'description': 'STRING'
+                    'rawName': 'description',
+                    'newName': 'alert_description',
+                    'dataType': 'STRING'
                 },
                 {
-                    'cause': 'STRING'
+                    'rawName': 'cause',
+                    'newName': 'cause',
+                    'dataType': 'STRING'
                 },
                 {
-                    'effect': 'STRING'
+                    'rawName': 'effect',
+                    'newName': 'effect',
+                    'dataType': 'STRING'
                 },
                 {
-                    'severity': 'INTEGER'
+                    'rawName': 'severity',
+                    'newName': 'severity',
+                    'dataType': 'INTEGER'
                 },
                 {
-                    'lifecycle': 'STRING'
+                    'rawName': 'lifecycle',
+                    'newName': 'lifecycle',
+                    'dataType': 'STRING'
                 }
             ]
         },
         'routes': {
             'key': 'route_id',
             'dimensions': [{
-                    'route_id': 'STRING'
+                    'rawName': 'route_id',
+                    'newName': 'route_id',
+                    'dataType': 'TIMESTAMP'
                 },
                 {
-                    'color': 'STRING'
+                    'rawName': 'color',
+                    'newName': 'color',
+                    'dataType': 'TIMESTAMP'
                 },
                 {
-                    'description': 'STRING'
+                    'rawName': 'description',
+                    'newName': 'route_description',
+                    'dataType': 'STRING'
                 },
                 {
-                    'direction_destination_1': 'STRING'
+                    'rawName': 'direction_destination_1',
+                    'newName': 'direction_destination_1',
+                    'dataType': 'STRING'
                 },
                 {
-                    'direction_destination_2': 'STRING'
+                    'rawName': 'direction_destination_2',
+                    'newName': 'direction_destination_2',
+                    'dataType': 'STRING'
                 },
                 {
-                    'direction_name_1': 'STRING'
+                    'rawName': 'direction_name_1',
+                    'newName': 'direction_name_1',
+                    'dataType': 'STRING'
                 },
                 {
-                    'direction_name_2': 'STRING'
+                    'rawName': 'direction_name_2',
+                    'newName': 'direction_name_2',
+                    'dataType': 'STRING'
                 },
                 {
-                    'fare_class': 'STRING'
+                    'rawName': 'fare_class',
+                    'newName': 'fare_class',
+                    'dataType': 'STRING'
                 },
                 {
-                    'long_name': 'STRING'
+                    'rawName': 'long_name',
+                    'newName': 'long_name',
+                    'dataType': 'INTEGER'
                 },
                 {
-                    'short_name': 'STRING'
+                    'rawName': 'short_name',
+                    'newName': 'short_name',
+                    'dataType': 'STRING'
                 },
                 {
-                    'text_color': 'STRING'
+                    'rawName': 'text_color',
+                    'newName': 'text_color',
+                    'dataType': 'INTEGER'
                 },
                 {
-                    'type': 'STRING'
+                    'rawName': 'type',
+                    'newName': 'type',
+                    'dataType': 'STRING'
                 }
             ]
         },

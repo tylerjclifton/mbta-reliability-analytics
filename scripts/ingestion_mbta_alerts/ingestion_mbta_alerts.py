@@ -43,11 +43,11 @@ if response.status_code == 200:
             # Extract the start and end times of the alert, if available
             if active_period:
                 period = active_period[0]
-                start = datetime.datetime.fromisoformat(period.get('start')) if period.get('start') else None
-                end = datetime.datetime.fromisoformat(period.get('end')) if period.get('end') else None
+                alert_start = datetime.datetime.fromisoformat(period.get('start')) if period.get('start') else None
+                alert_end = datetime.datetime.fromisoformat(period.get('end')) if period.get('end') else None
             else:
-                start = None
-                end = None
+                alert_start = None
+                alert_end = None
             
             # Record metadata about ingestion
             current_datetime = datetime.datetime.now()
@@ -61,8 +61,8 @@ if response.status_code == 200:
                 if route:
                     has_route = True
                     standardized_alerts.append({
-                        'start': start,
-                        'end': end,
+                        'alert_start': alert_start,
+                        'alert_end': alert_end,
                         'alert_id': alert_id,
                         'route': route,
                         'header': header,
@@ -78,8 +78,8 @@ if response.status_code == 200:
             # If no routes are listed, add a single row with 'No route'
             if not has_route:
                 standardized_alerts.append({
-                    'start': start,
-                    'end': end,
+                    'alert_start': alert_start,
+                    'alert_end': alert_end,
                     'route': 'No route',
                     'alert_id': alert_id,
                     'header': header,

@@ -76,12 +76,12 @@ const schemaMap = {
             'dimensions': [{
                     'rawName': 'route_id',
                     'newName': 'route_id',
-                    'dataType': 'TIMESTAMP'
+                    'dataType': 'STRING'
                 },
                 {
                     'rawName': 'color',
                     'newName': 'color',
-                    'dataType': 'TIMESTAMP'
+                    'dataType': 'STRING'
                 },
                 {
                     'rawName': 'description',
@@ -116,7 +116,7 @@ const schemaMap = {
                 {
                     'rawName': 'long_name',
                     'newName': 'long_name',
-                    'dataType': 'INTEGER'
+                    'dataType': 'STRING'
                 },
                 {
                     'rawName': 'short_name',
@@ -126,7 +126,7 @@ const schemaMap = {
                 {
                     'rawName': 'text_color',
                     'newName': 'text_color',
-                    'dataType': 'INTEGER'
+                    'dataType': 'STRING'
                 },
                 {
                     'rawName': 'type',

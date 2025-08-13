@@ -80,8 +80,8 @@ if response.status_code == 200:
                 standardized_alerts.append({
                     'alert_start': alert_start,
                     'alert_end': alert_end,
-                    'route': 'No route',
                     'alert_id': alert_id,
+                    'route': 'No route',
                     'header': header,
                     'description': description,
                     'cause': cause,

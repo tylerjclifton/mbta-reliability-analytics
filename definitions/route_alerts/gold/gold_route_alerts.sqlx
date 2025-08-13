@@ -1,7 +1,7 @@
 config {
     type: 'incremental',
     schema: 'mbta',
-    name: 'gold_alerts',
+    name: 'gold_route_alerts',
     dependencies: ['s1_route_alerts'],
     tags: ['mbta']
 }

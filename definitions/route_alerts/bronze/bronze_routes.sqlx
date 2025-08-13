@@ -1,7 +1,9 @@
 config {
     type: 'incremental',
     schema: 'mbta',
-    name: 'bronze_routes'
+    name: 'bronze_routes',
+    tags: ['mbta'],
+    protected: true
 }
 
 js {

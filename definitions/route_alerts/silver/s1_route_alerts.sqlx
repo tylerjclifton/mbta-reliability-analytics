@@ -6,7 +6,7 @@ config {
         'bronze_alerts',
         'bronze_routes'
     ],
-    tags: ['route_alerts']
+    tags: ['mbta']
 }
 
 js {

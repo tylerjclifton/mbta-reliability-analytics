@@ -1,137 +1,142 @@
 const schemaMap = {
-    'dataSet': 'mbta',
+    'dataSets': {
+        'staging': 'staging',
+        'bronze': 'bronze',
+        'silver': 'silver',
+        'gold': 'gold'
+    },
     'tables': {
-        'external': {
-            'alerts': 'external_alerts',
-            'routes': 'external_routes'
+        'staging': {
+            'alerts': 'alerts_staging',
+            'routes': 'routes_staging'
         },
         'bronze': {
-            'alerts': 'bronze_alerts',
-            'routes': 'bronze_routes'
+            'alerts': 'alerts_raw',
+            'routes': 'routes_raw'
         },
         'silver': {
-            's1': 's1_route_alerts'
+            'alerts': 'alerts_enhanced'
         },
         'gold': {
-            'route_alerts': 'gold_route_alerts'
+            'alerts': 'system_alerts'
         }
     },
     'fields': {
         'alerts': {
             'key': 'alert_id',
             'dimensions': [{
-                    'rawName': 'alert_start',
-                    'newName': 'alert_start',
-                    'dataType': 'TIMESTAMP'
+                    'raw': 'alert_start',
+                    'alias': 'alert_start',
+                    'type': 'TIMESTAMP'
                 },
                 {
-                    'rawName': 'alert_end',
-                    'newName': 'alert_end',
-                    'dataType': 'TIMESTAMP'
+                    'raw': 'alert_end',
+                    'alias': 'alert_end',
+                    'type': 'TIMESTAMP'
                 },
                 {
-                    'rawName': 'alert_id',
-                    'newName': 'alert_id',
-                    'dataType': 'STRING'
+                    'raw': 'alert_id',
+                    'alias': 'alert_id',
+                    'type': 'STRING'
                 },
                 {
-                    'rawName': 'route',
-                    'newName': 'route',
-                    'dataType': 'STRING'
+                    'raw': 'route',
+                    'alias': 'route',
+                    'type': 'STRING'
                 },
                 {
-                    'rawName': 'header',
-                    'newName': 'alert_header',
-                    'dataType': 'STRING'
+                    'raw': 'header',
+                    'alias': 'alert_header',
+                    'type': 'STRING'
                 },
                 {
-                    'rawName': 'description',
-                    'newName': 'alert_description',
-                    'dataType': 'STRING'
+                    'raw': 'description',
+                    'alias': 'alert_description',
+                    'type': 'STRING'
                 },
                 {
-                    'rawName': 'cause',
-                    'newName': 'cause',
-                    'dataType': 'STRING'
+                    'raw': 'cause',
+                    'alias': 'cause',
+                    'type': 'STRING'
                 },
                 {
-                    'rawName': 'effect',
-                    'newName': 'effect',
-                    'dataType': 'STRING'
+                    'raw': 'effect',
+                    'alias': 'effect',
+                    'type': 'STRING'
                 },
                 {
-                    'rawName': 'severity',
-                    'newName': 'severity',
-                    'dataType': 'INTEGER'
+                    'raw': 'severity',
+                    'alias': 'severity',
+                    'type': 'INTEGER'
                 },
                 {
-                    'rawName': 'lifecycle',
-                    'newName': 'lifecycle',
-                    'dataType': 'STRING'
+                    'raw': 'lifecycle',
+                    'alias': 'lifecycle',
+                    'type': 'STRING'
                 }
             ]
         },
         'routes': {
             'key': 'route_id',
             'dimensions': [{
-                    'rawName': 'route_id',
-                    'newName': 'route_id',
-                    'dataType': 'STRING'
+                    'raw': 'route_id',
+                    'alias': 'route_id',
+                    'type': 'STRING'
                 },
                 {
-                    'rawName': 'color',
-                    'newName': 'color',
-                    'dataType': 'STRING'
+                    'raw': 'color',
+                    'alias': 'color',
+                    'type': 'STRING'
                 },
                 {
-                    'rawName': 'description',
-                    'newName': 'route_description',
-                    'dataType': 'STRING'
+                    'raw': 'description',
+                    'alias': 'route_description',
+                    'type': 'STRING'
                 },
                 {
-                    'rawName': 'direction_destination_1',
-                    'newName': 'direction_destination_1',
-                    'dataType': 'STRING'
+                    'raw': 'direction_destination_1',
+                    'alias': 'direction_destination_1',
+                    'type': 'STRING'
                 },
                 {
-                    'rawName': 'direction_destination_2',
-                    'newName': 'direction_destination_2',
-                    'dataType': 'STRING'
+                    'raw': 'direction_destination_2',
+                    'alias': 'direction_destination_2',
+                    'type': 'STRING'
                 },
                 {
-                    'rawName': 'direction_name_1',
-                    'newName': 'direction_name_1',
-                    'dataType': 'STRING'
+                    'raw': 'direction_name_1',
+                    'alias': 'direction_name_1',
+                    'type': 'STRING'
                 },
                 {
-                    'rawName': 'direction_name_2',
-                    'newName': 'direction_name_2',
-                    'dataType': 'STRING'
+                    'raw': 'direction_name_2',
+                    'alias': 'direction_name_2',
+                    'type': 'STRING'
                 },
                 {
-                    'rawName': 'fare_class',
-                    'newName': 'fare_class',
-                    'dataType': 'STRING'
+                    'raw': 'fare_class',
+                    'alias': 'fare_class',
+                    'type': 'STRING'
                 },
                 {
-                    'rawName': 'long_name',
-                    'newName': 'long_name',
-                    'dataType': 'STRING'
+                    'raw': 'long_name',
+                    'alias': 'long_name',
+                    'type': 'STRING'
                 },
                 {
-                    'rawName': 'short_name',
-                    'newName': 'short_name',
-                    'dataType': 'STRING'
+                    'raw': 'short_name',
+                    'alias': 'short_name',
+                    'type': 'STRING'
                 },
                 {
-                    'rawName': 'text_color',
-                    'newName': 'text_color',
-                    'dataType': 'STRING'
+                    'raw': 'text_color',
+                    'alias': 'text_color',
+                    'type': 'STRING'
                 },
                 {
-                    'rawName': 'type',
-                    'newName': 'type',
-                    'dataType': 'STRING'
+                    'raw': 'type',
+                    'alias': 'type',
+                    'type': 'STRING'
                 }
             ]
         },

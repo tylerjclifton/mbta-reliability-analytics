@@ -1,8 +1,11 @@
 config {
     type: 'incremental',
-    schema: 'mbta',
-    name: 'gold_route_alerts',
-    dependencies: ['s1_route_alerts'],
+    schema: 'silver',
+    name: 'alerts_enriched',
+    dependencies: [
+        'alerts_raw',
+        'routes_raw'
+    ],
     tags: ['mbta']
 }
 
@@ -10,7 +13,7 @@ js {
     const {
         deleteStatement,
         selectStatement
-    } = functions.desertGold();
+    } = functions.desertS1();
 }
 
 SELECT

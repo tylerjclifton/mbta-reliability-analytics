@@ -1,16 +1,16 @@
 config {
     type: 'incremental',
-    schema: 'mbta',
-    name: 'bronze_alerts',
-    tags: ['mbta'],
-    protected: true
+    schema: 'gold',
+    name: 'system_alerts',
+    dependencies: ['alerts_enriched'],
+    tags: ['mbta']
 }
 
 js {
     const {
         deleteStatement,
         selectStatement
-    } = functions.desertBronze('alerts');
+    } = functions.desertGold();
 }
 
 SELECT

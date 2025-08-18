@@ -1,7 +1,7 @@
 config {
     type: 'incremental',
-    schema: 'mbta',
-    name: 'bronze_routes',
+    schema: 'bronze',
+    name: 'alerts_raw',
     tags: ['mbta'],
     protected: true
 }
@@ -10,7 +10,7 @@ js {
     const {
         deleteStatement,
         selectStatement
-    } = functions.desertBronze('routes');
+    } = functions.desertBronze('alerts');
 }
 
 SELECT

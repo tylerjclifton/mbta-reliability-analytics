@@ -105,7 +105,7 @@ output = pandas.DataFrame(standardized_alerts)
 # Define BigQuery project, dataset, and table
 project_id = 'mbta-reliability-analytics'
 dataset_id = 'staging'
-table_id = 'alerts'
+table_id = 'alerts_raw'
 
 # Upload the DataFrame to BigQuery (replace table if it already exists)
 to_gbq(output, f'{dataset_id}.{table_id}', project_id=project_id, if_exists='replace')

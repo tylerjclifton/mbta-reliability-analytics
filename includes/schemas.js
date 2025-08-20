@@ -22,9 +22,12 @@ const schemaMap = {
         }
     },
     'fields': {
-        'alerts': {
-            'key': 'alert_id',
-            'dimensions': [{
+        'keys': {
+            'alerts': 'alert_id',
+            'routes': 'route_id'
+        },
+        'dimensions': {
+            'alerts': [{
                     'raw': 'alert_start',
                     'alias': 'alert_start',
                     'type': 'TIMESTAMP'
@@ -41,7 +44,7 @@ const schemaMap = {
                 },
                 {
                     'raw': 'route',
-                    'alias': 'route',
+                    'alias': 'alert_route',
                     'type': 'STRING'
                 },
                 {
@@ -56,36 +59,33 @@ const schemaMap = {
                 },
                 {
                     'raw': 'cause',
-                    'alias': 'cause',
+                    'alias': 'alert_cause',
                     'type': 'STRING'
                 },
                 {
                     'raw': 'effect',
-                    'alias': 'effect',
+                    'alias': 'alert_effect',
                     'type': 'STRING'
                 },
                 {
                     'raw': 'severity',
-                    'alias': 'severity',
+                    'alias': 'alert_severity',
                     'type': 'INTEGER'
                 },
                 {
                     'raw': 'lifecycle',
-                    'alias': 'lifecycle',
+                    'alias': 'alert_lifecycle',
                     'type': 'STRING'
                 }
-            ]
-        },
-        'routes': {
-            'key': 'route_id',
-            'dimensions': [{
+            ],
+            'routes': [{
                     'raw': 'route_id',
                     'alias': 'route_id',
                     'type': 'STRING'
                 },
                 {
                     'raw': 'color',
-                    'alias': 'color',
+                    'alias': 'route_color',
                     'type': 'STRING'
                 },
                 {
@@ -95,47 +95,47 @@ const schemaMap = {
                 },
                 {
                     'raw': 'direction_destination_1',
-                    'alias': 'direction_destination_1',
+                    'alias': 'route_direction_destination_1',
                     'type': 'STRING'
                 },
                 {
                     'raw': 'direction_destination_2',
-                    'alias': 'direction_destination_2',
+                    'alias': 'route_direction_destination_2',
                     'type': 'STRING'
                 },
                 {
                     'raw': 'direction_name_1',
-                    'alias': 'direction_name_1',
+                    'alias': 'route_direction_name_1',
                     'type': 'STRING'
                 },
                 {
                     'raw': 'direction_name_2',
-                    'alias': 'direction_name_2',
+                    'alias': 'route_direction_name_2',
                     'type': 'STRING'
                 },
                 {
                     'raw': 'fare_class',
-                    'alias': 'fare_class',
+                    'alias': 'route_fare_class',
                     'type': 'STRING'
                 },
                 {
                     'raw': 'long_name',
-                    'alias': 'long_name',
+                    'alias': 'route_long_name',
                     'type': 'STRING'
                 },
                 {
                     'raw': 'short_name',
-                    'alias': 'short_name',
+                    'alias': 'route_short_name',
                     'type': 'STRING'
                 },
                 {
                     'raw': 'text_color',
-                    'alias': 'text_color',
+                    'alias': 'route_text_color',
                     'type': 'STRING'
                 },
                 {
                     'raw': 'type',
-                    'alias': 'type',
+                    'alias': 'route_type',
                     'type': 'STRING'
                 }
             ]

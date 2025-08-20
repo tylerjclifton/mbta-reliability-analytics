@@ -1,16 +1,23 @@
 const schemas = require('includes/schemas');
-const schemaMap = schemas.schemaMap;
-const dataSet = schemaMap.dataSet;
+const {
+    schemaMap
+} = schemas;
 const ingestionSource = schemaMap.fields.ingestion.source;
 const ingestionTimestamp = schemaMap.fields.ingestion.timestamp;
 
-function renameCastDataTypes(fields) {
-    return fields.map(field => {
-        return `CAST(${field.rawName} AS ${field.dataType}) AS ${field.newName}`;
+function renameFields(fieldsArray) {
+    return fieldsArray.map(field => { // Use the parameter name
+        return `${field.raw} AS ${field.alias}`;
     });
 }
 
-function prependAppendString(
+function castFields(fieldsArray) {
+    return fieldsArray.map(field => { // Use the parameter name
+        return `CAST(${field.alias} AS ${field.type}) AS ${field.alias}`;
+    });
+}
+
+function wrapString(
     targetString,
     stringToPrepend,
     stringToAppend,
@@ -19,47 +26,79 @@ function prependAppendString(
 }
 
 function createDeleteStatement(
-    sourceTable,
-    destinationTable,
+    dataSetSource,
+    tableSource,
+    destinationDataSet,
+    tableDestination,
     key
 ) {
     return `
-        DELETE FROM ${dataSet}.${destinationTable}
+        DELETE FROM ${destinationDataSet}.${tableDestination}
         WHERE ${key} IN (
-            SELECT DISTINCT ${key}
-            FROM ${dataSet}.${sourceTable}
+            SELECT DISTINCT
+                ${key}
+            FROM ${dataSetSource}.${tableSource}
         )
     `;
 }
 
 function createSelectStatement(
-    sourceTable,
+    dataSetSource,
+    tableSource,
     dimensions
 ) {
+
     const dimensionList = Array.isArray(dimensions) ? dimensions.join(',\n            ') : dimensions;
     return `
         SELECT
             ${dimensionList}
-        FROM ${dataSet}.${sourceTable}
+        FROM ${dataSetSource}.${tableSource}
     `;
+
 }
 
-// BRONZE LEVEL - Simple copy with ingestion metadata only
+function getFinalFieldsArray() {
+    const finalFields = [];
+
+    // Get all dimension objects (alerts, routes, etc.)
+    const dimensions = schemaMap.fields.dimensions;
+
+    // Iterate through each object in dimensions
+    Object.keys(dimensions).forEach(objectKey => {
+        const objectDimensions = dimensions[objectKey];
+
+        // Extract alias values from each dimension
+        objectDimensions.forEach(dimension => {
+            if (dimension.alias) {
+                finalFields.push(dimension.alias);
+            }
+        });
+    });
+
+    return finalFields;
+}
+
 function desertBronze(dataSource) {
-    const sourceTable = schemaMap.tables.external[dataSource];
-    const destinationTable = schemaMap.tables.bronze[dataSource];
-    const key = schemaMap.fields[dataSource].dimensions.find(dim => dim.rawName === schemaMap.fields[dataSource].key).rawName;
-    const rawDimensions = schemaMap.fields[dataSource].dimensions.map(dimension => dimension.rawName);
+
+    const dataSetSource = schemaMap.dataSets.staging;
+    const tableSource = schemaMap.tables.staging[dataSource];
+    const destinationDataSet = schemaMap.dataSets.bronze;
+    const tableDestination = schemaMap.tables.bronze[dataSource];
+    const key = schemaMap.fields.keys[dataSource];
+    const rawDimensions = schemaMap.fields.dimensions[dataSource].map(dimension => dimension.raw);
 
     const deleteStatement = createDeleteStatement(
-        sourceTable,
-        destinationTable,
+        dataSetSource,
+        tableSource,
+        destinationDataSet,
+        tableDestination,
         key
     );
 
-    const selectStatement = prependAppendString(
+    const selectStatement = wrapString(
         createSelectStatement(
-            sourceTable,
+            dataSetSource,
+            tableSource,
             rawDimensions
         ),
         '',
@@ -70,44 +109,68 @@ function desertBronze(dataSource) {
         deleteStatement,
         selectStatement
     };
-}
 
+}
 // S1 LEVEL - Renaming, casting, denormalizing
 function desertS1() {
-    const sourceTableAlerts = schemaMap.tables.bronze.alerts;
-    const sourceTableRoutes = schemaMap.tables.bronze.routes;
-    const destinationTable = schemaMap.tables.silver.s1;
-    const keyAlerts = schemaMap.fields.alerts.key;
-    const dataTypesDimensionsAlerts = schemaMap.fields.alerts.dimensions;
-    const dataTypesDimensionsRoutes = schemaMap.fields.routes.dimensions;
+    const dataSetSource = schemaMap.dataSets.bronze;
+    const tableSourceAlerts = schemaMap.tables.bronze.alerts;
+    const tableSourceRoutes = schemaMap.tables.bronze.routes;
+    const destinationDataSet = schemaMap.dataSets.silver;
+    const tableDestination = schemaMap.tables.silver.alerts; // Fixed: should be silver table
+    const keyAlerts = schemaMap.fields.keys.alerts; // Fixed: correct path to keys
+    const dimensionsAlerts = schemaMap.fields.dimensions.alerts; // Fixed: correct path
+    const dimensionsRoutes = schemaMap.fields.dimensions.routes; // Fixed: correct path
+    const ingestionSource = schemaMap.fields.ingestion.source; // Define ingestion fields
+    const ingestionTimestamp = schemaMap.fields.ingestion.timestamp;
 
     const deleteStatement = createDeleteStatement(
-        sourceTableAlerts,
-        destinationTable,
+        dataSetSource,
+        tableSourceAlerts,
+        destinationDataSet,
+        tableDestination,
         keyAlerts
     );
 
-    // Cast and rename fields at S1 level
-    const alertsWithCasting = renameCastDataTypes(dataTypesDimensionsAlerts);
-    const routesWithCasting = renameCastDataTypes(dataTypesDimensionsRoutes);
-
     const selectStatement = `
         WITH
-        alerts AS (
-            ${createSelectStatement(sourceTableAlerts, alertsWithCasting)}
-        ),
-        routes AS (
-            ${createSelectStatement(sourceTableRoutes, routesWithCasting)}
-        )
+            renaming_alerts AS (
+                ${createSelectStatement(
+                    dataSetSource,
+                    tableSourceAlerts,
+                    renameFields(dimensionsAlerts)
+                )}
+            ),
+            renaming_routes AS (
+                ${createSelectStatement(
+                    dataSetSource,
+                    tableSourceRoutes,
+                    renameFields(dimensionsRoutes)
+                )}
+            ),
+            casting_alerts AS (
+                ${createSelectStatement(
+                    dataSetSource,
+                    tableSourceAlerts,
+                    castFields(dimensionsAlerts)
+                )}
+            ),
+            casting_routes AS (
+                ${createSelectStatement(
+                    dataSetSource,
+                    tableSourceAlerts,
+                    castFields(dimensionsRoutes)
+                )}
+            )
+        
         SELECT
-            ${schemaMap.fields.alerts.dimensions.map(dim => `alerts.${dim.newName}`).join(',\n            ')},
-            ${schemaMap.fields.routes.dimensions.map(dim => `routes.${dim.newName}`).join(',\n            ')},
+        ${schemaMap.fields.dimensions.alerts.map(dim => `    alerts.${dim.alias}`).join(',\n')},
+        ${schemaMap.fields.dimensions.routes.map(dim => `    routes.${dim.alias}`).join(',\n')},
             'ingestion_py_scripts' AS ${ingestionSource},
             CURRENT_TIMESTAMP() AS ${ingestionTimestamp}
         FROM alerts
         LEFT JOIN routes
-            ON alerts.route = routes.route_id
-        ;
+            ON alerts.alert_route = routes.route_id;
     `;
 
     return {
@@ -117,22 +180,27 @@ function desertS1() {
 }
 
 function desertGold() {
-    const sourceTable = schemaMap.tables.silver.s1;
-    const destinationTable = schemaMap.tables.gold.route_alerts;
-    const key = schemaMap.fields.alerts.key;
-    const dimensionsAlerts = schemaMap.fields.alerts.dimensions.map(dimension => dimension.newName);
-    const dimensionsRoutes = schemaMap.fields.routes.dimensions.map(dimension => dimension.newName);
+    const dataSetSource = schemaMap.dataSets.silver;
+    const dataSetDestination = schemaMap.dataSets.gold;
+    const tableSource = schemaMap.tables.silver.alerts;
+    const tableDestination = schemaMap.tables.gold.alerts;
+    const keyAlerts = schemaMap.fields.keys.alerts;
+    const dimensionsAlerts = schemaMap.fields.dimensions.alerts.map(dimension => dimension.alias);
+    const dimensionsRoutes = schemaMap.fields.dimensions.routes.map(dimension => dimension.alias);
     const fields = dimensionsAlerts.concat(dimensionsRoutes);
 
     const deleteStatement = createDeleteStatement(
-        sourceTable,
-        destinationTable,
-        key
+        dataSetSource,
+        tableSource,
+        dataSetDestination,
+        tableDestination,
+        keyAlerts
     );
 
-    const selectStatement = prependAppendString(
+    const selectStatement = wrapString(
         createSelectStatement(
-            sourceTable,
+            dataSetSource,
+            tableSource,
             fields
         ),
         '',

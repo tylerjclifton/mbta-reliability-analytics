@@ -1,7 +1,7 @@
 config {
     type: 'incremental',
     schema: 'silver',
-    name: 'alerts_enhanced',
+    name: 'routes_enhanced',
     dependencies: [
         'alerts_raw',
         'routes_raw'

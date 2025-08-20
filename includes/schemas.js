@@ -15,7 +15,8 @@ const schemaMap = {
             'routes': 'routes_raw'
         },
         'silver': {
-            'alerts': 'alerts_enhanced'
+            'alerts': 'alerts_enhanced',
+            'routes': 'routes_enhanced'
         },
         'gold': {
             'alerts': 'system_alerts'

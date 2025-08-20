@@ -112,7 +112,7 @@ function desertBronze(dataSource) {
 
 }
 // S1 LEVEL - Renaming, casting, denormalizing
-function desertS1() {
+function desertSilver() {
     const dataSetSource = schemaMap.dataSets.bronze;
     const tableSourceAlerts = schemaMap.tables.bronze.alerts;
     const tableSourceRoutes = schemaMap.tables.bronze.routes;
@@ -149,18 +149,14 @@ function desertS1() {
                 )}
             ),
             casting_alerts AS (
-                ${createSelectStatement(
-                    dataSetSource,
-                    tableSourceAlerts,
-                    castFields(dimensionsAlerts)
-                )}
+                SELECT
+                    ${castFields(dimensionsAlerts)}
+                FROM renaming_alerts
             ),
             casting_routes AS (
-                ${createSelectStatement(
-                    dataSetSource,
-                    tableSourceAlerts,
-                    castFields(dimensionsRoutes)
-                )}
+                SELECT
+                    ${castFields(dimensionsRoutes)}
+                FROM renaming_routes
             )
         
         SELECT
@@ -168,8 +164,8 @@ function desertS1() {
         ${schemaMap.fields.dimensions.routes.map(dim => `    routes.${dim.alias}`).join(',\n')},
             'ingestion_py_scripts' AS ${ingestionSource},
             CURRENT_TIMESTAMP() AS ${ingestionTimestamp}
-        FROM alerts
-        LEFT JOIN routes
+        FROM casting_alerts AS alerts
+        LEFT JOIN casting_routes AS routes
             ON alerts.alert_route = routes.route_id;
     `;
 
@@ -215,6 +211,6 @@ function desertGold() {
 
 module.exports = {
     desertBronze,
-    desertS1,
+    desertSilver,
     desertGold
 };

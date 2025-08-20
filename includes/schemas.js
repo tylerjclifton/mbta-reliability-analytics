@@ -7,8 +7,8 @@ const schemaMap = {
     },
     'tables': {
         'staging': {
-            'alerts': 'alerts_staging',
-            'routes': 'routes_staging'
+            'alerts': 'alerts_raw',
+            'routes': 'routes_raw'
         },
         'bronze': {
             'alerts': 'alerts_raw',

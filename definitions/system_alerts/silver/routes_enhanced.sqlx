@@ -3,7 +3,6 @@ config {
     schema: 'silver',
     name: 'routes_enhanced',
     dependencies: [
-        'alerts_raw',
         'routes_raw'
     ],
     tags: ['mbta']

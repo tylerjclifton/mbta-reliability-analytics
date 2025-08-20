@@ -2,7 +2,10 @@ config {
     type: 'incremental',
     schema: 'gold',
     name: 'system_alerts',
-    dependencies: ['alerts_enhanced'],
+    dependencies: [
+        'alerts_enhanced',
+        'routes_enhanced'
+    ],
     tags: ['mbta']
 }
 

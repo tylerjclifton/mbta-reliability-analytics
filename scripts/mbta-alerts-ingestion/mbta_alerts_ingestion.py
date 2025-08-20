@@ -103,9 +103,9 @@ else:
 output = pandas.DataFrame(standardized_alerts)
 
 # Define BigQuery project, dataset, and table
-project_id = 'sonic-earth-456400-s3'
-dataset_id = 'mbta'
-table_id = 'external_alerts'
+project_id = 'mbta-reliability-analytics'
+dataset_id = 'staging'
+table_id = 'alerts'
 
 # Upload the DataFrame to BigQuery (replace table if it already exists)
 to_gbq(output, f'{dataset_id}.{table_id}', project_id=project_id, if_exists='replace')

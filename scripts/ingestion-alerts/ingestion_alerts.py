@@ -52,7 +52,7 @@ if response.status_code == 200:
             # Record metadata about ingestion
             current_datetime = datetime.datetime.now()
             ingestion_datetime = current_datetime.strftime("%Y-%m-%d %H:%M:%S")
-            ingestion_source = os.path.basename(__file__) if '__file__' in globals() else 'mbta_alerts_ingestion.py'
+            ingestion_source = os.path.basename(__file__) if '__file__' in globals() else 'ingestion_alerts.py'
             
             # If the alert affects any routes, create one row per route
             has_route = False

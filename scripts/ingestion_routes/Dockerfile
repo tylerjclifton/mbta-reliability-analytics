@@ -28,4 +28,4 @@ COPY . .
 
 # Define the default command to run when the container starts.
 # This tells Docker to run your Python ingestion script.
-CMD ["python3", "mbta_alerts_ingestion.py"]
+CMD ["python3", "ingestion_routes.py"]

@@ -48,7 +48,7 @@ if response.status_code == 200:
             # Record metadata about ingestion
             current_datetime = datetime.datetime.now()
             ingestion_datetime = current_datetime.strftime("%Y-%m-%d %H:%M:%S")
-            ingestion_source = os.path.basename(__file__) if '__file__' in globals() else 'mbta_routes_ingestion.py'
+            ingestion_source = os.path.basename(__file__) if '__file__' in globals() else 'ingestion_routes.py'
 
             # Append route to standardized routes list
             standardized_routes.append({

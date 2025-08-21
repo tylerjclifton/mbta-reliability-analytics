@@ -15,8 +15,8 @@ const schemaMap = {
             'routes': 'routes_raw'
         },
         'silver': {
-            'alerts': 'alerts_enhanced',
-            'routes': 'routes_enhanced'
+            'alerts': 'alerts_cleaned',
+            'routes': 'routes_cleaned'
         },
         'gold': {
             'alerts': 'system_alerts'
@@ -140,10 +140,20 @@ const schemaMap = {
                     'type': 'STRING'
                 }
             ]
-        },
-        'ingestion': {
+        }
+    },
+    'metaData': {
+        'fields': {
             'source': 'ingestion_source',
             'timestamp': 'ingestion_timestamp'
+        },
+        'alerts': {
+            'source': 'ingestion_py_scripts',
+            'timestamp': 'CURRENT_TIMESTAMP()'
+        },
+        'routes': {
+            'source': 'ingestion_py_scripts',
+            'timestamp': 'CURRENT_TIMESTAMP()'
         }
     }
 }

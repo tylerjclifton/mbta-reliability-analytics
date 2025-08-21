@@ -1,7 +1,7 @@
 config {
     type: 'incremental',
     schema: 'silver',
-    name: 'alerts_enhanced',
+    name: 'alerts_cleaned',
     dependencies: [
         'alerts_raw'
     ],
@@ -12,7 +12,7 @@ js {
     const {
         deleteStatement,
         selectStatement
-    } = functions.desertSilver();
+    } = functions.desertSilver('alerts');
 }
 
 SELECT

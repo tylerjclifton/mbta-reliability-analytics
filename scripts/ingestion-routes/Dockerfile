@@ -6,10 +6,6 @@ FROM python:3.11-slim
 # All following commands will be run relative to this directory.
 WORKDIR /app
 
-# Set an environment variable that Google libraries use to locate
-# the credentials file for authenticating with Google Cloud.
-ENV GOOGLE_APPLICATION_CREDENTIALS="/app/keyfile.json"
-
 # Copy the requirements.txt file from your local machine into the container.
 # This file lists the Python dependencies needed to run your script.
 COPY requirements.txt .

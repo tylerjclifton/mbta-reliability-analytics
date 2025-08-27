@@ -10,10 +10,6 @@ WORKDIR /app
 # This file lists the Python dependencies needed to run your script.
 COPY requirements.txt .
 
-# Copy the service account key file used for Google Cloud authentication.
-# This is the file referred to by the GOOGLE_APPLICATION_CREDENTIALS variable.
-COPY keyfile.json /app/
-
 # Install the Python dependencies listed in requirements.txt.
 # The --no-cache-dir option prevents caching to keep the image size small.
 RUN pip install --no-cache-dir -r requirements.txt

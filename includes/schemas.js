@@ -22,13 +22,9 @@ const schemaMap = {
             'alerts': 'system_alerts'
         }
     },
-    'fields': {
-        'keys': {
-            'alerts': 'alert_id',
-            'routes': 'route_id'
-        },
-        'dimensions': {
-            'alerts': [{
+    'sources': {
+        'alerts': {
+            'dimensions': [{
                     'raw': 'alert_start',
                     'alias': 'alert_start',
                     'type': 'TIMESTAMP'
@@ -78,8 +74,10 @@ const schemaMap = {
                     'alias': 'alert_lifecycle',
                     'type': 'STRING'
                 }
-            ],
-            'routes': [{
+            ]
+        },
+        'routes': {
+            'dimensions': [{
                     'raw': 'route_id',
                     'alias': 'route_id',
                     'type': 'STRING'
@@ -143,18 +141,8 @@ const schemaMap = {
         }
     },
     'metaData': {
-        'fields': {
-            'source': 'ingestion_source',
-            'timestamp': 'ingestion_timestamp'
-        },
-        'alerts': {
-            'source': 'ingestion_py_scripts',
-            'timestamp': 'CURRENT_TIMESTAMP()'
-        },
-        'routes': {
-            'source': 'ingestion_py_scripts',
-            'timestamp': 'CURRENT_TIMESTAMP()'
-        }
+        'source': 'ingestion_source',
+        'timestamp': 'ingestion_timestamp'
     }
 }
 

@@ -19,7 +19,7 @@ const schemaMap = {
             'routes': 'routes_cleaned'
         },
         'gold': {
-            'alerts': 'system_alerts'
+            'systemAlerts': 'system_alerts'
         }
     },
     'sources': {

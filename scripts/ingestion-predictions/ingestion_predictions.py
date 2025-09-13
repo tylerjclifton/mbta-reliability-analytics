@@ -7,11 +7,15 @@ import pandas
 import requests
 from pandas_gbq import to_gbq
 
+# Set routes to pull predictions for
+routes = ['Red', 'Orange', 'Blue']
+
 # Initialize the list at the top level
 standardized_predictions = []
 
 # Make a GET request to the MBTA predictions API
-response = requests.get('https://api-v3.mbta.com/predictions')
+response = requests.get('https://api-v3.mbta.com/predictions',
+                        params={'filter[route]': routes, 'page[limit]': '500'})
 
 # Check if the request was successful (HTTP status 200)
 if response.status_code == 200:

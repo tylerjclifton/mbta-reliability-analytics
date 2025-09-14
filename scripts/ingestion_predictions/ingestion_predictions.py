@@ -7,15 +7,9 @@ import pandas
 import requests
 from pandas_gbq import to_gbq
 
-# Set routes to pull predictions for
-routes = ['Red', 'Orange', 'Blue']
-
-# Initialize the list at the top level
-standardized_predictions = []
-
 # Make a GET request to the MBTA predictions API
-response = requests.get('https://api-v3.mbta.com/predictions',
-                        params={'filter[route]': routes, 'page[limit]': '500'})
+# Filter to heavy rail (1) route types
+response = requests.get('https://api-v3.mbta.com/predictions?filter[route_type]=1')
 
 # Check if the request was successful (HTTP status 200)
 if response.status_code == 200:
@@ -25,6 +19,9 @@ if response.status_code == 200:
 
     # Extract the list of predictions from the response
     predictions = data['data']
+
+    # Create list to hold standardized predictions
+    standardized_predictions = []
 
     # Proceed only if there are any predictions
     if predictions:
@@ -38,11 +35,11 @@ if response.status_code == 200:
             relationships = prediction.get('relationships', {})
 
             # Extract specific prediction details from the attributes dictionary
+            direction_id = attributes.get('direction_id', None)
             arrival_time = attributes.get('arrival_time', None)
             arrival_uncertainty = attributes.get('arrival_uncertainty', None)
             departure_time = attributes.get('departure_time', None)
             departure_uncertainty = attributes.get('departure_uncertainty', None)
-            direction_id = attributes.get('direction_id', None)
             last_trip = attributes.get('last_trip', None)
             revenue = attributes.get('revenue', None)
             schedule_relationship = attributes.get('schedule_relationship', None)

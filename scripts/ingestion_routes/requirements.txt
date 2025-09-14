@@ -1,5 +1,5 @@
-requests
+google-cloud-bigquery
 pandas
 pandas-gbq
-google-cloud-bigquery
 pyarrow
+requests

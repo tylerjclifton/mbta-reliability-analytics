@@ -1,5 +1,6 @@
 # Import standard libraries
 import datetime
+import logging
 import os
 
 # Import third party libraries
@@ -7,9 +8,20 @@ import pandas
 import requests
 from pandas_gbq import to_gbq
 
-# Make a GET request to the MBTA predictions API
-# Filter to heavy rail (1) route types
-response = requests.get('https://api-v3.mbta.com/predictions?filter[route_type]=1')
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+try:
+    # Make a GET request to the MBTA routes API
+    # Filter to light (0) and heavy (1) rail route types
+    # Set request to timeout after 30 seconds
+    response = requests.get('https://api-v3.mbta.com/routes?filter[type]=0,1', timeout=30)
+
+except requests.exceptions.Timeout:
+    # Log that the request timed out
+    logging.error("Request timed out")
+    # Terminate Python script
+    exit(1)
 
 # Check if the request was successful (HTTP status 200)
 if response.status_code == 200:
@@ -17,102 +29,79 @@ if response.status_code == 200:
     # Convert the response JSON into a Python dictionary
     data = response.json()
 
-    # Extract the list of predictions from the response
-    predictions = data['data']
+    # Extract routes from the data list in response
+    routes = data['data']
 
-    # Create list to hold standardized predictions
-    standardized_predictions = []
+    # Create a list to store standardized routes in
+    standardized_routes = []
 
-    # Proceed only if there are any predictions
-    if predictions:
+    # Proceed only if any routes exist
+    if routes:
 
-        # Loop through each prediction in the list
-        for prediction in predictions:
+        # Loop through each route in the list
+        for route in routes:
 
-            # Safely extract the prediction ID, attributes dictionary, and relationships object
-            prediction_id = prediction.get('id', 'No prediction ID')
-            attributes = prediction.get('attributes', {})
-            relationships = prediction.get('relationships', {})
+            # Extract the route ID and attributes dictionary
+            route_id = route.get('id', None)
+            attributes = route.get('attributes', {})
 
-            # Extract specific prediction details from the attributes dictionary
-            direction_id = attributes.get('direction_id', None)
-            arrival_time = attributes.get('arrival_time', None)
-            arrival_uncertainty = attributes.get('arrival_uncertainty', None)
-            departure_time = attributes.get('departure_time', None)
-            departure_uncertainty = attributes.get('departure_uncertainty', None)
-            last_trip = attributes.get('last_trip', None)
-            revenue = attributes.get('revenue', None)
-            schedule_relationship = attributes.get('schedule_relationship', None)
-            status = attributes.get('status', None)
-            stop_sequence = attributes.get('stop_sequence', None)
-            update_type = attributes.get('update_type', None)
+            # Extract specific route details from the attributes dictionary
+            color = attributes.get('color', None)
+            description = attributes.get('description', None)
+            direction_destinations = attributes.get('direction_destinations', None)
+            direction_names = attributes.get('direction_names', None)
+            fare_class = attributes.get('fare_class', None)
+            long_name = attributes.get('long_name', None)
+            short_name = attributes.get('short_name', None)
+            sort_order = attributes.get('sort_order', None)
+            text_color = attributes.get('text_color', None)
+            type = attributes.get('type', None)
             
-            # Extract route, trip, stop, and vehicle information from relationships
-            route_id = None
-            trip_id = None
-            stop_id = None
-            vehicle_id = None
+            # Record ingestion metadata
+            current_datetime = datetime.datetime.now(datetime.timezone.utc)
+            ingestion_timestamp = current_datetime.isoformat()
+            ingestion_source = os.path.basename(__file__) if '__file__' in globals() else 'Unknown file name'
             
-            # Extract route ID
-            if 'route' in relationships and relationships['route'].get('data'):
-                route_id = relationships['route']['data'].get('id')
-            
-            # Extract trip ID  
-            if 'trip' in relationships and relationships['trip'].get('data'):
-                trip_id = relationships['trip']['data'].get('id')
-                
-            # Extract stop ID
-            if 'stop' in relationships and relationships['stop'].get('data'):
-                stop_id = relationships['stop']['data'].get('id')
-                
-            # Extract vehicle ID
-            if 'vehicle' in relationships and relationships['vehicle'].get('data'):
-                vehicle_id = relationships['vehicle']['data'].get('id')
-            
-            # Record metadata about ingestion
-            current_datetime = datetime.datetime.now()
-            ingestion_datetime = current_datetime.strftime("%Y-%m-%d %H:%M:%S")
-            ingestion_source = os.path.basename(__file__) if '__file__' in globals() else 'ingestion_predictions.py'
-            
-            # Create standardized prediction record
-            standardized_predictions.append({
-                'prediction_id': prediction_id,
-                'arrival_time': arrival_time,
-                'arrival_uncertainty': arrival_uncertainty,
-                'departure_time': departure_time,
-                'departure_uncertainty': departure_uncertainty,
-                'direction_id': direction_id,
-                'last_trip': last_trip,
-                'revenue': revenue,
-                'schedule_relationship': schedule_relationship,
-                'status': status,
-                'stop_sequence': stop_sequence,
-                'update_type': update_type,
+            # Create standardized route record
+            standardized_routes.append({
                 'route_id': route_id,
-                'trip_id': trip_id,
-                'stop_id': stop_id,
-                'vehicle_id': vehicle_id,
-                'ingestion_datetime': ingestion_datetime,
+                'color': color,
+                'description': description,
+                'direction_destinations': str(direction_destinations) if direction_destinations else None,
+                'direction_names': str(direction_names) if direction_names else None,
+                'fare_class': fare_class,
+                'long_name': long_name,
+                'short_name': short_name,
+                'sort_order': sort_order,
+                'text_color': text_color,
+                'type': type,
+                'ingestion_timestamp': ingestion_timestamp,
                 'ingestion_source': ingestion_source
             })
 
     else:
-        # No predictions found in the response
-        print("No current predictions.")
+        # Log that no routes exist in current response
+        logging.info("No current routes")
 else:
-    # The API request failed; print the HTTP status code
-    print(f"Error: {response.status_code}")
+    # The API request failed; log the HTTP status code
+    logging.error(f"API request failed with status code: {response.status_code}")
+    exit(1)
 
-# Convert the list of prediction dictionaries into a pandas DataFrame
-output = pandas.DataFrame(standardized_predictions)
+# Convert the list of route dictionaries into a pandas DataFrame
+output = pandas.DataFrame(standardized_routes)
 
-# Define BigQuery project, dataset, and table
-project_id = 'mbta-reliability-analytics'
-dataset_id = 'staging'
-table_id = 'predictions_raw'
+# Define BigQuery project, dataset, and table using environment variables
+project_id = os.getenv('BQ_PROJECT_ID', 'mbta-reliability-analytics')
+dataset_id = os.getenv('BQ_DATASET_ID', 'staging')
+table_id = os.getenv('BQ_TABLE_ID', 'routes_raw')
 
-# Upload the DataFrame to BigQuery (replace table if it already exists)
-to_gbq(output, f'{dataset_id}.{table_id}', project_id=project_id, if_exists='replace')
-
-# Print number of uploaded rows
-print(f"{len(output)} rows uploaded to BigQuery.")
+try:
+    # Upload the DataFrame to BigQuery (replace table if it already exists)
+    to_gbq(output, f'{dataset_id}.{table_id}', project_id=project_id, if_exists='replace')
+    # Log number of uploaded rows
+    logging.info(f"{len(output)} rows uploaded to BigQuery")
+except Exception as e:
+    # Log that the BigQuery upload failed
+    logging.error(f"BigQuery upload failed: {e}")
+    # Terminate Python script
+    exit(1)

@@ -8,7 +8,7 @@ import requests
 from pandas_gbq import to_gbq
 
 # Make a GET request to the MBTA alerts API
-response = requests.get('https://api-v3.mbta.com/alerts')
+response = requests.get('https://api-v3.mbta.com/shapes')
 
 # Check if the request was successful (HTTP status 200)
 if response.status_code == 200:

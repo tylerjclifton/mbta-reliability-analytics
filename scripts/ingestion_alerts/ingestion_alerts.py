@@ -8,7 +8,8 @@ import requests
 from pandas_gbq import to_gbq
 
 # Make a GET request to the MBTA alerts API
-response = requests.get('https://api-v3.mbta.com/alerts')
+# Filter to light (0) and heavy (1) rail route types
+response = requests.get('https://api-v3.mbta.com/alerts?filter[route_type]=0,1')
 
 # Check if the request was successful (HTTP status 200)
 if response.status_code == 200:
@@ -26,7 +27,7 @@ if response.status_code == 200:
         # Loop through each alert in the list
         for alert in alerts:
 
-            # Safely extract the alert ID and its attributes dictionary
+            # Safely extract the alert ID and attributes dictionary
             alert_id = alert.get('id', 'No alert id')
             attributes = alert.get('attributes', {})
 
@@ -42,17 +43,17 @@ if response.status_code == 200:
             
             # Extract the start and end times of the alert, if available
             if active_period:
-                period = active_period[0]
-                alert_start = datetime.datetime.fromisoformat(period.get('start')) if period.get('start') else None
-                alert_end = datetime.datetime.fromisoformat(period.get('end')) if period.get('end') else None
+                period = active_period[0] # Get first available active_period in case multiple exist
+                active_period_start = datetime.datetime.fromisoformat(period.get('start')) if period.get('start') else None
+                active_period_end = datetime.datetime.fromisoformat(period.get('end')) if period.get('end') else None
             else:
-                alert_start = None
-                alert_end = None
+                active_period_start = None
+                active_period_end = None
             
             # Record metadata about ingestion
             current_datetime = datetime.datetime.now()
             ingestion_datetime = current_datetime.strftime("%Y-%m-%d %H:%M:%S")
-            ingestion_source = os.path.basename(__file__) if '__file__' in globals() else 'ingestion_alerts.py'
+            ingestion_source = os.path.basename(__file__) if '__file__' in globals() else 'Issue getting file name'
             
             # If the alert affects any routes, create one row per route
             has_route = False
@@ -61,9 +62,9 @@ if response.status_code == 200:
                 if route:
                     has_route = True
                     standardized_alerts.append({
-                        'alert_start': alert_start,
-                        'alert_end': alert_end,
                         'alert_id': alert_id,
+                        'active_period_start': active_period_start,
+                        'active_period_end': active_period_end,
                         'route': route,
                         'header': header,
                         'description': description,
@@ -78,9 +79,9 @@ if response.status_code == 200:
             # If no routes are listed, add a single row with 'No route'
             if not has_route:
                 standardized_alerts.append({
-                    'alert_start': alert_start,
-                    'alert_end': alert_end,
                     'alert_id': alert_id,
+                    'active_period_start': active_period_start,
+                    'active_period_end': active_period_end,
                     'route': 'No route',
                     'header': header,
                     'description': description,

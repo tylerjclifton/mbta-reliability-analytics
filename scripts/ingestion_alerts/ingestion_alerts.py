@@ -5,18 +5,19 @@ import os
 
 # Import third party libraries
 import pandas
-import requests
 from pandas_gbq import to_gbq
+import requests
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+# Attempt to request response from alerts API endpoint
 try:
     # Make a GET request to the MBTA alerts API
     # Filter to light (0) and heavy (1) rail route types
     # Set request to timeout after 30 seconds
     response = requests.get('https://api-v3.mbta.com/alerts?filter[route_type]=0,1', timeout=30)
-
+# If request times out
 except requests.exceptions.Timeout:
     # Log that the request timed out
     logging.error("Request timed out")
@@ -59,15 +60,18 @@ if response.status_code == 200:
             if active_period:
                 # Use first available active_period (in case multiple are provided by MBTA)
                 period = active_period[0]
+                # Try to get extract start value from active_period
                 try:
-                    # Attempt to parse the 'start' field into a Python datetime object
+                    # Attempt to parse the start field into a Python datetime object
                     # If the field is missing → default to None
                     active_period_start = datetime.datetime.fromisoformat(period.get('start')) if period.get('start') else None
+                
                 except (ValueError, TypeError):
                     # If the field exists but is malformed → catch the error and set None
                     active_period_start = None
+                # Try to extract end value from active_period
                 try:
-                    # Attempt to parse the 'end' field into a Python datetime object
+                    # Attempt to parse the end field into a Python datetime object
                     active_period_end = datetime.datetime.fromisoformat(period.get('end')) if period.get('end') else None
                 except (ValueError, TypeError):
                     # Same safeguards as above to ensure ingestion doesn't fail on bad data
@@ -136,6 +140,7 @@ project_id = os.getenv('BQ_PROJECT_ID', 'mbta-reliability-analytics')
 dataset_id = os.getenv('BQ_DATASET_ID', 'staging')
 table_id = os.getenv('BQ_TABLE_ID', 'alerts_raw')
 
+# Write to BiG
 try:
     # Upload the DataFrame to BigQuery (replace table if it already exists)
     to_gbq(output, f'{dataset_id}.{table_id}', project_id=project_id, if_exists='replace')

@@ -5,8 +5,8 @@ import os
 
 # Import third party libraries
 import pandas
-import requests
 from pandas_gbq import to_gbq
+import requests
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

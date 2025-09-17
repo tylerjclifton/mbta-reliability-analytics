@@ -11,7 +11,7 @@ import requests
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Attempt to request response from alerts API endpoint
+# Attempt to request response from MBTA alerts API endpoint
 try:
     # Make a GET request to the MBTA alerts API
     # Filter to light (0) and heavy (1) rail route types
@@ -30,7 +30,7 @@ if response.status_code == 200:
     # Convert the response JSON into a Python dictionary
     data = response.json()
 
-    # Extract alerts from the data list in response
+    # Extract alerts from the data list in the response
     alerts = data['data']
 
     # Create a list to store standardized alerts in
@@ -56,34 +56,35 @@ if response.status_code == 200:
             severity = attributes.get('severity', None)
             lifecycle = attributes.get('lifecycle', None)
             
-            # Extract the start and end datetimes of the alert, if available
+            # Extract the start and end timestamps of the alert, if available
             if active_period:
                 # Use first available active_period (in case multiple are provided by MBTA)
                 period = active_period[0]
                 # Try to get extract start value from active_period
                 try:
-                    # Attempt to parse the start field into a Python datetime object
-                    # If the field is missing → default to None
+                    # Attempt to parse the start value into a Python timestamps object
+                    # If the value is missing → default to None
                     active_period_start = datetime.datetime.fromisoformat(period.get('start')) if period.get('start') else None
-                
+                # If the value exists but is malformed
                 except (ValueError, TypeError):
-                    # If the field exists but is malformed → catch the error and set None
+                    # Set to None
                     active_period_start = None
                 # Try to extract end value from active_period
                 try:
-                    # Attempt to parse the end field into a Python datetime object
+                    # Attempt to parse the end value into a Python datetime object
                     active_period_end = datetime.datetime.fromisoformat(period.get('end')) if period.get('end') else None
+                # If the value exists but is malformed
                 except (ValueError, TypeError):
-                    # Same safeguards as above to ensure ingestion doesn't fail on bad data
+                    # Set to None
                     active_period_end = None
-            # If no active_period is provided, default both start and end datetimes to None
+            # If no active_period is provided, default both start and end timestamps to None
             else:
                 active_period_start = None
                 active_period_end = None
             
             # Record ingestion metadata
             current_datetime = datetime.datetime.now(datetime.timezone.utc)
-            ingestion_timestamp = current_datetime.isoformat()
+            ingestion_timestamp = current_datetime
             ingestion_source = os.path.basename(__file__) if '__file__' in globals() else 'Unknown file name'
             
             # If the alert affects any routes, create one row per route
@@ -140,7 +141,7 @@ project_id = os.getenv('BQ_PROJECT_ID', 'mbta-reliability-analytics')
 dataset_id = os.getenv('BQ_DATASET_ID', 'staging')
 table_id = os.getenv('BQ_TABLE_ID', 'alerts_raw')
 
-# Write to BiG
+# Write to BigQuery
 try:
     # Upload the DataFrame to BigQuery (replace table if it already exists)
     to_gbq(output, f'{dataset_id}.{table_id}', project_id=project_id, if_exists='replace')

@@ -62,7 +62,7 @@ if response.status_code == 200:
             
             # Record ingestion metadata
             current_datetime = datetime.datetime.now(datetime.timezone.utc)
-            ingestion_timestamp = current_datetime.isoformat()
+            ingestion_timestamp = current_datetime
             ingestion_source = os.path.basename(__file__) if '__file__' in globals() else 'Unknown file name'
             
             # Create standardized stop record

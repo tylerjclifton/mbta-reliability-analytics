@@ -14,7 +14,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # Attempt to request response from MBTA shapes API endpoint
 try:
     # Make a GET request to the MBTA shapes API
-    # Get all shapes data (no route_type filter available for shapes endpoint)
+    # Filter to Red, Blue, Orange, and Green routes
     # Set request to timeout after 30 seconds
     response = requests.get('https://api-v3.mbta.com/shapes?filter[route]=Red,Blue,Orange,Green-B,Green-C,Green-D,Green-E', timeout=30)
 # If request times out

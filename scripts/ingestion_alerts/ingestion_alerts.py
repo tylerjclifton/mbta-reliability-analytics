@@ -14,15 +14,22 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # Attempt to request response from MBTA alerts API endpoint
 try:
     # Make a GET request to the MBTA alerts API
-    # Filter to light (0) and heavy (1) rail route types
+    # Commented out api call with filter since Green and Red lines don't come through when using it
     # Set request to timeout after 30 seconds
-    response = requests.get('https://api-v3.mbta.com/alerts?filter[route_type]=0,1', timeout=30)
+    # response = requests.get('https://api-v3.mbta.com/alerts?filter[route_type]=0,1', timeout=30)
+    response = requests.get('https://api-v3.mbta.com/alerts', timeout=30)
 # If request times out
 except requests.exceptions.Timeout:
     # Log that the request timed out
     logging.error("Request timed out")
     # Terminate Python script
     exit(1)
+
+# Create list of routes to get alerts for
+target_routes = ['Red', 'Blue', 'Orange', 'Green-B', 'Green-C', 'Green-D', 'Green-E', 'Mattapan']
+
+# Create list of effects that are relevant for this pipeline
+target_effects = ['DELAY', 'SHUTTLE', 'STATION_CLOSURE', 'STOP_CLOSURE', 'SERVICE_CHANGE', 'TRACK_CHANGE', 'SCHEDULE_CHANGE']
 
 # Check if the request was successful (HTTP status 200)
 if response.status_code == 200:
@@ -51,10 +58,14 @@ if response.status_code == 200:
             header = attributes.get('header', None)
             description = attributes.get('description', None)
             active_period = attributes.get('active_period', [])
+            duration_certainty = attributes.get('duration_certainty', None)
             cause = attributes.get('cause', None)
             effect = attributes.get('effect', None)
+            service_effect = attributes.get('service_effect', None)
             severity = attributes.get('severity', None)
             lifecycle = attributes.get('lifecycle', None)
+            created_at = attributes.get('created_at', None)
+            updated_at = attributes.get('updated_at', None)
             
             # Extract the start and end timestamps of the alert, if available
             if active_period:
@@ -87,40 +98,48 @@ if response.status_code == 200:
             ingestion_timestamp = current_datetime
             ingestion_source = os.path.basename(__file__) if '__file__' in globals() else 'Unknown file name'
             
-            # If the alert affects any routes, create one row per route
-            has_route = False
+            # If the alert affects any routes, create one row per route and stop
+            has_entity = False
             for entity in informed_entity:
                 route = entity.get('route')
-                if route:
-                    has_route = True
+                if route and route in target_routes and effect in target_effects:
+                    has_entity = True
                     standardized_alerts.append({
                         'alert_id': alert_id,
                         'active_period_start': active_period_start,
                         'active_period_end': active_period_end,
+                        'duration_certainty': duration_certainty,
                         'route': route,
                         'header': header,
                         'description': description,
                         'cause': cause,
                         'effect': effect,
+                        'service_effect': service_effect,
                         'severity': severity,
                         'lifecycle': lifecycle,
+                        'created_at': created_at,
+                        'updated_at': updated_at,
                         'ingestion_timestamp': ingestion_timestamp,
                         'ingestion_source': ingestion_source
                     })
             
             # If no routes are listed, set route as None
-            if not has_route:
+            if not has_entity:
                 standardized_alerts.append({
                     'alert_id': alert_id,
                     'active_period_start': active_period_start,
                     'active_period_end': active_period_end,
+                    'duration_certainty': duration_certainty,
                     'route': None,
                     'header': header,
                     'description': description,
                     'cause': cause,
                     'effect': effect,
+                    'service_effect': service_effect,
                     'severity': severity,
                     'lifecycle': lifecycle,
+                    'created_at': created_at,
+                    'updated_at': updated_at,
                     'ingestion_timestamp': ingestion_timestamp,
                     'ingestion_source': ingestion_source
                 })

@@ -28,8 +28,8 @@ except requests.exceptions.Timeout:
 # Create list of routes to get alerts for
 target_routes = ['Red', 'Blue', 'Orange', 'Green-B', 'Green-C', 'Green-D', 'Green-E', 'Mattapan']
 
-# Create list of effects that are relevant for this pipeline
-target_effects = ['DELAY', 'SHUTTLE', 'STATION_CLOSURE', 'STOP_CLOSURE', 'SERVICE_CHANGE', 'TRACK_CHANGE', 'SCHEDULE_CHANGE']
+# Create list of effects to exclude from api call
+exclude_effects = ['ESCALATOR_CLOSURE', 'ELEVATOR_CLOSURE', 'PARKING_CLOSURE', 'PARKING_ISSUE', 'BIKE_ISSUE', 'DOCK_CLOSURE', 'DOCK_ISSUE', 'EXTRA_SERVICE']
 
 # Check if the request was successful (HTTP status 200)
 if response.status_code == 200:
@@ -102,7 +102,8 @@ if response.status_code == 200:
             has_entity = False
             for entity in informed_entity:
                 route = entity.get('route')
-                if route and route in target_routes and effect in target_effects:
+                stop = entity.get('stop')
+                if route and route in target_routes and effect not in exclude_effects:
                     has_entity = True
                     standardized_alerts.append({
                         'alert_id': alert_id,
@@ -110,6 +111,7 @@ if response.status_code == 200:
                         'active_period_end': active_period_end,
                         'duration_certainty': duration_certainty,
                         'route': route,
+                        'stop': stop,
                         'header': header,
                         'description': description,
                         'cause': cause,
@@ -122,27 +124,6 @@ if response.status_code == 200:
                         'ingestion_timestamp': ingestion_timestamp,
                         'ingestion_source': ingestion_source
                     })
-            
-            # If no routes are listed, set route as None
-            if not has_entity:
-                standardized_alerts.append({
-                    'alert_id': alert_id,
-                    'active_period_start': active_period_start,
-                    'active_period_end': active_period_end,
-                    'duration_certainty': duration_certainty,
-                    'route': None,
-                    'header': header,
-                    'description': description,
-                    'cause': cause,
-                    'effect': effect,
-                    'service_effect': service_effect,
-                    'severity': severity,
-                    'lifecycle': lifecycle,
-                    'created_at': created_at,
-                    'updated_at': updated_at,
-                    'ingestion_timestamp': ingestion_timestamp,
-                    'ingestion_source': ingestion_source
-                })
 
     else:
         # Log that no alerts exist in current response

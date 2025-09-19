@@ -47,17 +47,13 @@ if response.status_code == 200:
             attributes = route.get('attributes', {})
 
             # Extract specific route details from the attributes dictionary
+            long_name = attributes.get('long_name', None)
+            route_type = attributes.get('type', None)
             color = attributes.get('color', None)
             description = attributes.get('description', None)
             direction_destinations = attributes.get('direction_destinations', [])
             direction_names = attributes.get('direction_names', [])
-            fare_class = attributes.get('fare_class', None)
-            listed_route = attributes.get('listed_route', None)
-            long_name = attributes.get('long_name', None)
-            short_name = attributes.get('short_name', None)
-            sort_order = attributes.get('sort_order', None)
-            text_color = attributes.get('text_color', None)
-            route_type = attributes.get('type', None)
+            
             
             # Record ingestion metadata
             current_datetime = datetime.datetime.now(datetime.timezone.utc)
@@ -66,17 +62,12 @@ if response.status_code == 200:
             
             standardized_routes.append({
                 'route_id': route_id,
+                'long_name': long_name,
+                'route_type': route_type,
                 'color': color,
                 'description': description,
                 'direction_destinations': str(direction_destinations) if direction_destinations else None,
                 'direction_names': str(direction_names) if direction_names else None,
-                'fare_class': fare_class,
-                'listed_route': listed_route,
-                'long_name': long_name,
-                'short_name': short_name,
-                'sort_order': sort_order,
-                'text_color': text_color,
-                'route_type': route_type,
                 'ingestion_timestamp': ingestion_timestamp,
                 'ingestion_source': ingestion_source
             })

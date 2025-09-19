@@ -1,81 +1,87 @@
-// Import schemas
 const {
     schema
-} = require('includes/schemas');
+} = require('includes/schema');
 
-function buildDesertGold(goldTableName) {
-    // Validate the gold table exists in our schema
-    const goldTable = schema.tables.gold[goldTableName];
-    if (!goldTable) {
-        throw new Error(`Gold table '${goldTableName}' not found in schema`);
-    }
-
-    // Get sources from the gold table configuration
-    const sourcesConfig = goldTable.sources;
-    if (!sourcesConfig || Object.keys(sourcesConfig).length === 0) {
-        throw new Error(`No sources configured for gold table '${goldTableName}'`);
-    }
-
-    // Build the sources array with their join keys
-    const sources = Object.keys(sourcesConfig).map(sourceKey => ({
-        name: sourceKey,
-        silverTable: schema.tables.silver[sourceKey],
-        dimensions: schema.sources[sourceKey].dimensions,
-        joinKey: sourcesConfig[sourceKey]
-    }));
-
-    // Build the SELECT statement
-    const selectStatement = buildSelectQuery(sources, goldTable.name);
-
-    return {
-        selectStatement
-    };
+// Get fields from a source, optionally with a prefix
+function getFieldsForSelect(sourceKey, prefix) {
+    const fields = schema.fields[sourceKey];
+    if (!fields) throw new Error(`No fields defined for ${sourceKey}`);
+    return fields.map(f => `${prefix || sourceKey}.${f.alias} AS ${prefix || sourceKey}_${f.alias}`);
 }
 
-function buildSelectQuery(sources, goldTableName) {
-    const primarySource = sources[0]; // First source is the main table
-    const joinSources = sources.slice(1); // Remaining sources will be joined
+// Find common keys between two sources for joining
+function findJoinKeys(sourceA, sourceB) {
+    const fieldsA = schema.fields[sourceA].map(f => f.alias);
+    const fieldsB = schema.fields[sourceB].map(f => f.alias);
+    return fieldsA.filter(f => fieldsB.includes(f));
+}
 
-    // Start building the query
-    let query = ``;
+// Build gold desert (delete + insert) dynamically from sources
+function buildDesertGold(goldKey) {
+    const goldEntry = schema.tables.gold[goldKey];
+    if (!goldEntry) throw new Error(`No gold table found for ${goldKey}`);
 
-    // Add all fields from all sources
-    const allFields = [];
-    sources.forEach(source => {
-        source.dimensions.forEach(dimension => {
-            allFields.push(`    ${source.name}.${dimension.alias}`);
+    const sources = goldEntry.sources;
+    if (!sources || sources.length === 0) throw new Error(`No sources defined for gold table ${goldKey}`);
+
+    // Collect all fields dynamically from listed sources
+    const uniqueFields = [];
+    const fieldSet = new Set();
+    sources.forEach(src => {
+        schema.fields[src].forEach(f => {
+            const alias = `${src}_${f.alias}`;
+            if (!fieldSet.has(alias)) {
+                uniqueFields.push({
+                    src,
+                    alias,
+                    raw: f.alias
+                });
+                fieldSet.add(alias);
+            }
         });
     });
 
-    // Add metadata fields from primary source
-    allFields.push(`    ${primarySource.name}.${schema.metadata.source}`);
-    allFields.push(`    ${primarySource.name}.${schema.metadata.timestamp}`);
+    // Build delete statement using first source's ID field
+    const firstSource = sources[0];
+    const deleteKey = schema.fields[firstSource].find(f => f.alias.toLowerCase().includes('_id')) ||
+        schema.fields[firstSource].find(f => f.alias.toLowerCase().includes('_name'));
+    if (!deleteKey) throw new Error(`No delete key found for ${firstSource}`);
 
-    query += allFields.join(',\n');
+    const deleteStatement = `
+DELETE FROM ${schema.data_sets.gold}.${goldEntry.name || goldKey}
+WHERE ${deleteKey.alias} IN (
+    SELECT DISTINCT ${deleteKey.alias} 
+    FROM ${schema.data_sets.silver}.${schema.tables.silver[firstSource]}
+);`;
 
-    // Add FROM clause with primary table
-    const silverDataset = schema.dataSets.silver;
-    query += `\nFROM ${silverDataset}.${primarySource.silverTable} AS ${primarySource.name}`;
+    // Build select + joins
+    let selectFields = uniqueFields.map(f => `${f.src}.${f.raw} AS ${f.alias}`);
+    let joinStatements = '';
+    let baseSource = sources[0];
 
-    // Add JOIN clauses for additional sources
-    joinSources.forEach(joinSource => {
-        const joinCondition = getJoinCondition(primarySource, joinSource);
-        query += `\nLEFT JOIN ${silverDataset}.${joinSource.silverTable} AS ${joinSource.name}`;
-        query += `\n    ON ${joinCondition}`;
-    });
+    for (let i = 1; i < sources.length; i++) {
+        const nextSource = sources[i];
+        const joinKeys = findJoinKeys(baseSource, nextSource);
+        if (!joinKeys.length) throw new Error(`No common keys found between ${baseSource} and ${nextSource}`);
+        const onClause = joinKeys.map(k => `${baseSource}.${k} = ${nextSource}.${k}`).join(' AND ');
+        joinStatements += `\nLEFT JOIN ${schema.data_sets.silver}.${schema.tables.silver[nextSource]} AS ${nextSource} ON ${onClause}`;
+    }
 
-    query += ';';
-    return query;
+    // Final SQL
+    return `
+-- Delete existing records
+${deleteStatement}
+
+-- Insert joined data
+INSERT INTO ${schema.data_sets.gold}.${goldEntry.name || goldKey} (
+    ${uniqueFields.map(f => f.alias).join(', ')}
+)
+SELECT
+    ${selectFields.join(',\n    ')}
+FROM ${schema.data_sets.silver}.${schema.tables.silver[baseSource]} AS ${baseSource}
+${joinStatements};
+  `.trim();
 }
-
-function getJoinCondition(primarySource, joinSource) {
-    // Use the join keys defined in the schema
-    return `${primarySource.name}.${primarySource.joinKey} = ${joinSource.name}.${joinSource.joinKey}`;
-}
-
-// Usage:
-// const result = buildDesertGold('systemAlerts');
-// console.log(result.selectStatement);
 
 module.exports = {
     buildDesertGold

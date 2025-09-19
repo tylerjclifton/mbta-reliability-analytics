@@ -86,7 +86,7 @@ const schema = {
                 'type': 'STRING'
             },
             {
-                'raw': 'effect',
+                'raw': 'service_effect',
                 'alias': 'alert_service_effect',
                 'type': 'STRING'
             },
@@ -122,7 +122,7 @@ const schema = {
                 'type': 'STRING'
             },
             {
-                'raw': 'type',
+                'raw': 'route_type',
                 'alias': 'route_type',
                 'type': 'STRING'
             },

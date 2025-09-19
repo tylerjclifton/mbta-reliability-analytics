@@ -4,16 +4,17 @@ config {
     name: 'system_alerts',
     dependencies: [
         'alerts_cleaned',
-        'routes_cleaned'
+        'routes_cleaned',
+        'stops_cleaned'
     ],
     tags: ['mbta']
 }
 
 js {
     const {
-        deleteStatement,
-        selectStatement
-    } = functions_gold.buildDesertGold('systemAlerts');
+        delete_statement,
+        select_statement
+    } = functions_gold.buildDesertGold('system_alerts');
 }
 
 SELECT
@@ -22,11 +23,11 @@ FROM
   TEMP
 
 pre_operations {
-  CREATE TEMP TABLE TEMP AS ${selectStatement}
+  CREATE TEMP TABLE TEMP AS ${select_statement}
     ${
         when(
             incremental(),
-            deleteStatement
+            delete_statement
         )
     }
 }

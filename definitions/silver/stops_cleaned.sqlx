@@ -2,7 +2,7 @@ config {
     type: 'incremental',
     schema: 'silver',
     name: 'stops_cleaned',
-    tags: ['mbta'],
+    tags: ['stops'],
     dependencies: ['stops_raw'],
     protected: true
 }

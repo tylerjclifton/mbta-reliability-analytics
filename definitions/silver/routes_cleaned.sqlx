@@ -3,7 +3,7 @@ config {
     schema: 'silver',
     name: 'routes_cleaned',
     dependencies: ['routes_raw'],
-    tags: ['mbta'],
+    tags: ['routes'],
     protected: true
 }
 

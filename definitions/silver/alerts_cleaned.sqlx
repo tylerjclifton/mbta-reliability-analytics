@@ -3,7 +3,7 @@ config {
     schema: 'silver',
     name: 'alerts_cleaned',
     dependencies: ['alerts_raw'],
-    tags: ['mbta'],
+    tags: ['alerts'],
     protected: true
 }
 

@@ -2,7 +2,7 @@ config {
     type: 'incremental',
     schema: 'bronze',
     name: 'routes_raw',
-    tags: ['mbta'],
+    tags: ['routes'],
     protected: true
 }
 

@@ -2,7 +2,7 @@ config {
     type: 'incremental',
     schema: 'bronze',
     name: 'alerts_raw',
-    tags: ['mbta'],
+    tags: ['alerts'],
     protected: true
 }
 

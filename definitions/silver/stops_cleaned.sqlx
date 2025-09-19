@@ -1,9 +1,9 @@
 config {
     type: 'incremental',
     schema: 'silver',
-    name: 'alerts_cleaned',
-    dependencies: ['alerts_raw'],
+    name: 'stops_cleaned',
     tags: ['mbta'],
+    dependencies: ['stops_raw'],
     protected: true
 }
 
@@ -11,7 +11,7 @@ js {
     const {
         delete_statement,
         select_statement
-    } = functions_silver.buildDesertSilver('alerts');
+    } = functions_silver.buildDesertSilver('stops');
 }
 
 SELECT

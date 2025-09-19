@@ -4,40 +4,33 @@ const {
 } = require('includes/schema');
 
 // Build desert statement for bronze layer
-function buildDesertBronze(sourceKey) {
+function buildDesertBronze(source_key) {
 
     // Get source data set
-    const sourceDataSet = schema.data_sets.staging;
+    const source_data_set = schema.data_sets.staging;
 
     // Get source table
-    const sourceTable = schema.tables.staging[sourceKey];
+    const source_table = schema.tables.staging[source_key];
 
-    // Get raw values from dimensions and metrics arrays
+    // Get raw values from field array
     const {
-        rawDimensions,
-        rawMetrics
-    } = functions_utilities.getRawFields(sourceKey);
-
-    // Combine raw dimensions and metrics arrays into single array
-    const rawFields = [
-        ...rawDimensions,
-        ...rawMetrics
-    ];
+        raw_fields
+    } = functions_utilities.getRawFields(source_key);
 
     // Build delete statement
-    const deleteStatement = functions_utilities.buildDeleteStatement('bronze', sourceKey);
+    const delete_statement = functions_utilities.buildDeleteStatement('bronze', source_key);
 
     // Build select statement
-    const selectStatement = `
+    const select_statement = `
     SELECT
-        ${rawFields.join(',\n        ')}
-    FROM ${sourceDataSet}.${sourceTable};
+        ${raw_fields.join(',\n        ')}
+    FROM ${source_data_set}.${source_table};
     `;
 
     // Return statements
     return {
-        deleteStatement,
-        selectStatement
+        delete_statement,
+        select_statement
     };
 
 }

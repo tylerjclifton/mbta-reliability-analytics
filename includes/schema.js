@@ -190,6 +190,14 @@ const schema = {
             }
         ]
     },
+    'taxonomy': {
+        'routes': {
+            'route_type': {
+                '0': 'Light Rail',
+                '1': 'Heavy Rail'
+            }
+        }
+    },
     'meta_data': {
         'source': 'ingestion_source',
         'timestamp': 'ingestion_timestamp'

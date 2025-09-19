@@ -1,32 +1,22 @@
-// Import schemas
 const {
     schema
-} = require('includes/schemas');
+} = require('includes/schema');
+const functions_utilities = require('./functions_utilities'); // adjust path
 
-// Get metadata fields
-const ingestionSource = schema.metadata.source;
-const ingestionTimestamp = schema.metadata.timestamp;
-
-// Build CTE for renaming and casting fields
-function buildCteStandarized(sourceKey) {
-    // Get source data set
-    const sourceDataSet = schema.dataSets.bronze;
-    // Get source table
+// Build standardized CTE (renaming + casting)
+function buildCteStandardized(sourceKey) {
+    const sourceDataSet = schema.data_sets.bronze;
     const sourceTable = schema.tables.bronze[sourceKey];
-    // Get dimension array for sourceKey
-    const dimensionArray = schema.sources[sourceKey].dimensions;
-    // Get metric array for sourceKey
-    const metricArray = schema.sources[sourceKey].metrics || [];
-    // Combine dimension and metric arrays into single array
-    const fieldArray = [
-        ...dimensionArray,
-        ...metricArray
-    ];
-    // Build rows where fields get casted and renamed
-    const rows = fieldArray.map(
-        field => `CAST(${field.raw} AS ${field.type}) AS ${field.alias}`
+    const fieldsArray = schema.fields[sourceKey];
+
+    if (!fieldsArray || fieldsArray.length === 0) {
+        throw new Error(`No fields defined for sourceKey: ${sourceKey}`);
+    }
+
+    const rows = fieldsArray.map(
+        f => `CAST(${f.raw} AS ${f.type}) AS ${f.alias}`
     );
-    // Return renaming & casting CTE
+
     return `
     standardized_${sourceKey} AS (
         SELECT
@@ -35,50 +25,52 @@ function buildCteStandarized(sourceKey) {
     )`;
 }
 
-// Build CTE for grouped fields
-function buildCteGrouped(sourceKey) {
-    // Get dimension and metric arrays for sourceKey
-    const dimensionArray = schema.sources[sourceKey].dimensions || [];
-    const metricArray = schema.sources[sourceKey].metrics || [];
-    // Build array of dimension aliases
-    const dimAliases = dimensionArray
-        .map(f => f.alias);
-    // Build array of aggregated metric aliases
-    const metAliases = metricArray.map(f => `SUM(${f.alias}) AS ${f.alias}`);
-    // Combine dimension and metric alias arrays into single array
-    const fields = [
-        ...dimAliases,
-        ...metAliases
-    ];
-    // Return grouped CTE
+// Build mapping CTE dynamically using schema.taxonomy
+function buildCteMapping(sourceKey) {
+    const fieldsArray = schema.fields[sourceKey];
+    const mappedRows = fieldsArray.map(f => {
+        // Check if taxonomy exists for this source & field
+        if (schema.taxonomy[sourceKey] && schema.taxonomy[sourceKey][f.alias]) {
+            const mapping = schema.taxonomy[sourceKey][f.alias];
+            const cases = Object.entries(mapping)
+                .map(([val, label]) => `WHEN '${val}' THEN '${label}'`)
+                .join('\n                ');
+            return `CASE ${f.alias}
+                ${cases}
+                ELSE 'UNKNOWN'
+            END AS ${f.alias}`;
+        }
+        // Default: just pass-through alias
+        return f.alias;
+    });
+
     return `
-    grouped_${sourceKey} AS (
+    mapped_${sourceKey} AS (
         SELECT
-            ${fields.join(',\n            ')}
+            ${mappedRows.join(',\n            ')}
         FROM standardized_${sourceKey}
-        GROUP BY
-            ${dimAliases.join(',\n            ')}
-    )
-    `;
+    )`;
 }
 
-// Build desert statement for silver layer
+// Build silver desert
 function buildDesertSilver(sourceKey) {
-    const deleteStatement = `${functions_utilities.buildDeleteStatement('silver', sourceKey)}`;
+    const delete_statement = functions_utilities.buildDeleteStatement('silver', sourceKey);
 
-    const selectStatement = `
+    const select_statement = `
     WITH
-    ${buildCteStandarized(sourceKey)},
-    ${buildCteGrouped(sourceKey)}
+    ${buildCteStandardized(sourceKey)},
+    ${buildCteMapping(sourceKey)}
     SELECT
         *
-    FROM grouped_${sourceKey};`;
+    FROM mapped_${sourceKey};
+    `;
 
     return {
-        deleteStatement,
-        selectStatement
+        delete_statement,
+        select_statement
     };
 }
+
 module.exports = {
     buildDesertSilver
 };

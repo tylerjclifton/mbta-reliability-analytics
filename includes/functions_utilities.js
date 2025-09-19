@@ -2,152 +2,111 @@ const {
     schema
 } = require('includes/schema');
 
-function getSourceKeys() {
-    return Object.keys(schema.sources);
+function getsourceKeys() {
+    return Object.keys(schema.fields);
 }
 
-function buildDeleteStatement(medallionLayer, sourceKey) {
-    const sourceBlock = schema.sources;
-    let dims = [];
+function buildDeleteStatement(medallion_layer, source_key) {
+    // Get all fields for this source
+    const fields = schema.fields[source_key];
 
-    if (medallionLayer === 'bronze') {
-        dims = sourceBlock[sourceKey].dimensions;
-    } else {
-        const allSourceObjects = Object.values(sourceBlock);
-        const arrayOfDimArrays = allSourceObjects.map(f => f.dimensions || []);
-        dims = [].concat(...arrayOfDimArrays);
+    if (!fields || fields.length === 0) {
+        throw new Error(`No fields defined for source_key: ${source_key}`);
     }
 
-    if (!dims || dims.length === 0) {
-        throw new Error('No dimensions to derive delete key');
+    // Determine delete key (prefer *_id, fallback *_name)
+    const delete_key =
+        fields.find(f => f.alias.toLowerCase().includes('_id')) ||
+        fields.find(f => f.alias.toLowerCase().includes('_name'));
+
+    if (!delete_key) {
+        throw new Error('No valid delete key found within fields');
     }
 
-    const deleteKey =
-        dims.find(d => d.alias === 'date' && d.type === 'DATE') ||
-        dims.find(d => d.alias === 'start_date' && d.type === 'DATE') ||
-        dims.find(d => d.type === 'DATE') ||
-        dims.find(d => d.alias.toLowerCase().includes('_id')) ||
-        dims.find(d => d.alias.toLowerCase().includes('_name'));
-
-    if (!deleteKey) {
-        throw new Error('No valid delete key found within dimensions');
-    }
-
-    let startRaw = null,
-        endRaw = null;
-
-    dims.forEach(d => {
-        if (d.alias === 'start_date') startRaw = d.raw;
-        if (d.alias === 'end_date') endRaw = d.raw;
-    });
-
-    const ds = schema.dataSets;
+    // Schema references
+    const ds = schema.data_sets;
     const tbl = schema.tables;
+    const ingestion_source = schema.meta_data.source;
 
-    const ingestionSource = schema.metadata.source;
+    let source_data_set, destination_data_set, source_table, destination_table, whereClause;
 
-    let sourceDataSet, destinationDataSet, sourceTable, destinationTable, whereClause;
-
-    switch (medallionLayer) {
+    switch (medallion_layer) {
         case 'bronze':
-            sourceDataSet = ds.staging;
-            destinationDataSet = ds.bronze;
-            sourceTable = tbl.staging[sourceKey];
-            destinationTable = tbl.bronze[sourceKey];
+            source_data_set = ds.staging;
+            destination_data_set = ds.bronze;
+            source_table = tbl.staging[source_key];
+            destination_table = tbl.bronze[source_key];
 
             whereClause = `
-        ${deleteKey.raw} IN (
+        ${delete_key.raw} IN (
             SELECT DISTINCT
-                ${deleteKey.raw}
-            FROM ${sourceDataSet}.${sourceTable}
+                ${delete_key.raw}
+            FROM ${source_data_set}.${source_table}
         )`;
             break;
 
-        case 'silver': {
-            sourceDataSet = ds.bronze;
-            destinationDataSet = ds.silver;
-            sourceTable = tbl.bronze[sourceKey];
-            destinationTable = tbl.silver[sourceKey];
+        case 'silver':
+            source_data_set = ds.bronze;
+            destination_data_set = ds.silver;
+            source_table = tbl.bronze[source_key];
+            destination_table = tbl.silver[source_key];
 
-            let destinationDeleteKey = deleteKey.alias;
-            if (deleteKey.alias === 'start_date' && deleteKey.type === 'DATE') {
-                destinationDeleteKey = 'date';
-            }
-
-            if (startRaw && endRaw) {
-                whereClause = `
-        ${destinationDeleteKey} BETWEEN (
-            SELECT MIN(${startRaw}) FROM ${sourceDataSet}.${sourceTable}
-        ) AND (
-            SELECT MAX(${endRaw}) FROM ${sourceDataSet}.${sourceTable}
-        )`;
-            } else {
-                whereClause = `
-        ${destinationDeleteKey} IN (
-            SELECT DISTINCT ${deleteKey.raw}
-            FROM ${sourceDataSet}.${sourceTable}
-        )`;
-            }
-
-            if (!ingestionSource) {
-                throw new Error('Ingestion source not defined in metadata.source');
-            }
-
-            whereClause += `
-        AND ${ingestionSource} LIKE '%${sourceKey}%'`;
+            whereClause = `
+        ${delete_key.alias} IN (
+            SELECT DISTINCT
+                ${delete_key.raw}
+            FROM ${source_data_set}.${source_table}
+        )
+        AND ${ingestion_source} LIKE '%${source_key}%'`;
             break;
-        }
 
         case 'gold':
-            sourceDataSet = ds.silver;
-            destinationDataSet = ds.gold;
-            sourceTable = tbl.silver[sourceKey];
-            destinationTable = tbl.gold[sourceKey] || tbl.gold[sourceKey]; // fallback
+            source_data_set = ds.silver;
+            destination_data_set = ds.gold;
 
-            if (startRaw || endRaw) {
-                whereClause = `
-        date IN (
-            SELECT DISTINCT date
-            FROM ${sourceDataSet}.${sourceTable}
-        ) AND ${ingestionSource} LIKE '%${sourceKey}%'`;
-            } else {
-                whereClause = `
-        ${deleteKey.alias} IN (
-            SELECT DISTINCT ${deleteKey.alias}
-            FROM ${sourceDataSet}.${sourceTable}
-        ) AND ${ingestionSource} LIKE '%${sourceKey}%'`;
-            }
+            // Gold layer is a nested object with sources array
+            const goldEntry = tbl.gold[source_key];
+            if (!goldEntry) throw new Error(`No gold table defined for ${source_key}`);
+
+            source_table = tbl.silver[source_key];
+            destination_table = goldEntry.name || source_key;
+
+            whereClause = `
+        ${delete_key.alias} IN (
+            SELECT DISTINCT
+                ${delete_key.alias}
+            FROM ${source_data_set}.${source_table}
+        )
+        AND ${ingestion_source} LIKE '%${source_key}%'`;
             break;
 
         default:
-            throw new Error('Bad medallionLayer: ' + medallionLayer);
+            throw new Error('Bad medallion_layer: ' + medallion_layer);
     }
 
-    return (
-        `
-    DELETE FROM ${destinationDataSet}.${destinationTable}
+    return `
+    DELETE FROM ${destination_data_set}.${destination_table}
     WHERE${whereClause};
-    `.trim()
-    );
+    `.trim();
 }
 
-function getRawFields(sourceKey) {
-    if (!schema || !schema.sources)
+module.exports = {
+    buildDeleteStatement
+};
+
+
+function getRawFields(source_key) {
+    if (!schema || !schema.fields)
         throw new Error('Invalid schema');
 
-    const sourceObject = schema.sources[sourceKey];
-    if (!sourceObject)
-        throw new Error('Unknown sourceKey: ' + sourceKey);
+    const fieldsArray = schema.fields[source_key];
+    if (!fieldsArray)
+        throw new Error('Unknown source_key: ' + source_key);
 
-    const dimensionsArray = sourceObject.dimensions;
-    const metricsArray = sourceObject.metrics || [];
-
-    const rawDimensions = dimensionsArray.map(d => d.raw);
-    const rawMetrics = metricsArray.map(m => m.raw);
+    const raw_fields = fieldsArray.map(d => d.raw);
 
     return {
-        rawDimensions,
-        rawMetrics
+        raw_fields
     };
 }
 
@@ -158,7 +117,7 @@ function getFinalFields() {
 
     const finalDimensions = [];
     const finalMetrics = [];
-    const finalMetadata = [];
+    const finalmeta_data = [];
 
     let skippedDateRangeField = false;
 
@@ -190,19 +149,19 @@ function getFinalFields() {
         });
     });
 
-    const meta = schema.metadata || {};
-    if (meta.source) finalMetadata.push(meta.source);
-    if (meta.timestamp) finalMetadata.push(meta.timestamp);
+    const meta = schema.meta_data || {};
+    if (meta.source) finalmeta_data.push(meta.source);
+    if (meta.timestamp) finalmeta_data.push(meta.timestamp);
 
     return {
         finalDimensions,
         finalMetrics,
-        finalMetadata
+        finalmeta_data
     };
 }
 
 module.exports = {
-    getSourceKeys,
+    getsourceKeys,
     buildDeleteStatement,
     getRawFields,
     getFinalFields

@@ -3,13 +3,14 @@ config {
     schema: 'silver',
     name: 'routes_cleaned',
     dependencies: ['routes_raw'],
-    tags: ['mbta']
+    tags: ['mbta'],
+    protected: true
 }
 
 js {
     const {
-        deleteStatement,
-        selectStatement
+        delete_statement,
+        select_statement
     } = functions_silver.buildDesertSilver('routes');
 }
 
@@ -19,11 +20,11 @@ FROM
   TEMP
 
 pre_operations {
-  CREATE TEMP TABLE TEMP AS ${selectStatement}
+  CREATE TEMP TABLE TEMP AS ${select_statement}
     ${
         when(
             incremental(),
-            deleteStatement
+            delete_statement
         )
     }
 }

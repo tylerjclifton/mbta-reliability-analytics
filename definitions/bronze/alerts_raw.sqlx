@@ -10,7 +10,7 @@ js {
     const {
         deleteStatement,
         selectStatement
-    } = functions.desertBronze('alerts');
+    } = functions_bronze.buildDesertBronze('alerts');
 }
 
 SELECT

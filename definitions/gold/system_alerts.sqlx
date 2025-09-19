@@ -13,7 +13,7 @@ js {
     const {
         deleteStatement,
         selectStatement
-    } = functions.desertSystemAlerts();
+    } = functions_gold.buildDesertGold('systemAlerts');
 }
 
 SELECT

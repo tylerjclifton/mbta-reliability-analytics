@@ -27,11 +27,11 @@ const schema = {
         'gold': {
             'system_alerts': {
                 'name': 'system_alerts',
-                'sources': {
-                    'alerts': 'route_id',
-                    'routes': 'route_id',
-                    'stops': 'stop'
-                }
+                'sources': [
+                    'alerts',
+                    'routes',
+                    'stops'
+                ]
             }
         }
     },
@@ -190,7 +190,7 @@ const schema = {
             }
         ]
     },
-    'metadata': {
+    'meta_data': {
         'source': 'ingestion_source',
         'timestamp': 'ingestion_timestamp'
     }

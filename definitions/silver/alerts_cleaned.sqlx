@@ -2,9 +2,7 @@ config {
     type: 'incremental',
     schema: 'silver',
     name: 'alerts_cleaned',
-    dependencies: [
-        'alerts_raw'
-    ],
+    dependencies: ['alerts_raw'],
     tags: ['mbta']
 }
 
@@ -12,7 +10,7 @@ js {
     const {
         deleteStatement,
         selectStatement
-    } = functions.desertSilver('alerts');
+    } = functions_silver.buildDesertSilver('alerts');
 }
 
 SELECT

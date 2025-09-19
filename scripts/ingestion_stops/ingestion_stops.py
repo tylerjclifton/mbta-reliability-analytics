@@ -46,19 +46,12 @@ if response.status_code == 200:
             attributes = stop.get('attributes', {})
 
             # Extract specific stop details from the attributes dictionary
-            address = attributes.get('address', None)
-            at_street = attributes.get('at_street', None)
-            description = attributes.get('description', None)
-            latitude = attributes.get('latitude', None)
-            location_type = attributes.get('location_type', None)
-            longitude = attributes.get('longitude', None)
-            municipality = attributes.get('municipality', None)
             name = attributes.get('name', None)
-            on_street = attributes.get('on_street', None)
-            platform_code = attributes.get('platform_code', None)
+            description = attributes.get('description', None)
+            municipality = attributes.get('municipality', None)
             platform_name = attributes.get('platform_name', None)
-            vehicle_type = attributes.get('vehicle_type', None)
-            wheelchair_boarding = attributes.get('wheelchair_boarding', None)
+            latitude = attributes.get('latitude', None)
+            longitude = attributes.get('longitude', None)
             
             # Record ingestion metadata
             current_datetime = datetime.datetime.now(datetime.timezone.utc)
@@ -68,19 +61,12 @@ if response.status_code == 200:
             # Create standardized stop record
             standardized_stops.append({
                 'stop_id': stop_id,
-                'address': address,
-                'at_street': at_street,
-                'description': description,
-                'latitude': latitude,
-                'location_type': location_type,
-                'longitude': longitude,
-                'municipality': municipality,
                 'name': name,
-                'on_street': on_street,
-                'platform_code': platform_code,
+                'description': description,
+                'municipality': municipality,
                 'platform_name': platform_name,
-                'vehicle_type': vehicle_type,
-                'wheelchair_boarding': wheelchair_boarding,
+                'latitude': latitude,
+                'longitude': longitude,
                 'ingestion_timestamp': ingestion_timestamp,
                 'ingestion_source': ingestion_source
             })

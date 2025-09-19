@@ -2,9 +2,8 @@ config {
     type: 'incremental',
     schema: 'silver',
     name: 'alerts_cleaned',
-    dependencies: ['alerts_raw'],
     tags: ['alerts'],
-    protected: true
+    dependencies: ['alerts_raw']
 }
 
 js {

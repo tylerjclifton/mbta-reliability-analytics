@@ -118,7 +118,7 @@ const schema = {
             },
             {
                 'raw': 'long_name',
-                'alias': 'route_long_name',
+                'alias': 'route_name',
                 'type': 'STRING'
             },
             {

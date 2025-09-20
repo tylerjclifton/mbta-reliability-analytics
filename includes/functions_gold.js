@@ -4,11 +4,15 @@ const {
 } = require('includes/schema');
 const functions_utilities = require('./functions_utilities'); // Add this line
 
-// Find common keys between two sources for joining
+// Find common keys between two sources for joining, only _id fields
 function findJoinKeys(sourceA, sourceB) {
-    const fieldsA = schema.fields[sourceA].map(f => f.alias);
-    const fieldsB = schema.fields[sourceB].map(f => f.alias);
-    return fieldsA.filter(f => fieldsB.includes(f));
+    const fieldsA = schema.fields[sourceA]
+        .map(f => f.alias)
+        .filter(alias => alias.toLowerCase().includes('_id')); // only _id fields
+    const fieldsB = schema.fields[sourceB]
+        .map(f => f.alias)
+        .filter(alias => alias.toLowerCase().includes('_id')); // only _id fields
+    return fieldsA.filter(f => fieldsB.includes(f)); // keep order of sourceA
 }
 
 // Build desert statement for gold layer

@@ -109,6 +109,16 @@ const schema = {
                 'raw': 'updated_at',
                 'alias': 'alert_updated_at',
                 'type': 'STRING'
+            },
+            {
+                'raw': 'ingestion_timestamp',
+                'alias': 'ingestion_timestamp',
+                'type': 'TIMESTAMP'
+            },
+            {
+                'raw': 'ingestion_source',
+                'alias': 'ingestion_source',
+                'type': 'STRING'
             }
         ],
         'routes': [{
@@ -145,6 +155,16 @@ const schema = {
                 'raw': 'direction_names',
                 'alias': 'route_directions',
                 'type': 'STRING'
+            },
+            {
+                'raw': 'ingestion_timestamp',
+                'alias': 'ingestion_timestamp',
+                'type': 'TIMESTAMP'
+            },
+            {
+                'raw': 'ingestion_source',
+                'alias': 'ingestion_source',
+                'type': 'STRING'
             }
         ],
         'shapes': [{
@@ -155,6 +175,16 @@ const schema = {
             {
                 'raw': 'polyline',
                 'alias': 'shape_polyline',
+                'type': 'STRING'
+            },
+            {
+                'raw': 'ingestion_timestamp',
+                'alias': 'ingestion_timestamp',
+                'type': 'TIMESTAMP'
+            },
+            {
+                'raw': 'ingestion_source',
+                'alias': 'ingestion_source',
                 'type': 'STRING'
             }
         ],
@@ -187,6 +217,16 @@ const schema = {
                 'raw': 'longitude',
                 'alias': 'stop_longitude',
                 'type': 'STRING'
+            },
+            {
+                'raw': 'ingestion_timestamp',
+                'alias': 'ingestion_timestamp',
+                'type': 'TIMESTAMP'
+            },
+            {
+                'raw': 'ingestion_source',
+                'alias': 'ingestion_source',
+                'type': 'STRING'
             }
         ]
     },
@@ -197,10 +237,6 @@ const schema = {
                 '1': 'Heavy Rail'
             }
         }
-    },
-    'meta_data': {
-        'source': 'ingestion_source',
-        'timestamp': 'ingestion_timestamp'
     }
 }
 

@@ -195,11 +195,11 @@ function buildDeleteStatement(medallion_layer, source_key) {
 
     // Build where clause for delete statement
     const whereClause =
-
+        
         // Check if medallion layer is bronze or silver
-        ['bronze', 'silver'].includes(medallion_layer) ?
+        medallion_layer === 'bronze' ?
 
-        // If bronze or silver
+        // If bronze
         `
         ${delete_key.raw} IN (
             SELECT DISTINCT
@@ -209,25 +209,14 @@ function buildDeleteStatement(medallion_layer, source_key) {
         `
         // Or
         :
-        // If not bronze or silver
+        // If not bronze
         `
         ${delete_key.alias} IN (
             SELECT DISTINCT
-                ${delete_key.raw}
+                ${delete_key.alias}
             FROM ${source_data_set}.${source_table}
         )
         `
-        // And
-        +
-        // Check if medallion layer is gold
-        (medallion_layer === 'gold' ?
-            // If gold
-            `AND ${ingestion_source} LIKE '%${primary_source}%'`
-            // Or
-            :
-            // If not gold
-            ``
-        );
 
     // Return delete statement
     return `

@@ -12,7 +12,7 @@ function buildDesertBronze(source_key) {
     // Get source table
     const source_table = schema.tables.staging[source_key];
 
-    // Get raw values from field array
+    // Get raw values from source's field array
     const {
         raw_fields
     } = functions_utilities.getRawFields(source_key);
@@ -35,6 +35,7 @@ function buildDesertBronze(source_key) {
 
 }
 
+// Export necessary function(s)
 module.exports = {
     buildDesertBronze
 }

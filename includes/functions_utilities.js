@@ -32,16 +32,12 @@ function getRawFields(source_key) {
 // Build delete statement for any medallion layer (bronze, silver, gold)
 function buildDeleteStatement(medallion_layer, source_key) {
 
-    // Get data sets, tables, and metadata info
+    // Get data set and table info
     const data_sets = schema.data_sets;
     const tables = schema.tables;
-    const ingestion_source = schema.meta_data.source;
 
     // Initialize data set and table variables
     let source_data_set, destination_data_set, source_table, destination_table;
-
-    // Initialize primary source variable for gold table
-    let primary_source;
 
     // Initialize delete key variable
     let delete_key;
@@ -195,7 +191,7 @@ function buildDeleteStatement(medallion_layer, source_key) {
 
     // Build where clause for delete statement
     const whereClause =
-        
+
         // Check if medallion layer is bronze or silver
         medallion_layer === 'bronze' ?
 

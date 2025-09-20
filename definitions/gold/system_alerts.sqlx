@@ -1,4 +1,4 @@
-/*config {
+config {
     type: 'incremental',
     schema: 'gold',
     name: 'system_alerts',
@@ -35,4 +35,3 @@ pre_operations {
         )
     }
 }
-*/

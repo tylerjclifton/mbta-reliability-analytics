@@ -88,6 +88,7 @@ function buildDesertSilver(source_key) {
     WITH
     ${buildCteStandardized(source_key)},
     ${buildCteMapping(source_key)}
+    
     SELECT
         *
     FROM mapped_${source_key};

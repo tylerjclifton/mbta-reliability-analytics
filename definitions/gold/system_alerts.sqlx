@@ -9,7 +9,7 @@ config {
     ],
     tags: [
         'alerts',
-        'routes,
+        'routes',
         'shapes'
     ]
 }

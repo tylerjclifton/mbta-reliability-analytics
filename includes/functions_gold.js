@@ -68,7 +68,7 @@ function buildDesertGold(gold_key) {
         if (!joinKeys.length) throw new Error(`No common keys found between ${baseSource} and ${nextSource}`);
 
         const onClause = joinKeys.map(k => `${baseSource}.${k} = ${nextSource}.${k}`).join(' AND ');
-        joinStatements += `\nLEFT JOIN ${schema.data_sets.silver}.${schema.tables.silver[nextSource]} AS ${nextSource} 
+        joinStatements += `${i > 1 ? '\n' : ''}${i > 1 ? `    ` : ``}LEFT JOIN ${schema.data_sets.silver}.${schema.tables.silver[nextSource]} AS ${nextSource} 
         ON ${onClause}`;
     }
 

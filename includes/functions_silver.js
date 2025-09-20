@@ -18,7 +18,7 @@ function buildCteStandardized(source_key) {
         throw new Error(`No fields defined for source: ${source_key}`);
     }
 
-    // Build rows for renaming and casting each item in fields array
+    // Build rows for renaming and casting each field in fields array
     const rows = fields_array.map(
         field => `CAST(${field.raw} AS ${field.type}) AS ${field.alias}`
     );
@@ -88,7 +88,7 @@ function buildDesertSilver(source_key) {
     WITH
     ${buildCteStandardized(source_key)},
     ${buildCteMapping(source_key)}
-    
+
     SELECT
         *
     FROM mapped_${source_key};

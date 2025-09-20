@@ -15,6 +15,11 @@ function buildDesertBronze(source_key) {
         raw_fields
     } = functions_utilities.getRawFields(source_key);
 
+    // Throw error if raw fields array is empty or doesn't exist
+    if (!raw_fields || raw_fields.length === 0) {
+        throw new Error(`No fields defined for source: ${source_key}`);
+    }
+
     // Build delete statement
     const delete_statement = functions_utilities.buildDeleteStatement('bronze', source_key);
 

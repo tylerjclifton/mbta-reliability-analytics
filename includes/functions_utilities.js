@@ -29,156 +29,99 @@ function getRawFields(source_key) {
 
 }
 
-// Build delete statement
+// Build delete statement for any medallion layer (bronze, silver, gold)
 function buildDeleteStatement(medallion_layer, source_key) {
-
-    // Get source's fields array
-    const fields_array = schema.fields[source_key];
-
-    // Throw error if fields array doesn't exist or is empty
-    if (!fields_array || fields_array.length === 0) {
-        throw new Error(`No fields defined for source: ${source_key}`);
-    }
-
-    // Determine delete key (prefer *_id, fallback *_name)
-    const delete_key =
-        fields_array.find(f => f.alias.toLowerCase().includes('_id')) ||
-        fields_array.find(f => f.alias.toLowerCase().includes('_name'));
-
-    // Throw error if no valid delete key is in fields array
-    if (!delete_key) {
-        throw new Error('No valid delete key found within fields');
-    }
-
-    // Schema references
-    const data_sets = schema.data_sets;
-    const tables = schema.tables;
+    const ds = schema.data_sets;
+    const tbl = schema.tables;
     const ingestion_source = schema.meta_data.source;
 
-    // Initialize variables for database references and SQL components
-    let source_data_set, destination_data_set, source_table, destination_table, where_clause;
+    let source_data_set, destination_data_set, source_table, destination_table;
+    let delete_key;
 
     switch (medallion_layer) {
+        case 'bronze': {
+            const fields = schema.fields[source_key];
+            if (!fields || !fields.length) throw new Error(`No fields defined for source: ${source_key}`);
 
-        // When medallion layer is bronze
-        case 'bronze':
+            delete_key =
+                fields.find(f => f.alias.toLowerCase().includes('_id')) ||
+                fields.find(f => f.alias.toLowerCase().includes('_name'));
+            if (!delete_key) throw new Error('No valid delete key found within fields');
 
-            // Get source data set and table
-            source_data_set = data_sets.staging;
-            source_table = tables.staging[source_key];
-
-            // Get destination data set and table
-            destination_data_set = data_sets.bronze;
-            destination_table = tables.bronze[source_key];
-
-            // Delete records that exist in staging (using raw field names for staging)
-            where_clause = `
-    ${delete_key.raw} IN (
-        SELECT DISTINCT
-            ${delete_key.raw}
-        FROM ${source_data_set}.${source_table}
-    )`;
+            source_data_set = ds.staging;
+            destination_data_set = ds.bronze;
+            source_table = tbl.staging[source_key];
+            destination_table = tbl.bronze[source_key];
             break;
+        }
 
-            // When medallion layer is silver
-        case 'silver':
+        case 'silver': {
+            const fields = schema.fields[source_key];
+            if (!fields || !fields.length) throw new Error(`No fields defined for source: ${source_key}`);
 
-            // Get source data set and table
-            source_data_set = data_sets.bronze;
-            source_table = tables.bronze[source_key];
+            delete_key =
+                fields.find(f => f.alias.toLowerCase().includes('_id')) ||
+                fields.find(f => f.alias.toLowerCase().includes('_name'));
+            if (!delete_key) throw new Error('No valid delete key found within fields');
 
-            // Get destination data set and table
-            destination_data_set = data_sets.silver;
-            destination_table = tables.silver[source_key];
-
-            // Delete records using alias field names (silver uses cleaned field names)
-            // Also filter by ingestion source to only delete records from this specific source
-            where_clause = `
-    ${delete_key.alias} IN (
-        SELECT DISTINCT
-            ${delete_key.raw}
-        FROM ${source_data_set}.${source_table}
-    )
-    AND ${ingestion_source} LIKE '%${source_key}%'`;
+            source_data_set = ds.bronze;
+            destination_data_set = ds.silver;
+            source_table = tbl.bronze[source_key];
+            destination_table = tbl.silver[source_key];
             break;
+        }
 
-            // When medallion layer is gold
-        case 'gold':
+        case 'gold': {
+            const goldEntry = tbl.gold[source_key];
+            if (!goldEntry) throw new Error(`No gold table defined for ${source_key}`);
 
-            // Get source and destination data sets
-            source_data_set = data_sets.silver;
-            destination_data_set = data_sets.gold;
+            // Combine fields from all sources
+            const combinedFields = [];
+            const seenAliases = new Set();
 
-            // Get the gold table configuration which contains multiple source references
-            const gold_entry = tables.gold[source_key];
-
-            // Throw error if no valid gold table exists
-            if (!gold_entry) {
-                throw new Error(`No gold table defined for ${source_key}`);
-            }
-
-            // Combine field definitions from ALL sources listed in the gold table
-            // This creates a master list of all possible fields across sources
-            const combined_fields = [];
-
-            // Track which field aliases we have already added
-            const seen_aliases = new Set();
-
-            // Iterate through each source listed in gold sources section
-            gold_entry.sources.forEach(src => {
-
-                // Get fields array for current source
-                const fields_array = schema.fields[src];
-
-                // If fields
-                if (fields_array) {
-                    fields_array.forEach(field => {
-
-                        // Only add each unique alias once (prevents duplicates like route_id appearing twice)
-                        if (!seen_aliases.has(field.alias)) {
-                            combined_fields.push(field);
-                            seen_aliases.add(field.alias);
-                        }
-                    });
-                }
+            goldEntry.sources.forEach(src => {
+                const srcFields = schema.fields[src];
+                if (!srcFields) throw new Error(`No fields defined for source: ${src}`);
+                srcFields.forEach(f => {
+                    if (!seenAliases.has(f.alias)) {
+                        combinedFields.push(f);
+                        seenAliases.add(f.alias);
+                    }
+                });
             });
 
-            // Find delete key from the combined field list (prefer _id fields, fallback to _name fields)
-            delete_key = combined_fields.find(f => f.alias.toLowerCase().includes('_id')) ||
-                combined_fields.find(f => f.alias.toLowerCase().includes('_name'));
+            delete_key =
+                combinedFields.find(f => f.alias.toLowerCase().includes('_id')) ||
+                combinedFields.find(f => f.alias.toLowerCase().includes('_name'));
+            if (!delete_key) throw new Error('No valid delete key found within combined fields');
 
-            // Throw error if no valid delete key is in combined fields array
-            if (!delete_key) {
-                throw new Error('No valid delete key found within combined fields');
-            }
-
-            // Use the first source as the reference table for the WHERE clause
-            source_table = tables.silver[gold_entry.sources[0]];
-            destination_table = gold_entry.name || source_key;
-
-            // Delete records from gold table that exist in the primary source
-            // Filter by ingestion source from the first source only
-            where_clause = `
-    ${delete_key.alias} IN (
-        SELECT DISTINCT
-            ${delete_key.alias}
-        FROM ${source_data_set}.${source_table}
-    )
-    AND ${ingestion_source} LIKE '%${gold_entry.sources[0]}%'`;
+            source_data_set = ds.silver;
+            destination_data_set = ds.gold;
+            source_table = tbl.silver[goldEntry.sources[0]];
+            destination_table = goldEntry.name || source_key;
             break;
+        }
 
-            // Throw error if provided medallion layer does not exist
         default:
             throw new Error('Bad medallion_layer: ' + medallion_layer);
     }
 
-    // Return delete statement
+    const whereClause =
+        medallion_layer === 'bronze' ?
+        `\n${delete_key.raw} IN (SELECT DISTINCT ${delete_key.raw} FROM ${source_data_set}.${source_table})` :
+        `\n${delete_key.alias} IN (SELECT DISTINCT ${delete_key.raw} FROM ${source_data_set}.${source_table})` +
+        (medallion_layer === 'gold' ? '' : `\nAND ${ingestion_source} LIKE '%${source_key}%'`);
+
     return `
 DELETE FROM ${destination_data_set}.${destination_table}
-WHERE${where_clause};
-`;
-
+WHERE${whereClause};
+`.trim();
 }
+
+module.exports = {
+    buildDeleteStatement
+};
+
 
 // Export necessary function(s)
 module.exports = {

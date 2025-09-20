@@ -6,10 +6,8 @@ const {
 // Build desert statement for bronze layer
 function buildDesertBronze(source_key) {
 
-    // Get source data set
+    // Get source data set and table
     const source_data_set = schema.data_sets.staging;
-
-    // Get source table
     const source_table = schema.tables.staging[source_key];
 
     // Get raw values from source's field array

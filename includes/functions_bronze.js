@@ -1,4 +1,4 @@
-// Import schemas
+// Import schema
 const {
     schema
 } = require('includes/schema');

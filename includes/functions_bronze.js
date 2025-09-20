@@ -10,7 +10,7 @@ function buildDesertBronze(source_key) {
     const source_data_set = schema.data_sets.staging;
     const source_table = schema.tables.staging[source_key];
 
-    // Get raw values from source's fields array
+    // Get raw values from source fields array
     const {
         raw_fields
     } = functions_utilities.getRawFields(source_key);

@@ -10,7 +10,7 @@ function buildCteStandardized(source_key) {
     const source_data_set = schema.data_sets.bronze;
     const source_table = schema.tables.bronze[source_key];
 
-    // Get source's fields array
+    // Get source fields array
     const fields_array = schema.fields[source_key];
 
     // Throw error if fields array is empty or doesn't exist
@@ -36,7 +36,7 @@ function buildCteStandardized(source_key) {
 // Build mapping CTE (applying taxonomy)
 function buildCteMapping(source_key) {
 
-    // Get source's fields array
+    // Get source fields array
     const fields_array = schema.fields[source_key];
 
     // Iterate through fields array and apply taxonomy rules where available

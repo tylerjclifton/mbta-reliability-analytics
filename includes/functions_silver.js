@@ -1,76 +1,106 @@
+// Import schema
 const {
     schema
 } = require('includes/schema');
-const functions_utilities = require('./functions_utilities'); // adjust path
 
 // Build standardized CTE (renaming + casting)
-function buildCteStandardized(source_array) {
-    const source_data_set = schema.data_sets.bronze;
-    const source_table = schema.tables.bronze[source_array];
-    const fields_array = schema.fields[source_array];
+function buildCteStandardized(source_key) {
 
+    // Get source data set and table
+    const source_data_set = schema.data_sets.bronze;
+    const source_table = schema.tables.bronze[source_key];
+
+    // Get source's fields array
+    const fields_array = schema.fields[source_key];
+
+    // Throw error if fields array is empty or doesn't exist
     if (!fields_array || fields_array.length === 0) {
-        throw new Error(`No fields defined for source_array: ${source_array}`);
+        throw new Error(`No fields defined for source: ${source_key}`);
     }
 
+    // Build rows for renaming and casting each item in fields array
     const rows = fields_array.map(
-        f => `CAST(${f.raw} AS ${f.type}) AS ${f.alias}`
+        field => `CAST(${field.raw} AS ${field.type}) AS ${field.alias}`
     );
 
+    // Return standardized CTE
     return `
-    standardized_${source_array} AS (
+    standardized_${source_key} AS (
         SELECT
             ${rows.join(',\n            ')}
         FROM ${source_data_set}.${source_table}
     )`;
+
 }
 
-// Build mapping CTE dynamically using schema.taxonomy
-function buildCteMapping(source_array) {
-    const fields_array = schema.fields[source_array];
+// Build mapping CTE (applying taxonomy)
+function buildCteMapping(source_key) {
+
+    // Get source's fields array
+    const fields_array = schema.fields[source_key];
+
+    // Iterate through fields array and apply taxonomy rules where available
     const mapped_rows = fields_array.map(f => {
-        // Check if taxonomy exists for this source & field
-        if (schema.taxonomy[source_array] && schema.taxonomy[source_array][f.alias]) {
-            const mapping = schema.taxonomy[source_array][f.alias];
+
+        // Check if taxonomy exists for this source and field alias
+        if (schema.taxonomy[source_key] && schema.taxonomy[source_key][f.alias]) {
+
+            // Retrieve the taxonomy mapping for this field
+            const mapping = schema.taxonomy[source_key][f.alias];
+
+            // Build CASE WHEN statements from mapping (val → label)
             const cases = Object.entries(mapping)
                 .map(([val, label]) => `WHEN '${val}' THEN '${label}'`)
                 .join('\n                ');
+
+            // Return CASE expression applying taxonomy mapping,
+            // defaulting to 'UNKNOWN' if no match is found
             return `CASE ${f.alias}
                 ${cases}
                 ELSE 'UNKNOWN'
             END AS ${f.alias}`;
         }
-        // Default: just pass-through alias
+
+        // If no taxonomy mapping exists, just return the field alias
         return f.alias;
+
     });
 
+
+    // Return mapped CTE
     return `
-    mapped_${source_array} AS (
+    mapped_${source_key} AS (
         SELECT
             ${mapped_rows.join(',\n            ')}
-        FROM standardized_${source_array}
+        FROM standardized_${source_key}
     )`;
+
 }
 
-// Build silver desert
-function buildDesertSilver(source_array) {
-    const delete_statement = functions_utilities.buildDeleteStatement('silver', source_array);
+// Build desert statement for silver layer
+function buildDesertSilver(source_key) {
 
+    // Build delete statement
+    const delete_statement = functions_utilities.buildDeleteStatement('silver', source_key);
+
+    // Build select statement
     const select_statement = `
     WITH
-    ${buildCteStandardized(source_array)},
-    ${buildCteMapping(source_array)}
+    ${buildCteStandardized(source_key)},
+    ${buildCteMapping(source_key)}
     SELECT
         *
-    FROM mapped_${source_array};
+    FROM mapped_${source_key};
     `;
 
+    // Return statements
     return {
         delete_statement,
         select_statement
     };
 }
 
+// Export necessary function(s)
 module.exports = {
     buildDesertSilver
 };

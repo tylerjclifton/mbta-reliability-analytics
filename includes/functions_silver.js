@@ -66,7 +66,6 @@ function buildCteMapping(source_key) {
 
     });
 
-
     // Return mapped CTE
     return `
     mapped_${source_key} AS (
@@ -83,8 +82,138 @@ function buildDesertSilver(source_key) {
     // Build delete statement
     const delete_statement = functions_utilities.buildDeleteStatement('silver', source_key);
 
-    // Build select statement
-    const select_statement = `
+    // Initialize select statement variable
+    let select_statement
+
+    // If source key is alerts
+    if (source_key === 'alerts') {
+
+        // Create select statement
+        select_statement = `
+    WITH
+    ${buildCteStandardized(source_key)},
+    ${buildCteMapping(source_key)},
+    
+    stops AS (
+        SELECT DISTINCT
+            stop_id,
+            stop_name
+        FROM ${schema.data_sets.silver}.${schema.tables.silver.stops}
+    ),
+
+    alerts_with_stops AS (
+        -- Case 1: Valid stop_id (5-6 digit number) - keep as is
+        SELECT
+            *
+        FROM mapped_${source_key}
+        WHERE
+            REGEXP_CONTAINS(stop_id, r'^[0-9]{5,6}$')
+    
+        UNION ALL
+
+        -- Case 2: Invalid stop_id - extract stations from alert_description
+        SELECT
+            a.alert_id,
+            a.alert_start,
+            a.alert_end,
+            a.alert_duration_certainty,
+            a.route_id,
+            s.stop_id,
+            a.alert_header,
+            a.alert_description,
+            a.alert_cause,
+            a.alert_effect,
+            a.alert_service_effect,
+            a.alert_severity,
+            a.alert_lifecycle,
+            a.alert_created_at,
+            a.alert_updated_at,
+            a.ingestion_timestamp,
+            a.ingestion_source
+        FROM mapped_${source_key} AS a
+        CROSS JOIN stops AS s
+        WHERE
+            NOT REGEXP_CONTAINS(a.stop_id, r'^[0-9]{5,6}$')
+            AND UPPER(a.alert_description) LIKE '%' || UPPER(s.stop_name) || '%'
+
+        UNION ALL
+        
+        -- Case 3: Invalid stop_id AND no description matches - try alert_header  
+        SELECT 
+            a.alert_id,
+            a.alert_start,
+            a.alert_end,
+            a.alert_duration_certainty,
+            a.route_id,
+            s.stop_id,
+            a.alert_header,
+            a.alert_description,
+            a.alert_cause,
+            a.alert_effect,
+            a.alert_service_effect,
+            a.alert_severity,
+            a.alert_lifecycle,
+            a.alert_created_at,
+            a.alert_updated_at,
+            a.ingestion_timestamp,
+            a.ingestion_source
+        FROM mapped_${source_key} a  
+        CROSS JOIN stops s
+        WHERE
+            NOT REGEXP_CONTAINS(a.stop_id, r'^[0-9]{5,6}$')
+            AND UPPER(a.alert_header) LIKE '%' || UPPER(s.stop_name) || '%'
+            AND a.alert_id NOT IN (
+                SELECT
+                    alert_id
+                FROM mapped_${source_key} ma
+                CROSS JOIN stops st  
+                WHERE
+                    UPPER(ma.alert_description) LIKE '%' || UPPER(st.stop_name) || '%'
+            )
+
+        UNION ALL
+        
+        -- Case 4: No station matches anywhere - mark as 'Not Listed'
+        SELECT 
+            a.alert_id,
+            a.alert_start,
+            a.alert_end,
+            a.alert_duration_certainty,
+            a.route_id,
+            'Not Listed' as stop_id,
+            a.alert_header,
+            a.alert_description,
+            a.alert_cause,
+            a.alert_effect,
+            a.alert_service_effect,
+            a.alert_severity,
+            a.alert_lifecycle,
+            a.alert_created_at,
+            a.alert_updated_at,
+            a.ingestion_timestamp,
+            a.ingestion_source
+        FROM mapped_${source_key} a
+        WHERE
+            NOT REGEXP_CONTAINS(a.stop_id, r'^[0-9]{5,6}$')
+            AND a.alert_id NOT IN (
+                SELECT
+                    alert_id
+                FROM mapped_${source_key} ma
+                CROSS JOIN stops st
+                WHERE
+                    UPPER(ma.alert_description) LIKE '%' || UPPER(st.stop_name) || '%'
+                    OR UPPER(ma.alert_header) LIKE '%' || UPPER(st.stop_name) || '%'
+            )
+    )
+
+    SELECT
+        *
+    FROM alerts_with_stops;
+        `;
+
+    } else {
+        // Standard processing
+        select_statement = `
     WITH
     ${buildCteStandardized(source_key)},
     ${buildCteMapping(source_key)}
@@ -92,13 +221,15 @@ function buildDesertSilver(source_key) {
     SELECT
         *
     FROM mapped_${source_key};
-    `;
+        `;
+    }
 
     // Return statements
     return {
         delete_statement,
         select_statement
     };
+
 }
 
 // Export necessary function(s)

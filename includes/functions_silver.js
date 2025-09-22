@@ -108,7 +108,7 @@ function buildDesertSilver(source_key) {
             *
         FROM mapped_${source_key}
         WHERE
-            REGEXP_CONTAINS(stop_id, r'^[0-9]{5,6}$')
+            REGEXP_CONTAINS(IFNULL(stop_id, ''), r'^[0-9]{5,6}$')
     
         UNION ALL
 
@@ -134,7 +134,7 @@ function buildDesertSilver(source_key) {
         FROM mapped_${source_key} AS a
         CROSS JOIN stops AS s
         WHERE
-            NOT REGEXP_CONTAINS(a.stop_id, r'^[0-9]{5,6}$')
+            NOT REGEXP_CONTAINS(IFNULL(a.stop_id, ''), r'^[0-9]{5,6}$')
             AND UPPER(a.alert_description) LIKE '%' || UPPER(s.stop_name) || '%'
 
         UNION ALL
@@ -161,7 +161,7 @@ function buildDesertSilver(source_key) {
         FROM mapped_${source_key} a  
         CROSS JOIN stops s
         WHERE
-            NOT REGEXP_CONTAINS(a.stop_id, r'^[0-9]{5,6}$')
+            NOT REGEXP_CONTAINS(IFNULL(a.stop_id, ''), r'^[0-9]{5,6}$')
             AND UPPER(a.alert_header) LIKE '%' || UPPER(s.stop_name) || '%'
             AND a.alert_id NOT IN (
                 SELECT
@@ -195,7 +195,7 @@ function buildDesertSilver(source_key) {
             a.ingestion_source
         FROM mapped_${source_key} a
         WHERE
-            NOT REGEXP_CONTAINS(a.stop_id, r'^[0-9]{5,6}$')
+            NOT REGEXP_CONTAINS(IFNULL(a.stop_id, ''), r'^[0-9]{5,6}$')
             AND a.alert_id NOT IN (
                 SELECT
                     alert_id

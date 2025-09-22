@@ -209,7 +209,8 @@ function buildDesertSilver(source_key) {
 
     SELECT
         *
-    FROM alerts_with_stops;
+    FROM alerts_with_stops
+    GROUP BY ALL;
         `;
 
     } else {

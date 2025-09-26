@@ -3,6 +3,22 @@ const {
     schema
 } = require('includes/schema');
 
+// Get key from fields array
+function getKeyField(source_key) {
+
+    // Get fields array for source
+    const fields_array = schema.fields[source_key];
+
+    // Determine key field (prefer *_id, fallback *_name)
+    const key_field =
+        fields_array.find(field => field.alias.toLowerCase().includes('_id')) ||
+        fields_array.find(field => field.alias.toLowerCase().includes('_name'));
+
+    // Return key field
+    return key_field;
+
+}
+
 // Get raw values from fields array
 function getRawFields(source_key) {
 
@@ -23,9 +39,7 @@ function getRawFields(source_key) {
     const raw_fields = fields_array.map(field => field.raw);
 
     // Return raw fields
-    return {
-        raw_fields
-    };
+    return raw_fields;
 
 }
 
@@ -55,10 +69,8 @@ function buildDeleteStatement(medallion_layer, source_key) {
                 throw new Error(`No fields defined for source: ${source_key}`);
             }
 
-            // Determine delete key (prefer *_id, fallback *_name)
-            delete_key =
-                fields_array.find(field => field.alias.toLowerCase().includes('_id')) ||
-                fields_array.find(field => field.alias.toLowerCase().includes('_name'));
+            // Determine key field for delete statement (prefer *_id, fallback *_name)
+            delete_key = getKeyField(source_key);
 
             // Throw error if no valid delete key exists
             if (!delete_key) {
@@ -89,10 +101,8 @@ function buildDeleteStatement(medallion_layer, source_key) {
                 throw new Error(`No fields defined for source: ${source_key}`);
             }
 
-            // Determine delete key (prefer *_id, fallback *_name)
-            delete_key =
-                fields_array.find(f => f.alias.toLowerCase().includes('_id')) ||
-                fields_array.find(f => f.alias.toLowerCase().includes('_name'));
+            // Determine key field for delete statement (prefer *_id, fallback *_name)
+            delete_key = getKeyField(source_key);
 
             // Throw error if no valid delete key exists
             if (!delete_key) {
@@ -161,10 +171,8 @@ function buildDeleteStatement(medallion_layer, source_key) {
 
             });
 
-            // Determine delete key (prefer *_id, fallback *_name) from combined fields
-            delete_key =
-                combined_fields.find(f => f.alias.toLowerCase().includes('_id')) ||
-                combined_fields.find(f => f.alias.toLowerCase().includes('_name'));
+            // Determine key field for delete statement (prefer *_id, fallback *_name)
+            delete_key = getKeyField(primary_source);
 
             // Throw error if no valid delete key exists
             if (!delete_key) {
@@ -224,6 +232,7 @@ function buildDeleteStatement(medallion_layer, source_key) {
 
 // Export necessary function(s)
 module.exports = {
+    getKeyField,
     getRawFields,
     buildDeleteStatement
 };

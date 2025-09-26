@@ -135,7 +135,7 @@ function buildDesertSilver(source_key) {
         CROSS JOIN stops AS s
         WHERE
             NOT REGEXP_CONTAINS(COALESCE(a.stop_id, ''), r'^[0-9]{5,6}$')
-            AND UPPER(a.alert_description) LIKE '%' || UPPER(s.stop_name) || '%'
+            AND UPPER(a.alert_description) LIKE '%' || UPPER(s.stop_name) || ':%'
 
         UNION ALL
         
@@ -169,7 +169,7 @@ function buildDesertSilver(source_key) {
                 FROM mapped_${source_key} ma
                 CROSS JOIN stops st  
                 WHERE
-                    UPPER(ma.alert_description) LIKE '%' || UPPER(st.stop_name) || '%'
+                    UPPER(ma.alert_description) LIKE '%' || UPPER(st.stop_name) || ':%'
             )
 
         UNION ALL
@@ -202,7 +202,7 @@ function buildDesertSilver(source_key) {
                 FROM mapped_${source_key} ma
                 CROSS JOIN stops st
                 WHERE
-                    UPPER(ma.alert_description) LIKE '%' || UPPER(st.stop_name) || '%'
+                    UPPER(ma.alert_description) LIKE '%' || UPPER(st.stop_name) || ':%'
                     OR UPPER(ma.alert_header) LIKE '%' || UPPER(st.stop_name) || '%'
             )
     )

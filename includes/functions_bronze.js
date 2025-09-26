@@ -11,9 +11,7 @@ function buildDesertBronze(source_key) {
     const source_table = schema.tables.staging[source_key];
 
     // Get raw values from source fields array
-    const {
-        raw_fields
-    } = functions_utilities.getRawFields(source_key);
+    const raw_fields = functions_utilities.getRawFields(source_key);
 
     // Throw error if raw fields array is empty or doesn't exist
     if (!raw_fields || raw_fields.length === 0) {

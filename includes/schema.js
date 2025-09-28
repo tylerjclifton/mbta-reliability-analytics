@@ -53,13 +53,13 @@ const schema = {
             },
             {
                 'raw': 'active_period_start',
-                'alias': 'alert_start',
-                'type': 'TIMESTAMP'
+                'alias': 'alert_start_date',
+                'type': 'DATE'
             },
             {
                 'raw': 'active_period_end',
-                'alias': 'alert_end',
-                'type': 'TIMESTAMP'
+                'alias': 'alert_end_date',
+                'type': 'DATE'
             },
             {
                 'raw': 'duration_certainty',

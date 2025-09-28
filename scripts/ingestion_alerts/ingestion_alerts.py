@@ -26,7 +26,7 @@ except requests.exceptions.Timeout:
     exit(1)
 
 # Create list of routes to get alerts for
-target_routes = ['Red', 'Blue', 'Orange']
+target_routes = ['Red', 'Blue', 'Orange', 'Green-B', 'Green-C', 'Green-D', 'Green-E']
 
 # Create list of effects to exclude from api call
 exclude_effects = ['STATION_ISSUE', 'ESCALATOR_CLOSURE', 'ELEVATOR_CLOSURE', 'PARKING_CLOSURE', 'PARKING_ISSUE', 'BIKE_ISSUE', 'DOCK_CLOSURE', 'DOCK_ISSUE', 'EXTRA_SERVICE']

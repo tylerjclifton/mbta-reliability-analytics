@@ -84,7 +84,7 @@ function buildDesertSilver(source_key) {
     const delete_statement = functions_utilities.buildDeleteStatement('silver', source_key);
 
     // Initialize select statement variable
-    let select_statement
+    let select_statement;
 
     // If source key is alerts
     if (source_key === 'alerts') {
@@ -110,35 +110,64 @@ function buildDesertSilver(source_key) {
         FROM ${stops_data_set}.${stops_table}
     ),
 
-    -- Case 1: Valid stop id (5-6 digit number) - keep as is
+    -- Case 1: alerts with valid stop_id (5–6 digit numbers)
     alerts_with_stops AS (
         SELECT
             *
         FROM mapped_${source_key}
         WHERE
-            REGEXP_CONTAINS(COALESCE(${stops_id_field}, ''), r'^[0-9]{5,6}$')
+            REGEXP_CONTAINS(COALESCE(stop_id, ''), r'^[0-9]{5,6}$')
     ),
-    
-    -- Case 2: Invalid stop id (not 5-6 digit number) - search silver stops table for possible stop names
-    alerts_without_stops_mapping AS (
+
+    -- Case 2 + 3: alerts with invalid stop_id, search by description/header
+    alerts_with_candidates AS (
         SELECT
             a.*,
-            ARRAY_AGG(s.stop_id IGNORE NULLS) AS candidate_stops
-        FROM mapped_alerts a
-        LEFT JOIN stops s
+            ARRAY_AGG(s.${stops_id_field} IGNORE NULLS) AS candidate_stops
+        FROM mapped_${source_key} a
+        LEFT JOIN stops_lookup s
             ON NOT REGEXP_CONTAINS(COALESCE(a.stop_id, ''), r'^[0-9]{5,6}$')
-        AND (
-                REGEXP_CONTAINS(UPPER(a.alert_description), CONCAT(' ', UPPER(s.stop_name), '[: ]'))
-                OR REGEXP_CONTAINS(UPPER(a.alert_header), UPPER(s.stop_name))
-        )
+           AND (
+                REGEXP_CONTAINS(UPPER(a.alert_description), CONCAT(' ', UPPER(s.${stops_name_field}), '[: ]'))
+             OR REGEXP_CONTAINS(UPPER(a.alert_header), UPPER(s.${stops_name_field}))
+           )
         GROUP BY ALL
+    ),
+
+    -- Expand candidate_stops so alerts can fan out to multiple stop_ids if matched
+    alerts_exploded AS (
+        SELECT
+            a.*,
+            stop_id_candidate AS mapped_stop_id
+        FROM alerts_with_candidates a
+        CROSS JOIN UNNEST(candidate_stops) AS stop_id_candidate
+    ),
+
+    -- Case 4: no stop match → "Not Listed"
+    alerts_not_listed AS (
+        SELECT
+            a.*,
+            'Not Listed' AS mapped_stop_id
+        FROM alerts_with_candidates a
+        WHERE ARRAY_LENGTH(candidate_stops) = 0
     )
 
     SELECT
         *
     FROM alerts_with_stops
-    GROUP BY ALL;
-        `;
+
+    UNION ALL
+
+    SELECT
+        *
+    FROM alerts_exploded
+
+    UNION ALL
+
+    SELECT
+        *
+    FROM alerts_not_listed
+    ;`;
 
     } else {
         // Standard processing

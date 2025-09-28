@@ -40,7 +40,18 @@ const schema = {
                 'raw': 'alert_id',
                 'alias': 'alert_id',
                 'type': 'STRING'
-            }, {
+            },
+            {
+                'raw': 'route',
+                'alias': 'route_id',
+                'type': 'STRING'
+            },
+            {
+                'raw': 'stop',
+                'alias': 'stop_id',
+                'type': 'STRING'
+            },
+            {
                 'raw': 'active_period_start',
                 'alias': 'alert_start',
                 'type': 'TIMESTAMP'
@@ -53,16 +64,6 @@ const schema = {
             {
                 'raw': 'duration_certainty',
                 'alias': 'alert_duration_certainty',
-                'type': 'STRING'
-            },
-            {
-                'raw': 'route',
-                'alias': 'route_id',
-                'type': 'STRING'
-            },
-            {
-                'raw': 'stop',
-                'alias': 'stop_id',
                 'type': 'STRING'
             },
             {
@@ -86,19 +87,9 @@ const schema = {
                 'type': 'STRING'
             },
             {
-                'raw': 'service_effect',
-                'alias': 'alert_service_effect',
-                'type': 'STRING'
-            },
-            {
                 'raw': 'severity',
                 'alias': 'alert_severity',
                 'type': 'INTEGER'
-            },
-            {
-                'raw': 'lifecycle',
-                'alias': 'alert_lifecycle',
-                'type': 'STRING'
             },
             {
                 'raw': 'created_at',

@@ -89,122 +89,49 @@ function buildDesertSilver(source_key) {
     // If source key is alerts
     if (source_key === 'alerts') {
 
+        // Get stops data set and table
+        const stops_data_set = schema.data_sets.silver;
+        const stops_table = schema.tables.silver.stops;
+
+        // Get stops id and name fields
+        const stops_id_field = schema.fields.stops.find(f => f.alias === 'stop_id').alias;
+        const stops_name_field = schema.fields.stops.find(f => f.alias === 'stop_name').alias;
+
         // Create select statement
         select_statement = `
     WITH
     ${buildCteStandardized(source_key)},
     ${buildCteMapping(source_key)},
     
-    stops AS (
+    stops_lookup AS (
         SELECT DISTINCT
-            stop_id,
-            stop_name
-        FROM ${schema.data_sets.silver}.${schema.tables.silver.stops}
+            ${stops_id_field},
+            ${stops_name_field}
+        FROM ${stops_data_set}.${stops_table}
     ),
 
+    -- Case 1: Valid stop_id (5-6 digit number) - keep as is
     alerts_with_stops AS (
-        -- Case 1: Valid stop_id (5-6 digit number) - keep as is
         SELECT
             *
         FROM mapped_${source_key}
         WHERE
-            REGEXP_CONTAINS(COALESCE(stop_id, ''), r'^[0-9]{5,6}$')
+            REGEXP_CONTAINS(COALESCE(${stops_id_field}, ''), r'^[0-9]{5,6}$')
+    ),
     
-        UNION ALL
-
-        -- Case 2: Invalid stop_id - extract stations from alert_description
+    -- Case 2: Invalid stop_id (not 5-6 digit number) - search silver stops table for stop names
+    alerts_without_stops_mapping AS (
         SELECT
-            a.alert_id,
-            a.alert_start,
-            a.alert_end,
-            a.alert_duration_certainty,
-            a.route_id,
-            s.stop_id,
-            a.alert_header,
-            a.alert_description,
-            a.alert_cause,
-            a.alert_effect,
-            a.alert_service_effect,
-            a.alert_severity,
-            a.alert_lifecycle,
-            a.alert_created_at,
-            a.alert_updated_at,
-            a.ingestion_timestamp,
-            a.ingestion_source
-        FROM mapped_${source_key} AS a
-        CROSS JOIN stops AS s
-        WHERE
-            NOT REGEXP_CONTAINS(COALESCE(a.stop_id, ''), r'^[0-9]{5,6}$')
-            AND UPPER(a.alert_description) LIKE '%' || UPPER(s.stop_name) || ':%'
-
-        UNION ALL
-        
-        -- Case 3: Invalid stop_id AND no description matches - try alert_header  
-        SELECT 
-            a.alert_id,
-            a.alert_start,
-            a.alert_end,
-            a.alert_duration_certainty,
-            a.route_id,
-            s.stop_id,
-            a.alert_header,
-            a.alert_description,
-            a.alert_cause,
-            a.alert_effect,
-            a.alert_service_effect,
-            a.alert_severity,
-            a.alert_lifecycle,
-            a.alert_created_at,
-            a.alert_updated_at,
-            a.ingestion_timestamp,
-            a.ingestion_source
-        FROM mapped_${source_key} a  
-        CROSS JOIN stops s
-        WHERE
-            NOT REGEXP_CONTAINS(COALESCE(a.stop_id, ''), r'^[0-9]{5,6}$')
-            AND UPPER(a.alert_header) LIKE '%' || UPPER(s.stop_name) || '%'
-            AND a.alert_id NOT IN (
-                SELECT
-                    alert_id
-                FROM mapped_${source_key} ma
-                CROSS JOIN stops st  
-                WHERE
-                    UPPER(ma.alert_description) LIKE '%' || UPPER(st.stop_name) || ':%'
-            )
-
-        UNION ALL
-        
-        -- Case 4: No station matches anywhere - mark as 'Not Listed'
-        SELECT 
-            a.alert_id,
-            a.alert_start,
-            a.alert_end,
-            a.alert_duration_certainty,
-            a.route_id,
-            'Not Listed' as stop_id,
-            a.alert_header,
-            a.alert_description,
-            a.alert_cause,
-            a.alert_effect,
-            a.alert_service_effect,
-            a.alert_severity,
-            a.alert_lifecycle,
-            a.alert_created_at,
-            a.alert_updated_at,
-            a.ingestion_timestamp,
-            a.ingestion_source
-        FROM mapped_${source_key} a
-        WHERE
-            NOT REGEXP_CONTAINS(COALESCE(a.stop_id, ''), r'^[0-9]{5,6}$')
-            AND a.alert_id NOT IN (
-                SELECT
-                    alert_id
-                FROM mapped_${source_key} ma
-                CROSS JOIN stops st
-                WHERE
-                    UPPER(ma.alert_description) LIKE '%' || UPPER(st.stop_name) || ':%'
-                    OR UPPER(ma.alert_header) LIKE '%' || UPPER(st.stop_name) || '%'
-            )
+            a.*,
+            ARRAY_AGG(s.stop_id IGNORE NULLS) AS candidate_stops
+        FROM mapped_alerts a
+        LEFT JOIN stops s
+            ON NOT REGEXP_CONTAINS(COALESCE(a.stop_id, ''), r'^[0-9]{5,6}$')
+        AND (
+                REGEXP_CONTAINS(UPPER(a.alert_description), CONCAT(' ', UPPER(s.stop_name), '[: ]'))
+                OR REGEXP_CONTAINS(UPPER(a.alert_header), UPPER(s.stop_name))
+        )
+        GROUP BY ALL
     )
 
     SELECT

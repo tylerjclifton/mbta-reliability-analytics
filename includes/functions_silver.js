@@ -110,7 +110,7 @@ function buildDesertSilver(source_key) {
         FROM ${stops_data_set}.${stops_table}
     ),
 
-    -- Case 1: Valid stop_id (5-6 digit number) - keep as is
+    -- Case 1: Valid stop id (5-6 digit number) - keep as is
     alerts_with_stops AS (
         SELECT
             *
@@ -119,7 +119,7 @@ function buildDesertSilver(source_key) {
             REGEXP_CONTAINS(COALESCE(${stops_id_field}, ''), r'^[0-9]{5,6}$')
     ),
     
-    -- Case 2: Invalid stop_id (not 5-6 digit number) - search silver stops table for stop names
+    -- Case 2: Invalid stop id (not 5-6 digit number) - search silver stops table for possible stop names
     alerts_without_stops_mapping AS (
         SELECT
             a.*,

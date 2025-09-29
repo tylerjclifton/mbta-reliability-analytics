@@ -62,11 +62,6 @@ const schema = {
                 'type': 'STRING'
             },
             {
-                'raw': 'duration_certainty',
-                'alias': 'alert_duration_certainty',
-                'type': 'STRING'
-            },
-            {
                 'raw': 'header',
                 'alias': 'alert_header',
                 'type': 'STRING'
@@ -92,6 +87,11 @@ const schema = {
                 'type': 'INTEGER'
             },
             {
+                'raw': 'duration_certainty',
+                'alias': 'alert_duration_certainty',
+                'type': 'STRING'
+            },
+            {
                 'raw': 'created_at',
                 'alias': 'alert_created_at',
                 'type': 'DATE'
@@ -102,14 +102,14 @@ const schema = {
                 'type': 'DATE'
             },
             {
-                'raw': 'ingestion_timestamp',
-                'alias': 'ingestion_timestamp',
-                'type': 'TIMESTAMP'
-            },
-            {
                 'raw': 'ingestion_source',
                 'alias': 'ingestion_source',
                 'type': 'STRING'
+            },
+            {
+                'raw': 'ingestion_timestamp',
+                'alias': 'ingestion_timestamp',
+                'type': 'TIMESTAMP'
             }
         ],
         'routes': [{
@@ -123,6 +123,11 @@ const schema = {
                 'type': 'STRING'
             },
             {
+                'raw': 'description',
+                'alias': 'route_description',
+                'type': 'STRING'
+            },
+            {
                 'raw': 'route_type',
                 'alias': 'route_type',
                 'type': 'STRING'
@@ -130,11 +135,6 @@ const schema = {
             {
                 'raw': 'color',
                 'alias': 'route_color',
-                'type': 'STRING'
-            },
-            {
-                'raw': 'description',
-                'alias': 'route_description',
                 'type': 'STRING'
             },
             {
@@ -148,14 +148,14 @@ const schema = {
                 'type': 'STRING'
             },
             {
-                'raw': 'ingestion_timestamp',
-                'alias': 'ingestion_timestamp',
-                'type': 'TIMESTAMP'
-            },
-            {
                 'raw': 'ingestion_source',
                 'alias': 'ingestion_source',
                 'type': 'STRING'
+            },
+            {
+                'raw': 'ingestion_timestamp',
+                'alias': 'ingestion_timestamp',
+                'type': 'TIMESTAMP'
             }
         ],
         'shapes': [{
@@ -169,14 +169,14 @@ const schema = {
                 'type': 'STRING'
             },
             {
-                'raw': 'ingestion_timestamp',
-                'alias': 'ingestion_timestamp',
-                'type': 'TIMESTAMP'
-            },
-            {
                 'raw': 'ingestion_source',
                 'alias': 'ingestion_source',
                 'type': 'STRING'
+            },
+            {
+                'raw': 'ingestion_timestamp',
+                'alias': 'ingestion_timestamp',
+                'type': 'TIMESTAMP'
             }
         ],
         'stops': [{
@@ -210,14 +210,14 @@ const schema = {
                 'type': 'STRING'
             },
             {
-                'raw': 'ingestion_timestamp',
-                'alias': 'ingestion_timestamp',
-                'type': 'TIMESTAMP'
-            },
-            {
                 'raw': 'ingestion_source',
                 'alias': 'ingestion_source',
                 'type': 'STRING'
+            },
+            {
+                'raw': 'ingestion_timestamp',
+                'alias': 'ingestion_timestamp',
+                'type': 'TIMESTAMP'
             }
         ]
     },

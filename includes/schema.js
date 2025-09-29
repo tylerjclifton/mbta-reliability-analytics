@@ -37,6 +37,16 @@ const schema = {
     },
     'fields': {
         'alerts': [{
+                'raw': 'active_period_start',
+                'alias': 'alert_start_date',
+                'type': 'DATE'
+            },
+            {
+                'raw': 'active_period_end',
+                'alias': 'alert_end_date',
+                'type': 'DATE'
+            },
+            {
                 'raw': 'alert_id',
                 'alias': 'alert_id',
                 'type': 'STRING'
@@ -50,16 +60,6 @@ const schema = {
                 'raw': 'stop',
                 'alias': 'stop_id',
                 'type': 'STRING'
-            },
-            {
-                'raw': 'active_period_start',
-                'alias': 'alert_start_date',
-                'type': 'DATE'
-            },
-            {
-                'raw': 'active_period_end',
-                'alias': 'alert_end_date',
-                'type': 'DATE'
             },
             {
                 'raw': 'duration_certainty',
@@ -94,12 +94,12 @@ const schema = {
             {
                 'raw': 'created_at',
                 'alias': 'alert_created_at',
-                'type': 'STRING'
+                'type': 'DATE'
             },
             {
                 'raw': 'updated_at',
                 'alias': 'alert_updated_at',
-                'type': 'STRING'
+                'type': 'DATE'
             },
             {
                 'raw': 'ingestion_timestamp',

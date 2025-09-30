@@ -93,16 +93,27 @@ function buildDesertSilver(source_key) {
         const stops_data_set = schema.data_sets.silver;
         const stops_table = schema.tables.silver.stops;
 
-        // Get stops id and name fields
-        const stops_id_field = schema.fields.stops.find(f => f.alias === 'stop_id').alias;
-        const stops_name_field = schema.fields.stops.find(f => f.alias === 'stop_name').alias;
+        // Get alerts and stops field arrays
+        const alerts_fields = schema.fields['alerts'];
+        const stops_fields = schema.fields['stops'];
 
-        // Create select statement
+        // Get final alerts fields
+        const final_alerts_fields = alerts_fields.map(field => `${field.alias}`)
+
+        // Get fields for alerts with mapped stops join
+        const final_alerts_with_join_prefix = alerts_fields
+            .filter(field => field.alias !== 'stop_id') // exclude stop_id
+            .map(field => `a.${field.alias}`);
+
+        // Get stops id and name fields
+        const stops_id_field = stops_fields.find(field => field.alias.toLowerCase().includes('_id')).alias;
+        const stops_name_field = stops_fields.find(field => field.alias.toLowerCase().includes('_name')).alias;
+
+        // Create select statement for alerts
         select_statement = `
     WITH
     ${buildCteStandardized(source_key)},
-    ${buildCteMapping(source_key)},
-    
+
     stops_lookup AS (
         SELECT DISTINCT
             ${stops_id_field},
@@ -110,66 +121,51 @@ function buildDesertSilver(source_key) {
         FROM ${stops_data_set}.${stops_table}
     ),
 
-    -- Case 1: alerts with valid stop_id (5–6 digit numbers)
-    alerts_with_stops AS (
+    alerts_with_valid_stops AS (
         SELECT
             *
         FROM mapped_${source_key}
-        WHERE
-            REGEXP_CONTAINS(COALESCE(stop_id, ''), r'^[0-9]{5,6}$')
+        WHERE REGEXP_CONTAINS(stop_id, r'^[0-9]{5,6}$')
     ),
 
-    -- Case 2 + 3: alerts with invalid stop_id, search by description/header
-    alerts_with_candidates AS (
+    alerts_with_mapped_stops AS (
         SELECT
-            a.*,
-            ARRAY_AGG(s.${stops_id_field} IGNORE NULLS) AS candidate_stops
-        FROM mapped_${source_key} a
-        LEFT JOIN stops_lookup s
-            ON NOT REGEXP_CONTAINS(COALESCE(a.stop_id, ''), r'^[0-9]{5,6}$')
-           AND (
-                REGEXP_CONTAINS(UPPER(a.alert_description), CONCAT(' ', UPPER(s.${stops_name_field}), '[: ]'))
-             OR REGEXP_CONTAINS(UPPER(a.alert_header), UPPER(s.${stops_name_field}))
-           )
-        GROUP BY ALL
-    ),
-
-    -- Expand candidate_stops so alerts can fan out to multiple stop_ids if matched
-    alerts_exploded AS (
-        SELECT
-            a.*,
-            stop_id_candidate AS mapped_stop_id
-        FROM alerts_with_candidates a
-        CROSS JOIN UNNEST(candidate_stops) AS stop_id_candidate
-    ),
-
-    -- Case 4: no stop match → "Not Listed"
-    alerts_not_listed AS (
-        SELECT
-            a.*,
-            'Not Listed' AS mapped_stop_id
-        FROM alerts_with_candidates a
-        WHERE ARRAY_LENGTH(candidate_stops) = 0
+            ${final_alerts_with_join_prefix.join(',\n            ')},
+            COALESCE(
+                (
+                    SELECT
+                        s.stop_id
+                    FROM stops_lookup s
+                    WHERE
+                        UPPER(a.alert_description) LIKE '%' || UPPER(s.stop_name) || '%'
+                    LIMIT 1
+                ),
+                (
+                    SELECT
+                        s.stop_id
+                    FROM stops_lookup s
+                    WHERE UPPER(a.alert_header) LIKE '%' || UPPER(s.stop_name) || '%'
+                    LIMIT 1
+                ),
+                'Not Listed'
+            ) as stop_id
+        FROM standardized_${source_key} a
+        WHERE NOT
+            REGEXP_CONTAINS(a.stop_id, r'^[0-9]{5,6}$')
     )
 
     SELECT
         *
-    FROM alerts_with_stops
+    FROM alerts_with_valid_stops
 
     UNION ALL
 
     SELECT
-        *
-    FROM alerts_exploded
+        ${final_alerts_fields.join(',\n        ')}
+    FROM alerts_with_mapped_stops;
+        `;
 
-    UNION ALL
-
-    SELECT
-        *
-    FROM alerts_not_listed
-    ;`;
-
-    } else {
+    } else if (source_key in schema.taxonomy) {
         // Standard processing
         select_statement = `
     WITH
@@ -180,6 +176,15 @@ function buildDesertSilver(source_key) {
         *
     FROM mapped_${source_key};
         `;
+    } else {
+        select_statement = `
+    WITH
+    ${buildCteStandardized(source_key)}
+
+    SELECT
+        *
+    FROM standardized_${source_key};
+    `
     }
 
     // Return statements

@@ -124,34 +124,20 @@ function buildDesertSilver(source_key) {
     alerts_with_valid_stops AS (
         SELECT
             *
-        FROM mapped_${source_key}
+        FROM standardized_${source_key}
         WHERE REGEXP_CONTAINS(stop_id, r'^[0-9]{5,6}$')
     ),
 
     alerts_with_mapped_stops AS (
         SELECT
             ${final_alerts_with_join_prefix.join(',\n            ')},
-            COALESCE(
-                (
-                    SELECT
-                        s.stop_id
-                    FROM stops_lookup s
-                    WHERE
-                        UPPER(a.alert_description) LIKE '%' || UPPER(s.stop_name) || '%'
-                    LIMIT 1
-                ),
-                (
-                    SELECT
-                        s.stop_id
-                    FROM stops_lookup s
-                    WHERE UPPER(a.alert_header) LIKE '%' || UPPER(s.stop_name) || '%'
-                    LIMIT 1
-                ),
-                'Not Listed'
-            ) as stop_id
-        FROM standardized_${source_key} a
-        WHERE NOT
-            REGEXP_CONTAINS(a.stop_id, r'^[0-9]{5,6}$')
+            COALESCE(s1.stop_id, s2.stop_id, 'Not Listed') AS stop_id
+        FROM standardized_alerts a
+        LEFT JOIN stops_lookup s1
+            ON UPPER(a.alert_description) LIKE '%' || UPPER(s1.stop_name) || '%'
+        LEFT JOIN stops_lookup s2
+            ON UPPER(a.alert_header) LIKE '%' || UPPER(s2.stop_name) || '%'
+        WHERE NOT REGEXP_CONTAINS(a.stop_id, r'^[0-9]{5,6}$')
     )
 
     SELECT

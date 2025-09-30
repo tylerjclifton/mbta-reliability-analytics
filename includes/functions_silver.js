@@ -20,7 +20,13 @@ function buildCteStandardized(source_key) {
 
     // Build rows for renaming and casting each field in fields array
     const rows = fields_array.map(
-        field => `CAST(${field.raw} AS ${field.type}) AS ${field.alias}`
+        field => {
+            if (field.type === 'DATE') {
+                return `CAST(REGEXP_EXTRACT(CAST(${field.raw} AS STRING), r"^\\d{4}-\\d{2}-\\d{2}") AS DATE) AS ${field.alias}`
+            } else {
+                return `CAST(${field.raw} AS ${field.type}) AS ${field.alias}`
+            }
+        }
     );
 
     // Return standardized CTE

@@ -1,16 +1,16 @@
 config {
     type: 'incremental',
-    schema: 'bronze',
-    name: 'alerts_raw',
-    tags: ['alerts'],
-    protected: true
+    schema: 'shapes',
+    name: 'shapes_cleaned',
+    tags: ['shapes'],
+    dependencies: ['shapes_raw']
 }
 
 js {
     const {
         delete_statement,
         select_statement
-    } = functions_bronze.buildDesertBronze('alerts');
+    } = functions_silver.buildDesertSilver('shapes');
 }
 
 SELECT

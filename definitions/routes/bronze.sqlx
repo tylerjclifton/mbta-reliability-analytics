@@ -1,6 +1,6 @@
 config {
     type: 'incremental',
-    schema: 'bronze',
+    schema: 'routes',
     name: 'routes_raw',
     tags: ['routes'],
     protected: true

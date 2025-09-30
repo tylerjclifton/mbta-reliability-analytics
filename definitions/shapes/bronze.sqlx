@@ -1,16 +1,16 @@
 config {
     type: 'incremental',
-    schema: 'silver',
-    name: 'shapes_cleaned',
+    schema: 'shapes',
+    name: 'shapes_raw',
     tags: ['shapes'],
-    dependencies: ['shapes_raw']
+    protected: true
 }
 
 js {
     const {
         delete_statement,
         select_statement
-    } = functions_silver.buildDesertSilver('shapes');
+    } = functions_bronze.buildDesertBronze('shapes');
 }
 
 SELECT

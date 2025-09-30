@@ -1,8 +1,8 @@
 config {
     type: 'incremental',
-    schema: 'bronze',
-    name: 'shapes_raw',
-    tags: ['shapes'],
+    schema: 'stops',
+    name: 'stops_raw',
+    tags: ['stops'],
     protected: true
 }
 
@@ -10,7 +10,7 @@ js {
     const {
         delete_statement,
         select_statement
-    } = functions_bronze.buildDesertBronze('shapes');
+    } = functions_bronze.buildDesertBronze('stops');
 }
 
 SELECT

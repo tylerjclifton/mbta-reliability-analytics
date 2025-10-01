@@ -1,16 +1,16 @@
 config {
     type: 'incremental',
     schema: 'stops',
-    name: 'stops_cleaned',
+    name: 'stops_silver',
     tags: ['stops'],
-    dependencies: ['stops_raw']
+    dependencies: ['stops_bronze']
 }
 
 js {
     const {
         delete_statement,
         select_statement
-    } = functions_silver.buildDesertSilver('stops');
+    } = functions.buildDesertSilver('stops');
 }
 
 SELECT

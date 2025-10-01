@@ -1,16 +1,16 @@
 config {
     type: 'incremental',
     schema: 'alerts',
-    name: 'alerts_cleaned',
+    name: 'alerts_silver',
     tags: ['alerts'],
-    dependencies: ['alerts_raw']
+    dependencies: ['alerts_bronze']
 }
 
 js {
     const {
         delete_statement,
         select_statement
-    } = functions_silver.buildDesertSilver('alerts');
+    } = functions.buildDesertSilver('alerts');
 }
 
 SELECT

@@ -1,16 +1,16 @@
 config {
     type: 'incremental',
     schema: 'routes',
-    name: 'routes_cleaned',
+    name: 'routes_silver',
     tags: ['routes'],
-    dependencies: ['routes_raw']
+    dependencies: ['routes_bronze']
 }
 
 js {
     const {
         delete_statement,
         select_statement
-    } = functions_silver.buildDesertSilver('routes');
+    } = functions.buildDesertSilver('routes');
 }
 
 SELECT

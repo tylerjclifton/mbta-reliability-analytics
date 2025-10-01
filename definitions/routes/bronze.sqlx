@@ -1,7 +1,7 @@
 config {
     type: 'incremental',
     schema: 'routes',
-    name: 'routes_raw',
+    name: 'routes_bronze',
     tags: ['routes'],
     protected: true
 }
@@ -10,7 +10,7 @@ js {
     const {
         delete_statement,
         select_statement
-    } = functions_bronze.buildDesertBronze('routes');
+    } = functions.buildDesertBronze('routes');
 }
 
 SELECT

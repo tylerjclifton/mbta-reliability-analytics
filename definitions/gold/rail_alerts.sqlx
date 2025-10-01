@@ -1,11 +1,11 @@
 config {
     type: 'incremental',
     schema: 'gold',
-    name: 'system_alerts',
+    name: 'rail_alerts',
     dependencies: [
-        'alerts_cleaned',
-        'routes_cleaned',
-        'stops_cleaned'
+        'alerts_silver',
+        'routes_silver',
+        'stops_silver'
     ],
     tags: [
         'alerts',
@@ -18,7 +18,7 @@ js {
     const {
         delete_statement,
         select_statement
-    } = functions_gold.buildDesertGold('system_alerts');
+    } = functions.buildDesertGold('system_alerts');
 }
 
 SELECT

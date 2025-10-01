@@ -1,7 +1,7 @@
 config {
     type: 'incremental',
     schema: 'alerts',
-    name: 'alerts_raw',
+    name: 'alerts_bronze',
     tags: ['alerts'],
     protected: true
 }
@@ -10,7 +10,7 @@ js {
     const {
         delete_statement,
         select_statement
-    } = functions_bronze.buildDesertBronze('alerts');
+    } = functions.buildDesertBronze('alerts');
 }
 
 SELECT

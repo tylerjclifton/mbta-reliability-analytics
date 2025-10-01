@@ -1,9 +1,9 @@
 const schema = {
     'data_sets': {
-        'staging': 'staging',
-        'bronze': 'bronze',
-        'silver': 'silver',
-        'gold': 'gold'
+        'alerts': 'alerts',
+        'routes': 'routes',
+        'shapes': 'shapes',
+        'stops': 'stops'
     },
     'tables': {
         'staging': {

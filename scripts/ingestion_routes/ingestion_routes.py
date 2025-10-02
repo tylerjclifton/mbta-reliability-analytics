@@ -85,8 +85,8 @@ output = pandas.DataFrame(standardized_routes)
 
 # Define BigQuery project, dataset, and table using environment variables
 project_id = os.getenv('BQ_PROJECT_ID', 'mbta-reliability-analytics')
-dataset_id = os.getenv('BQ_DATASET_ID', 'staging')
-table_id = os.getenv('BQ_TABLE_ID', 'routes_raw')
+dataset_id = os.getenv('BQ_DATASET_ID', 'routes')
+table_id = os.getenv('BQ_TABLE_ID', 'staging')
 
 # Write to BigQuery
 try:

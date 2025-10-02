@@ -84,8 +84,8 @@ output = pandas.DataFrame(standardized_stops)
 
 # Define BigQuery project, dataset, and table using environment variables
 project_id = os.getenv('BQ_PROJECT_ID', 'mbta-reliability-analytics')
-dataset_id = os.getenv('BQ_DATASET_ID', 'staging')
-table_id = os.getenv('BQ_TABLE_ID', 'stops_raw')
+dataset_id = os.getenv('BQ_DATASET_ID', 'stops')
+table_id = os.getenv('BQ_TABLE_ID', 'staging')
 
 try:
     # Upload the DataFrame to BigQuery (replace table if it already exists)

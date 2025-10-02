@@ -1,9 +1,12 @@
 config {
     type: 'incremental',
     schema: 'routes',
-    name: 'routes_silver',
+    name: 'silver',
     tags: ['routes'],
-    dependencies: ['routes_bronze']
+    dependencies: [{
+        schema: 'routes',
+        name: 'bronze'
+    }]
 }
 
 js {

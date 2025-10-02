@@ -1,9 +1,12 @@
 config {
     type: 'incremental',
     schema: 'stops',
-    name: 'stops_silver',
+    name: 'silver',
     tags: ['stops'],
-    dependencies: ['stops_bronze']
+    dependencies: [{
+        schema: 'stops',
+        name: 'bronze'
+    }]
 }
 
 js {

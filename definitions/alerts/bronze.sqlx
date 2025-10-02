@@ -1,7 +1,7 @@
 config {
     type: 'incremental',
     schema: 'alerts',
-    name: 'alerts_bronze',
+    name: 'bronze',
     tags: ['alerts'],
     protected: true
 }

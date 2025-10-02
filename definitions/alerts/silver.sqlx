@@ -1,9 +1,17 @@
 config {
     type: 'incremental',
     schema: 'alerts',
-    name: 'alerts_silver',
+    name: 'silver',
     tags: ['alerts'],
-    dependencies: ['alerts_bronze']
+    dependencies: [{
+            schema: 'alerts',
+            name: 'bronze'
+        },
+        {
+            schema: 'stops',
+            name: 'silver'
+        }
+    ]
 }
 
 js {

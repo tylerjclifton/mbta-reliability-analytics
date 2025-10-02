@@ -2,10 +2,18 @@ config {
     type: 'incremental',
     schema: 'gold',
     name: 'rail_alerts',
-    dependencies: [
-        'alerts_silver',
-        'routes_silver',
-        'stops_silver'
+    dependencies: [{
+            schema: 'alerts',
+            name: 'silver'
+        },
+        {
+            schema: 'routes',
+            name: 'silver'
+        },,
+        {
+            schema: 'stops',
+            name: 'silver'
+        }
     ],
     tags: [
         'alerts',

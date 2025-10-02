@@ -1,9 +1,12 @@
 config {
     type: 'incremental',
     schema: 'shapes',
-    name: 'shapes_silver',
+    name: 'silver',
     tags: ['shapes'],
-    dependencies: ['shapes_bronze']
+    dependencies: [{
+        schema: 'shapes',
+        name: 'bronze'
+    }]
 }
 
 js {

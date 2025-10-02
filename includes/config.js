@@ -7,22 +7,22 @@ const schema = {
     },
     'tables': {
         'staging': {
-            'alerts': 'alerts_raw',
-            'routes': 'routes_raw',
-            'shapes': 'shapes_raw',
-            'stops': 'stops_raw'
+            'alerts': 'staging',
+            'routes': 'staging',
+            'shapes': 'staging',
+            'stops': 'staging'
         },
         'bronze': {
-            'alerts': 'alerts_raw',
-            'routes': 'routes_raw',
-            'shapes': 'shapes_raw',
-            'stops': 'stops_raw'
+            'alerts': 'bronze',
+            'routes': 'bronze',
+            'shapes': 'bronze',
+            'stops': 'bronze'
         },
         'silver': {
-            'alerts': 'alerts_cleaned',
-            'routes': 'routes_cleaned',
-            'shapes': 'shapes_cleaned',
-            'stops': 'stops_cleaned'
+            'alerts': 'silver',
+            'routes': 'silver',
+            'shapes': 'silver',
+            'stops': 'silver'
         },
         'gold': {
             'system_alerts': {

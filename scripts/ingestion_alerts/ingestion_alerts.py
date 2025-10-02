@@ -14,10 +14,10 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # Attempt to request response from MBTA alerts API endpoint
 try:
     # Make a GET request to the MBTA alerts API
-    # Commented out API call with filter since Green and Red lines don't come through when using it
+    # Filter to Red, Blue, Orange, and Green routes
     # Set request to timeout after 30 seconds
-    # response = requests.get('https://api-v3.mbta.com/alerts?filter[route_type]=0,1', timeout=30)
-    response = requests.get('https://api-v3.mbta.com/alerts', timeout=30)
+    response = requests.get('https://api-v3.mbta.com/alerts?filter[route]=Red,Blue,Orange,Green-B,Green-C,Green-D,Green-E', timeout=30)
+
 # If request times out
 except requests.exceptions.Timeout:
     # Log that the request timed out

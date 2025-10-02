@@ -11,11 +11,12 @@ from pandas_gbq import to_gbq
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+# Attempt to request response from MBTA shapes API endpoint
 try:
     # Make a GET request to the MBTA stops API
-    # Filter to light (0) and heavy (1) rail route types
+    # Filter to Red, Blue, Orange, and Green routes
     # Set request to timeout after 30 seconds
-    response = requests.get('https://api-v3.mbta.com/stops?filter[route_type]=0,1', timeout=30)
+    response = requests.get('https://api-v3.mbta.com/stops?filter[route]=Red,Blue,Orange,Green-B,Green-C,Green-D,Green-E', timeout=30)
 
 except requests.exceptions.Timeout:
     # Log that the request timed out
@@ -74,6 +75,7 @@ if response.status_code == 200:
     else:
         # Log that no stops exist in current response
         logging.info("No current stops")
+        
 else:
     # The API request failed; log the HTTP status code
     logging.error(f"API request failed with status code: {response.status_code}")
@@ -92,6 +94,7 @@ try:
     to_gbq(output, f'{dataset_id}.{table_id}', project_id=project_id, if_exists='replace')
     # Log number of uploaded rows
     logging.info(f"{len(output)} rows uploaded to BigQuery")
+
 except Exception as e:
     # Log that the BigQuery upload failed
     logging.error(f"BigQuery upload failed: {e}")

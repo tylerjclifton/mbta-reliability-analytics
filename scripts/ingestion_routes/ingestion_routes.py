@@ -14,9 +14,10 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # Attempt to request response from MBTA routes API endpoint
 try:
     # Make a GET request to the MBTA routes API
-    # Filter to light (0) and heavy (1) rail route types
+    # Filter to Red, Blue, Orange, and Green routes
     # Set request to timeout after 30 seconds
-    response = requests.get('https://api-v3.mbta.com/routes?filter[type]=0,1', timeout=30)
+    response = requests.get('https://api-v3.mbta.com/routes?filter[id]=Red,Blue,Orange,Green-B,Green-C,Green-D,Green-E', timeout=30)
+
 # If request times out
 except requests.exceptions.Timeout:
     # Log that the request timed out

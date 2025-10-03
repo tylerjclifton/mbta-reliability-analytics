@@ -25,8 +25,8 @@ const config = {
             'stops': 'silver'
         },
         'gold': {
-            'system_alerts': {
-                'name': 'system_alerts',
+            'rail_alerts': {
+                'name': 'rail_alerts',
                 'sources': [
                     'alerts',
                     'routes',

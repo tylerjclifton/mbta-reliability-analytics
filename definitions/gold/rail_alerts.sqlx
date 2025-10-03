@@ -26,7 +26,7 @@ js {
     const {
         delete_statement,
         select_statement
-    } = functions.buildDesertGold('system_alerts');
+    } = functions.buildDesertGold('rail_alerts');
 }
 
 SELECT

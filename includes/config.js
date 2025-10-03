@@ -1,4 +1,4 @@
-const schema = {
+const config = {
     'data_sets': {
         'alerts': 'alerts',
         'routes': 'routes',
@@ -232,5 +232,5 @@ const schema = {
 }
 
 module.exports = {
-    schema
+    config
 }

@@ -1,13 +1,13 @@
-// Import schema
+// Import config
 const {
-    schema
+    config
 } = require('includes/config');
 
 // Get key from fields array
 function getKeyField(source_key) {
 
     // Get fields array for source
-    const fields_array = schema.fields[source_key];
+    const fields_array = config.fields[source_key];
 
     // Determine key field (prefer *_id, fallback *_name)
     const key_field =
@@ -22,13 +22,13 @@ function getKeyField(source_key) {
 // Get raw values from fields array
 function getRawFields(source_key) {
 
-    // Throw error if schema does not exist or does not have nested fields object
-    if (!schema || !schema.fields) {
-        throw new Error('Invalid schema');
+    // Throw error if config does not exist or does not have nested fields object
+    if (!config || !config.fields) {
+        throw new Error('Invalid config');
     }
 
     // Get source fields array
-    const fields_array = schema.fields[source_key];
+    const fields_array = config.fields[source_key];
 
     // Throw error if fields array does not exist or is empty
     if (!fields_array || fields_array.length === 0) {
@@ -47,8 +47,8 @@ function getRawFields(source_key) {
 function buildDeleteStatement(medallion_layer, source_key) {
 
     // Get data set and table info
-    const data_sets = schema.data_sets;
-    const tables = schema.tables;
+    const data_sets = config.data_sets;
+    const tables = config.tables;
 
     // Initialize data set and table variables
     let source_data_set, destination_data_set, source_table, destination_table;
@@ -62,7 +62,7 @@ function buildDeleteStatement(medallion_layer, source_key) {
         case 'bronze': {
 
             // Get source fields array
-            const fields_array = schema.fields[source_key];
+            const fields_array = config.fields[source_key];
 
             // Throw error if fields array does not exist
             if (!fields_array || !fields_array.length) {
@@ -94,7 +94,7 @@ function buildDeleteStatement(medallion_layer, source_key) {
         case 'silver': {
 
             // Get fields array for source
-            const fields_array = schema.fields[source_key];
+            const fields_array = config.fields[source_key];
 
             // Throw error if fields array does not exist
             if (!fields_array || !fields_array.length) {
@@ -134,7 +134,7 @@ function buildDeleteStatement(medallion_layer, source_key) {
             }
 
             // Get primary source for gold table
-            primary_source = schema.tables.gold[source_key].sources[0];
+            primary_source = config.tables.gold[source_key].sources[0];
 
             // Create array to hold combined fields
             const combined_fields = [];
@@ -146,7 +146,7 @@ function buildDeleteStatement(medallion_layer, source_key) {
             gold_table.sources.forEach(src => {
 
                 // Get source fields array
-                const fields_array = schema.fields[src];
+                const fields_array = config.fields[src];
 
                 // Throw error if fields array does not exist
                 if (!fields_array || !fields_array.length) {
@@ -234,8 +234,8 @@ function buildDeleteStatement(medallion_layer, source_key) {
 function buildDesertBronze(source_key) {
 
     // Get source data set and table
-    const source_data_set = schema.data_sets[source_key];
-    const source_table = schema.tables.staging[source_key];
+    const source_data_set = config.data_sets[source_key];
+    const source_table = config.tables.staging[source_key];
 
     // Get raw values from source fields array
     const raw_fields = getRawFields(source_key);
@@ -263,15 +263,15 @@ function buildDesertBronze(source_key) {
 
 }
 
-// Build standardized CTE (renaming + casting)
-function buildCteStandardized(source_key) {
+// Build base CTE (renaming + casting)
+function buildCteBase(source_key) {
 
     // Get source data set and table
-    const source_data_set = schema.data_sets[source_key];
-    const source_table = schema.tables.bronze[source_key];
+    const source_data_set = config.data_sets[source_key];
+    const source_table = config.tables.bronze[source_key];
 
     // Get source fields array
-    const fields_array = schema.fields[source_key];
+    const fields_array = config.fields[source_key];
 
     // Throw error if fields array is empty or doesn't exist
     if (!fields_array || fields_array.length === 0) {
@@ -289,9 +289,9 @@ function buildCteStandardized(source_key) {
         }
     );
 
-    // Return standardized CTE
+    // Return base CTE
     return `
-    standardized_${source_key} AS (
+    base_${source_key} AS (
         SELECT
             ${rows.join(',\n            ')}
         FROM ${source_data_set}.${source_table}
@@ -304,16 +304,16 @@ function buildCteStandardized(source_key) {
 function buildCteMapping(source_key) {
 
     // Get source fields array
-    const fields_array = schema.fields[source_key];
+    const fields_array = config.fields[source_key];
 
     // Iterate through fields array and apply taxonomy rules where available
     const mapped_rows = fields_array.map(f => {
 
         // Check if taxonomy exists for this source and field alias
-        if (schema.taxonomy[source_key] && schema.taxonomy[source_key][f.alias]) {
+        if (config.taxonomy[source_key] && config.taxonomy[source_key][f.alias]) {
 
             // Retrieve the taxonomy mapping for this field
-            const mapping = schema.taxonomy[source_key][f.alias];
+            const mapping = config.taxonomy[source_key][f.alias];
 
             // Build CASE WHEN statements from mapping (val → label)
             const cases = Object.entries(mapping)
@@ -338,7 +338,7 @@ function buildCteMapping(source_key) {
     mapped_${source_key} AS (
         SELECT
             ${mapped_rows.join(',\n            ')}
-        FROM standardized_${source_key}
+        FROM base_${source_key}
     )`;
 
 }
@@ -356,20 +356,24 @@ function buildDesertSilver(source_key) {
     if (source_key === 'alerts') {
 
         // Get stops data set and table
-        const stops_data_set = schema.data_sets.stops;
-        const stops_table = schema.tables.silver.stops;
+        const stops_data_set = config.data_sets.stops;
+        const stops_table = config.tables.silver.stops;
 
         // Get alerts and stops field arrays
-        const alerts_fields = schema.fields['alerts'];
-        const stops_fields = schema.fields['stops'];
+        const alerts_fields = config.fields['alerts'];
+        const stops_fields = config.fields['stops'];
 
         // Get final alerts fields
         const final_alerts_fields = alerts_fields.map(field => `${field.alias}`)
 
         // Get fields for alerts with mapped stops join
-        const final_alerts_with_join_prefix = alerts_fields
-            .filter(field => field.alias !== 'stop_id') // exclude stop_id
-            .map(field => `a.${field.alias}`);
+        const final_alert_fields_no_stop = alerts_fields
+            .map(field => {
+                if (field.alias === 'stop_id') {
+                    return "'Unavailable' AS stop_id";
+                }
+                return `${field.alias}`;
+            });
 
         // Get stops id and name fields
         const stops_id_field = stops_fields.find(field => field.alias.toLowerCase().includes('_id')).alias;
@@ -378,7 +382,7 @@ function buildDesertSilver(source_key) {
         // Create select statement for alerts
         select_statement = `
     WITH
-    ${buildCteStandardized(source_key)},
+    ${buildCteBase(source_key)},
 
     stops_lookup AS (
         SELECT DISTINCT
@@ -389,21 +393,19 @@ function buildDesertSilver(source_key) {
 
     alerts_with_valid_stops AS (
         SELECT
-            *
-        FROM standardized_${source_key}
-        WHERE REGEXP_CONTAINS(stop_id, r'^[0-9]{5,6}$')
+            ${final_alerts_fields.join(',\n            ')}
+        FROM base_${source_key}
+        WHERE
+            REGEXP_CONTAINS(stop_id, r'^[0-9]{5,6}$')
     ),
 
-    alerts_with_mapped_stops AS (
+    alerts_without_valid_stops AS (
         SELECT
-            ${final_alerts_with_join_prefix.join(',\n            ')},
-            COALESCE(s1.stop_id, s2.stop_id, 'Not Listed') AS stop_id
-        FROM standardized_alerts a
-        LEFT JOIN stops_lookup s1
-            ON UPPER(a.alert_description) LIKE '%' || UPPER(s1.stop_name) || '%'
-        LEFT JOIN stops_lookup s2
-            ON UPPER(a.alert_header) LIKE '%' || UPPER(s2.stop_name) || '%'
-        WHERE NOT REGEXP_CONTAINS(a.stop_id, r'^[0-9]{5,6}$')
+            ${final_alert_fields_no_stop.join(',\n            ')}
+        FROM base_${source_key}
+        WHERE
+            NOT REGEXP_CONTAINS(stop_id, r'^[0-9]{5,6}$')
+        GROUP BY ALL
     )
 
     SELECT
@@ -411,17 +413,17 @@ function buildDesertSilver(source_key) {
     FROM alerts_with_valid_stops
 
     UNION ALL
-
+    
     SELECT
-        ${final_alerts_fields.join(',\n        ')}
-    FROM alerts_with_mapped_stops;
+        *
+    FROM alerts_without_valid_stops;
         `;
 
-    } else if (source_key in schema.taxonomy) {
+    } else if (source_key in config.taxonomy) {
         // Standard processing
         select_statement = `
     WITH
-    ${buildCteStandardized(source_key)},
+    ${buildCteBase(source_key)},
     ${buildCteMapping(source_key)}
 
     SELECT
@@ -431,11 +433,11 @@ function buildDesertSilver(source_key) {
     } else {
         select_statement = `
     WITH
-    ${buildCteStandardized(source_key)}
+    ${buildCteBase(source_key)}
 
     SELECT
         *
-    FROM standardized_${source_key};
+    FROM base_${source_key};
     `
     }
 
@@ -449,10 +451,10 @@ function buildDesertSilver(source_key) {
 
 // Find common keys between two sources for joining, only _id fields
 function findJoinKeys(sourceA, sourceB) {
-    const fieldsA = schema.fields[sourceA]
+    const fieldsA = config.fields[sourceA]
         .map(f => f.alias)
         .filter(alias => alias.toLowerCase().includes('_id')); // only _id fields
-    const fieldsB = schema.fields[sourceB]
+    const fieldsB = config.fields[sourceB]
         .map(f => f.alias)
         .filter(alias => alias.toLowerCase().includes('_id')); // only _id fields
     return fieldsA.filter(f => fieldsB.includes(f)); // keep order of sourceA
@@ -460,7 +462,7 @@ function findJoinKeys(sourceA, sourceB) {
 
 // Build desert statement for gold layer
 function buildDesertGold(gold_key) {
-    const gold_table = schema.tables.gold[gold_key];
+    const gold_table = config.tables.gold[gold_key];
     if (!gold_table) throw new Error(`No gold table found for ${gold_key}`);
     if (!gold_table.sources || gold_table.sources.length === 0) throw new Error(`No sources defined for gold table: ${gold_key}`);
 
@@ -475,14 +477,14 @@ function buildDesertGold(gold_key) {
     const joinKeysUsed = new Set();
 
     sources.forEach((source, index) => {
-        const fieldsArray = schema.fields[source];
+        const fieldsArray = config.fields[source];
         fieldsArray.forEach(field => {
             const alias = `${field.alias}`;
 
             // Skip join keys if already used in previous sources
             if (index > 0) {
                 const isJoinKey = sources.slice(0, index).some(prevSource =>
-                    schema.fields[prevSource].some(prevField => prevField.alias === field.alias)
+                    config.fields[prevSource].some(prevField => prevField.alias === field.alias)
                 );
 
                 if (isJoinKey) {
@@ -515,14 +517,14 @@ function buildDesertGold(gold_key) {
         if (!joinKeys.length) throw new Error(`No common keys found between ${baseSource} and ${nextSource}`);
 
         const onClause = joinKeys.map(k => `${baseSource}.${k} = ${nextSource}.${k}`).join(' AND ');
-        joinStatements += `${i > 1 ? '\n' : ''}${i > 1 ? `    ` : ``}LEFT JOIN ${schema.data_sets[nextSource]}.${schema.tables.silver[nextSource]} AS ${nextSource} 
+        joinStatements += `${i > 1 ? '\n' : ''}${i > 1 ? `    ` : ``}LEFT JOIN ${config.data_sets[nextSource]}.${config.tables.silver[nextSource]} AS ${nextSource} 
         ON ${onClause}`;
     }
 
     const select_statement = `
     SELECT
         ${select_fields.join(',\n        ')}
-    FROM ${schema.data_sets[baseSource]}.${schema.tables.silver[baseSource]} AS ${baseSource}
+    FROM ${config.data_sets[baseSource]}.${config.tables.silver[baseSource]} AS ${baseSource}
     ${joinStatements};`;
 
     return {

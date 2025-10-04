@@ -53,14 +53,13 @@ if response.status_code == 200:
             color = attributes.get('color', None)
             description = attributes.get('description', None)
             direction_destinations = attributes.get('direction_destinations', [])
-            direction_names = attributes.get('direction_names', [])
-            
             
             # Record ingestion metadata
             current_datetime = datetime.datetime.now(datetime.timezone.utc)
             ingestion_timestamp = current_datetime
             ingestion_source = os.path.basename(__file__) if '__file__' in globals() else 'Unknown file name'
             
+            # Append updated routes to list
             standardized_routes.append({
                 'route_id': route_id,
                 'long_name': long_name,
@@ -68,7 +67,6 @@ if response.status_code == 200:
                 'color': color,
                 'description': description,
                 'direction_destinations': str(direction_destinations) if direction_destinations else None,
-                'direction_names': str(direction_names) if direction_names else None,
                 'ingestion_timestamp': ingestion_timestamp,
                 'ingestion_source': ingestion_source
             })

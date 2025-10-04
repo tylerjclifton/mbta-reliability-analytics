@@ -102,14 +102,14 @@ const config = {
                 'type': 'DATE'
             },
             {
-                'raw': 'ingestion_source',
-                'alias': 'ingestion_source',
-                'type': 'STRING'
-            },
-            {
                 'raw': 'ingestion_timestamp',
                 'alias': 'ingestion_timestamp',
                 'type': 'TIMESTAMP'
+            },
+            {
+                'raw': 'ingestion_source',
+                'alias': 'ingestion_source',
+                'type': 'STRING'
             }
         ],
         'routes': [{
@@ -143,19 +143,14 @@ const config = {
                 'type': 'STRING'
             },
             {
-                'raw': 'direction_names',
-                'alias': 'route_directions',
-                'type': 'STRING'
+                'raw': 'ingestion_timestamp',
+                'alias': 'ingestion_timestamp',
+                'type': 'TIMESTAMP'
             },
             {
                 'raw': 'ingestion_source',
                 'alias': 'ingestion_source',
                 'type': 'STRING'
-            },
-            {
-                'raw': 'ingestion_timestamp',
-                'alias': 'ingestion_timestamp',
-                'type': 'TIMESTAMP'
             }
         ],
         'shapes': [{
@@ -169,14 +164,14 @@ const config = {
                 'type': 'STRING'
             },
             {
-                'raw': 'ingestion_source',
-                'alias': 'ingestion_source',
-                'type': 'STRING'
-            },
-            {
                 'raw': 'ingestion_timestamp',
                 'alias': 'ingestion_timestamp',
                 'type': 'TIMESTAMP'
+            },
+            {
+                'raw': 'ingestion_source',
+                'alias': 'ingestion_source',
+                'type': 'STRING'
             }
         ],
         'stops': [{
@@ -190,13 +185,13 @@ const config = {
                 'type': 'STRING'
             },
             {
-                'raw': 'description',
-                'alias': 'stop_description',
+                'raw': 'municipality',
+                'alias': 'stop_municipality',
                 'type': 'STRING'
             },
             {
-                'raw': 'municipality',
-                'alias': 'stop_municipality',
+                'raw': 'address',
+                'alias': 'stop_address',
                 'type': 'STRING'
             },
             {
@@ -210,14 +205,14 @@ const config = {
                 'type': 'STRING'
             },
             {
-                'raw': 'ingestion_source',
-                'alias': 'ingestion_source',
-                'type': 'STRING'
-            },
-            {
                 'raw': 'ingestion_timestamp',
                 'alias': 'ingestion_timestamp',
                 'type': 'TIMESTAMP'
+            },
+            {
+                'raw': 'ingestion_source',
+                'alias': 'ingestion_source',
+                'type': 'STRING'
             }
         ]
     },

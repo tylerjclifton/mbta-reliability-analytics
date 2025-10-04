@@ -48,9 +48,8 @@ if response.status_code == 200:
 
             # Extract specific stop details from the attributes dictionary
             name = attributes.get('name', None)
-            description = attributes.get('description', None)
             municipality = attributes.get('municipality', None)
-            platform_name = attributes.get('platform_name', None)
+            address = attributes.get('address', None)
             latitude = attributes.get('latitude', None)
             longitude = attributes.get('longitude', None)
             
@@ -63,9 +62,8 @@ if response.status_code == 200:
             standardized_stops.append({
                 'stop_id': stop_id,
                 'name': name,
-                'description': description,
                 'municipality': municipality,
-                'platform_name': platform_name,
+                'address': address,
                 'latitude': latitude,
                 'longitude': longitude,
                 'ingestion_timestamp': ingestion_timestamp,

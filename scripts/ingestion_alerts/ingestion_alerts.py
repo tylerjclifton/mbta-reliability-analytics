@@ -103,7 +103,13 @@ if response.status_code == 200:
             for entity in informed_entity:
                 route = entity.get('route')
                 stop = entity.get('stop')
-                if route and route in target_routes and effect not in exclude_effects:
+                if (
+                    route
+                    and route in target_routes
+                    and effect not in exclude_effects
+                    and stop
+                    and stop.startswith('place-')
+                ):
                     has_entity = True
                     standardized_alerts.append({
                         'alert_id': alert_id,

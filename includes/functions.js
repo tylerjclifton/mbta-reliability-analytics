@@ -352,75 +352,9 @@ function buildDesertSilver(source_key) {
     // Initialize select statement variable
     let select_statement;
 
-    // If source key is alerts
-    if (source_key === 'alerts') {
+    // Create select statement for alerts
+    if (source_key in config.taxonomy) {
 
-        // Get stops data set and table
-        const stops_data_set = config.data_sets.stops;
-        const stops_table = config.tables.silver.stops;
-
-        // Get alerts and stops field arrays
-        const alerts_fields = config.fields['alerts'];
-        const stops_fields = config.fields['stops'];
-
-        // Get final alerts fields
-        const final_alerts_fields = alerts_fields.map(field => `${field.alias}`)
-
-        // Get fields for alerts with mapped stops join
-        const final_alert_fields_no_stop = alerts_fields
-            .map(field => {
-                if (field.alias === 'stop_id') {
-                    return "'Unavailable' AS stop_id";
-                }
-                return `${field.alias}`;
-            });
-
-        // Get stops id and name fields
-        const stops_id_field = stops_fields.find(field => field.alias.toLowerCase().includes('_id')).alias;
-        const stops_name_field = stops_fields.find(field => field.alias.toLowerCase().includes('_name')).alias;
-
-        // Create select statement for alerts
-        select_statement = `
-    WITH
-    ${buildCteBase(source_key)},
-
-    stops_lookup AS (
-        SELECT DISTINCT
-            ${stops_id_field},
-            ${stops_name_field}
-        FROM ${stops_data_set}.${stops_table}
-    ),
-
-    alerts_with_valid_stops AS (
-        SELECT
-            ${final_alerts_fields.join(',\n            ')}
-        FROM base_${source_key}
-        WHERE
-            REGEXP_CONTAINS(stop_id, r'^[0-9]{5,6}$')
-    ),
-
-    alerts_without_valid_stops AS (
-        SELECT
-            ${final_alert_fields_no_stop.join(',\n            ')}
-        FROM base_${source_key}
-        WHERE
-            NOT REGEXP_CONTAINS(stop_id, r'^[0-9]{5,6}$')
-        GROUP BY ALL
-    )
-
-    SELECT
-        *
-    FROM alerts_with_valid_stops
-
-    UNION ALL
-    
-    SELECT
-        *
-    FROM alerts_without_valid_stops;
-        `;
-
-    } else if (source_key in config.taxonomy) {
-        // Standard processing
         select_statement = `
     WITH
     ${buildCteBase(source_key)},

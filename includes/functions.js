@@ -295,7 +295,6 @@ function buildCteBase(source_key) {
         SELECT
             ${rows.join(',\n            ')}
         FROM ${source_data_set}.${source_table}
-        GROUP BY ALL
     )`;
 
 }

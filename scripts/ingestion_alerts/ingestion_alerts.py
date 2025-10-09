@@ -61,7 +61,6 @@ if response.status_code == 200:
             duration_certainty = attributes.get('duration_certainty', None)
             cause = attributes.get('cause', None)
             effect = attributes.get('effect', None)
-            service_effect = attributes.get('service_effect', None)
             severity = attributes.get('severity', None)
             lifecycle = attributes.get('lifecycle', None)
             created_at = attributes.get('created_at', None)
@@ -122,7 +121,6 @@ if response.status_code == 200:
                         'description': description,
                         'cause': cause,
                         'effect': effect,
-                        'service_effect': service_effect,
                         'severity': severity,
                         'lifecycle': lifecycle,
                         'created_at': created_at,

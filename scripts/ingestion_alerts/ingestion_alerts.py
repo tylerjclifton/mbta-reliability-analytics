@@ -62,7 +62,6 @@ if response.status_code == 200:
             cause = attributes.get('cause', None)
             effect = attributes.get('effect', None)
             severity = attributes.get('severity', None)
-            lifecycle = attributes.get('lifecycle', None)
             created_at = attributes.get('created_at', None)
             updated_at = attributes.get('updated_at', None)
             
@@ -122,7 +121,6 @@ if response.status_code == 200:
                         'cause': cause,
                         'effect': effect,
                         'severity': severity,
-                        'lifecycle': lifecycle,
                         'created_at': created_at,
                         'updated_at': updated_at,
                         'ingestion_timestamp': ingestion_timestamp,

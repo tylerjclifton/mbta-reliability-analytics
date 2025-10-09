@@ -55,10 +55,10 @@ if response.status_code == 200:
 
             # Extract specific alert details from the attributes dictionary
             informed_entity = attributes.get('informed_entity', [])
-            header = attributes.get('header', None)
-            description = attributes.get('description', None)
             active_period = attributes.get('active_period', [])
             duration_certainty = attributes.get('duration_certainty', None)
+            header = attributes.get('header', None)
+            description = attributes.get('description', None)
             cause = attributes.get('cause', None)
             effect = attributes.get('effect', None)
             severity = attributes.get('severity', None)
@@ -111,11 +111,11 @@ if response.status_code == 200:
                     has_entity = True
                     standardized_alerts.append({
                         'alert_id': alert_id,
+                        'route': route,
+                        'stop': stop,
                         'active_period_start': active_period_start,
                         'active_period_end': active_period_end,
                         'duration_certainty': duration_certainty,
-                        'route': route,
-                        'stop': stop,
                         'header': header,
                         'description': description,
                         'cause': cause,

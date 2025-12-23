@@ -1,10 +1,10 @@
 config {
     type: 'incremental',
-    schema: 'stops',
-    name: 'silver',
-    tags: ['stops'],
+    dataset: 'mbta',
+    name: 'silver_routes',
+    tags: ['routes'],
     dependencies: [{
-        schema: 'stops',
+        dataset: 'routes',
         name: 'bronze'
     }]
 }
@@ -13,7 +13,7 @@ js {
     const {
         delete_statement,
         select_statement
-    } = functions.buildDesertSilver('stops');
+    } = functions.buildDesertSilver('routes');
 }
 
 SELECT

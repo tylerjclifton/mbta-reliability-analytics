@@ -1,19 +1,27 @@
 config {
     type: 'incremental',
-    schema: 'shapes',
-    name: 'silver',
-    tags: ['shapes'],
+    dataset: 'gold',
+    name: 'rail_alerts',
     dependencies: [{
-        schema: 'shapes',
-        name: 'bronze'
-    }]
+            dataset: 'alerts',
+            name: 'silver'
+        },
+        {
+            dataset: 'routes',
+            name: 'silver'
+        }
+    ],
+    tags: [
+        'alerts',
+        'routes'
+    ]
 }
 
 js {
     const {
         delete_statement,
         select_statement
-    } = functions.buildDesertSilver('shapes');
+    } = functions.buildDesertGold('rail_alerts');
 }
 
 SELECT

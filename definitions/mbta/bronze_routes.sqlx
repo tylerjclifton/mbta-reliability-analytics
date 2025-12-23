@@ -1,7 +1,7 @@
 config {
     type: 'incremental',
-    schema: 'routes',
-    name: 'bronze',
+    dataset: 'mbta',
+    name: 'bronze_routes',
     tags: ['routes'],
     protected: true
 }

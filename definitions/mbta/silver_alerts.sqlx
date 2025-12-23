@@ -1,16 +1,19 @@
 config {
     type: 'incremental',
-    schema: 'shapes',
-    name: 'bronze',
-    tags: ['shapes'],
-    protected: true
+    dataset: 'mbta',
+    name: 'silver_alerts',
+    tags: ['alerts'],
+    dependencies: [{
+        dataset: 'alerts',
+        name: 'bronze'
+    }]
 }
 
 js {
     const {
         delete_statement,
         select_statement
-    } = functions.buildDesertBronze('shapes');
+    } = functions.buildDesertSilver('alerts');
 }
 
 SELECT

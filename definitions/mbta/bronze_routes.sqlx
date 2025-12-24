@@ -1,9 +1,10 @@
 config {
     type: 'incremental',
-    dataset: 'mbta',
+    schema: 'mbta',
     name: 'bronze_routes',
-    tags: ['routes'],
-    protected: true
+    tags: ['mbta'],
+    protected: true,
+    hermetic: true
 }
 
 js {

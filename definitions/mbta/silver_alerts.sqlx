@@ -1,12 +1,13 @@
 config {
     type: 'incremental',
-    dataset: 'mbta',
+    schema: 'mbta',
     name: 'silver_alerts',
-    tags: ['alerts'],
+    tags: ['mbta'],
     dependencies: [{
-        dataset: 'alerts',
-        name: 'bronze'
-    }]
+        schema: 'mbta',
+        name: 'bronze_alerts'
+    }],
+    hermetic: true
 }
 
 js {

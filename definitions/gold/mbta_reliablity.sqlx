@@ -1,20 +1,21 @@
 config {
     type: 'incremental',
-    dataset: 'gold',
+    schema: 'gold',
     name: 'rail_alerts',
     dependencies: [{
-            dataset: 'alerts',
-            name: 'silver'
+            schema: 'mbta',
+            name: 'silver_alerts'
         },
         {
-            dataset: 'routes',
-            name: 'silver'
+            schema: 'mbta',
+            name: 'silver_routes'
         }
     ],
     tags: [
         'alerts',
         'routes'
-    ]
+    ],
+    hermetic: true
 }
 
 js {

@@ -1,12 +1,13 @@
 config {
     type: 'incremental',
-    dataset: 'mbta',
+    schema: 'mbta',
     name: 'silver_routes',
-    tags: ['routes'],
     dependencies: [{
-        dataset: 'routes',
-        name: 'bronze'
-    }]
+        schema: 'mbta',
+        name: 'bronze_routes'
+    }],
+    tags: ['mbta'],
+    hermetic: true
 }
 
 js {

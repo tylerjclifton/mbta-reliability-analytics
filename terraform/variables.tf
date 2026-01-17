@@ -1,3 +1,8 @@
+variable "credentials" {
+  description = "Path to the GCP service account key file."
+  default = "../keys/gcp-terraform-sa.json"
+}
+
 variable "project_id" {
   description = "Project ID"
   default = "mbta-reliability-analytics"

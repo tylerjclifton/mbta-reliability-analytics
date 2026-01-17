@@ -15,7 +15,7 @@ provider "google" {
 
 resource "google_storage_bucket" "terra-bucket" {
   name          = "mbta-reliability-analytics-demo-bucket"
-  location      = "US-east1"
+  location      = "us-east1"
   force_destroy = true
 
   lifecycle_rule {
@@ -26,4 +26,9 @@ resource "google_storage_bucket" "terra-bucket" {
       type = "AbortIncompleteMultipartUpload"
     }
   }
+}
+
+resource "google_bigquery_dataset" "example_dataset" {
+  dataset_id = "example_dataset"
+  location   = "us-east1"
 }

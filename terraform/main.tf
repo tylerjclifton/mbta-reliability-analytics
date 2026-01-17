@@ -12,3 +12,18 @@ provider "google" {
   project     = "mbta-reliability-analytics"
   region      = "us-east1"
 }
+
+resource "google_storage_bucket" "terra-bucket" {
+  name          = "mbta-reliability-analytics-demo-bucket"
+  location      = "US-east1"
+  force_destroy = true
+
+  lifecycle_rule {
+    condition {
+      age = 1
+    }
+    action {
+      type = "AbortIncompleteMultipartUpload"
+    }
+  }
+}

@@ -1,4 +1,12 @@
-# Ignore node.js dependencies
+# Node.js
 node_modules/
-# Ignore all contents in keys directory
-keys/*
+
+# Keys
+keys/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+terraform.tfvars
+.terraform.lock.hcl

@@ -1,2 +1,4 @@
+# Ignore node.js dependencies
 node_modules/
+# Ignore all contents in keys directory
 keys/*

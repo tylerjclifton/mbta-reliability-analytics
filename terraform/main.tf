@@ -8,7 +8,7 @@ terraform {
 }
 
 provider "google" {
-  credentials = file("../keys/mbta-reliability-analytics-sa.json")
+  credentials = file("../keys/gcp-terraform-sa.json")
   project     = "mbta-reliability-analytics"
   region      = "us-east1"
 }

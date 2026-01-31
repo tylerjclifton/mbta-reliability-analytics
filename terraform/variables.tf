@@ -1,5 +1,5 @@
 variable "credentials" {
-  description = "Path to the GCP service account key file."
+  description = "Path to GCP service account key file"
   default = "../keys/gcp-terraform-sa.json"
 }
 
@@ -14,16 +14,51 @@ variable "location" {
 }
 
 variable "bq_dataset_name" {
-  description = "The name of the BigQuery dataset."
+  description = "BiqQuery dataset name for MBTA data"
   default = "example_dataset"
 }
 
-variable "gcs_bucket_name" {
-  description = "The name of the GCS bucket."
-  default = "mbta-reliability-analytics-demo-bucket"
+variable "default_sa_compute" {
+  description = "Default compute service account"
+  default = "558105773739-compute@developer.gserviceaccount.com"
 }
 
-variable "gcs_storage_class" {
-  description = "Bucket storage class."
-  default = "STANDARD"
+variable "default_sa_google_apis" {
+  description = "Google APIs Service Agent"
+  default = "558105773739@cloudservices.gserviceaccount.com"
+}
+
+variable "default_sa_google_container_registry" {
+  description = "Google Container Registry Service Agent"
+  default = "service-558105773739@containerregistry.iam.gserviceaccount.com"
+}
+
+variable "default_sa_artifact_registry" {
+  description = "Artifact Registry Service Agent"
+  default = "service-558105773739@gcp-sa-artifactregistry.iam.gserviceaccount.com"
+}
+
+variable "default_sa_bigquery_data_transfer" {
+  description = "BigQuery Data Transfer Service Agent"
+  default = "service-558105773739@gcp-sa-bigquerydatatransfer.iam.gserviceaccount.com"
+}
+
+variable "default_sa_cloud_scheduler" {
+  description = "Cloud Scheduler Service Account"
+  default = "service-558105773739@gcp-sa-cloudscheduler.iam.gserviceaccount.com"
+}
+
+variable "default_sa_dataform" {
+  description = "Dataform Service Account"
+  default = "service-558105773739@gcp-sa-dataform.iam.gserviceaccount.com"
+}
+
+variable "default_sa_cloud_pubsub" {
+  description = "Cloud Pub/Sub Service Account"
+  default = "service-558105773739@gcp-sa-pubsub.iam.gserviceaccount.com"
+}
+
+variable "default_sa_cloud_run" {
+  description = "Google Cloud Run Service Agent"
+  default = "service-558105773739@serverless-robot-prod.iam.gserviceaccount.com"
 }

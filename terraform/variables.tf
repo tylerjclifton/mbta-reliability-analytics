@@ -1,8 +1,10 @@
+# Credentials
 variable "credentials" {
   description = "Path to GCP service account key file"
   default = "../keys/gcp-terraform-sa.json"
 }
 
+# Project Details
 variable "project_id" {
   description = "Project ID"
   default = "mbta-reliability-analytics"
@@ -13,11 +15,7 @@ variable "location" {
   default = "us-east1"
 }
 
-variable "bq_dataset_name" {
-  description = "BiqQuery dataset name for MBTA data"
-  default = "example_dataset"
-}
-
+# Default Service Accounts
 variable "default_sa_compute_engine" {
   description = "Default compute service account"
   default = "558105773739-compute@developer.gserviceaccount.com"

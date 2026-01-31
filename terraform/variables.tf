@@ -18,7 +18,7 @@ variable "bq_dataset_name" {
   default = "example_dataset"
 }
 
-variable "default_sa_compute" {
+variable "default_sa_compute_engine" {
   description = "Default compute service account"
   default = "558105773739-compute@developer.gserviceaccount.com"
 }

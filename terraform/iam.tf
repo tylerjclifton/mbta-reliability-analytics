@@ -19,7 +19,7 @@ resource "google_project_iam_binding" "roles_bigquery_admin" {
 # BigQuery Data Editor
 resource "google_project_iam_binding" "roles_compute_admin" {
   project = var.project_id
-  role    = "roles/compute.admin"
+  role    = "roles/bigquery.dataEditor"
   members = [
     "serviceAccount:558105773739-compute@developer.gserviceaccount.com"
   ]
@@ -37,7 +37,7 @@ resource "google_project_iam_binding" "terraform_runner_sa_bigquery_admin" {
 # BigQuery Job User
  resource "google_project_iam_binding" "terraform_runner_sa_compute_admin" {
   project = var.project_id
-  role    = "roles/compute.admin"
+  role    = "roles/bigquery.jobUser"
   members = [
     "serviceAccount:${google_service_account.terraform_runner_sa.email}"
   ]

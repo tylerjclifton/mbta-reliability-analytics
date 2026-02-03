@@ -12,7 +12,7 @@ resource "google_project_iam_binding" "roles_bigquery_admin" {
   project = var.project_id
   role    = "roles/bigquery.admin"
   members = [
-    "serviceAccount:${service-accounts.custom_sa_terraform_runner}"
+    "serviceAccount:${google_service_account.custom_sa_terraform_runner.email}"
   ]
 }
 
@@ -28,7 +28,7 @@ resource "google_project_iam_binding" "roles_bigquery_data_editor" {
 # BigQuery Data Transfer Service Agent
 resource "google_project_iam_binding" "roles_bigquery_data_transfer_service_agent" {
   project = var.project_id
-  role    = "roles/bigquery.admin"
+  role    = "roles/bigquery.dataTransferServiceAgent"
   members = [
     "serviceAccount:${var.default_sa_bigquery_data_transfer}"
   ]
@@ -56,7 +56,7 @@ resource "google_project_iam_binding" "roles_bigquery_data_transfer_service_agen
 # Cloud Pub/Sub Service Agent
  resource "google_project_iam_binding" "roles_cloud_pubsub_service_agent" {
   project = var.project_id
-  role    = "roles/storage.admin"
+  role    = "roles/pubsub.serviceAgent"
   members = [
     "serviceAccount:${var.default_sa_cloud_pubsub}"
   ]
@@ -65,7 +65,7 @@ resource "google_project_iam_binding" "roles_bigquery_data_transfer_service_agen
 # Cloud Run Developer
  resource "google_project_iam_binding" "roles_cloud_run_developer" {
   project = var.project_id
-  role    = "roles/storage.admin"
+  role    = "roles/run.developer"
   members = [
     "serviceAccount:${var.default_sa_compute_engine}"
   ]
@@ -74,7 +74,7 @@ resource "google_project_iam_binding" "roles_bigquery_data_transfer_service_agen
 # Cloud Run Invoker
  resource "google_project_iam_binding" "roles_cloud_run_invoker" {
   project = var.project_id
-  role    = "roles/storage.admin"
+  role    = "roles/run.invoker"
   members = [
     "serviceAccount:${var.default_sa_compute_engine}",
     "serviceAccount:${var.default_sa_cloud_scheduler}"
@@ -84,7 +84,7 @@ resource "google_project_iam_binding" "roles_bigquery_data_transfer_service_agen
 # Cloud Run Service Agent
  resource "google_project_iam_binding" "roles_cloud_run_service_agent" {
   project = var.project_id
-  role    = "roles/storage.admin"
+  role    = "roles/run.serviceAgent"
   members = [
     "serviceAccount:${var.default_sa_cloud_run}"
   ]
@@ -93,7 +93,7 @@ resource "google_project_iam_binding" "roles_bigquery_data_transfer_service_agen
 # Cloud Scheduler Service Agent
  resource "google_project_iam_binding" "roles_cloud_scheduler_service_agent" {
   project = var.project_id
-  role    = "roles/storage.admin"
+  role    = "roles/cloudscheduler.serviceAgent"
   members = [
     "serviceAccount:${var.default_sa_compute_engine}",
     "serviceAccount:${var.default_sa_cloud_scheduler}"
@@ -101,18 +101,18 @@ resource "google_project_iam_binding" "roles_bigquery_data_transfer_service_agen
 }
 
 # Compute Admin
- resource "google_project_iam_binding" "terraform_runner_sa_storage_admin" {
+ resource "google_project_iam_binding" "roles_compute_admin" {
   project = var.project_id
-  role    = "roles/storage.admin"
+  role    = "roles/compute.admin"
   members = [
-    "serviceAccount:${service-accounts.custom_sa_terraform_runner}"
+    "serviceAccount:${google_service_account.custom_sa_terraform_runner.email}"
   ]
 }
 
 # Container Registry Service Agent
  resource "google_project_iam_binding" "roles_container_registry_service_agent" {
   project = var.project_id
-  role    = "roles/storage.admin"
+  role    = "roles/containerregistry.serviceAgent"
   members = [
     "serviceAccount:${var.default_sa_google_container_registry}"
   ]
@@ -121,7 +121,7 @@ resource "google_project_iam_binding" "roles_bigquery_data_transfer_service_agen
 # Dataform Service Agent
  resource "google_project_iam_binding" "roles_dataform_service_agent" {
   project = var.project_id
-  role    = "roles/storage.admin"
+  role    = "roles/dataform.serviceAgent"
   members = [
     "serviceAccount:${var.default_sa_dataform}"
   ]
@@ -130,7 +130,7 @@ resource "google_project_iam_binding" "roles_bigquery_data_transfer_service_agen
 # Editor
  resource "google_project_iam_binding" "roles_editor" {
   project = var.project_id
-  role    = "roles/storage.admin"
+  role    = "roles/editor"
   members = [
     "serviceAccount:${var.default_sa_compute_engine}",
     "serviceAccount:${var.default_sa_google_apis}",
@@ -139,18 +139,18 @@ resource "google_project_iam_binding" "roles_bigquery_data_transfer_service_agen
 }
 
 # Secret Manager Secret Accessor
- resource "google_project_iam_binding" "roles_secretmanager_secret_accessor" {
+ resource "google_project_iam_binding" "roles_secret_manager_secret_accessor" {
   project = var.project_id
-  role    = "roles/storage.admin"
+  role    = "roles/secretmanager.secretAccessor"
   members = [
     "serviceAccount:${var.default_sa_dataform}"
   ]
 }
 
 # Secret Account Token Creator
- resource "google_project_iam_binding" "roles_secretmanager_secret_account_token_creator" {
+ resource "google_project_iam_binding" "roles_secret_account_token_creator" {
   project = var.project_id
-  role    = "roles/storage.admin"
+  role    = "roles/secretmanager.secretAccountTokenCreator"
   members = [
     "serviceAccount:${var.default_sa_compute_engine}",
     "serviceAccount:${var.default_sa_dataform}"
@@ -160,7 +160,7 @@ resource "google_project_iam_binding" "roles_bigquery_data_transfer_service_agen
 # Secret Account User
  resource "google_project_iam_binding" "roles_secret_account_user" {
   project = var.project_id
-  role    = "roles/storage.admin"
+  role    = "roles/secretmanager.secretAccountUser"
   members = [
     "serviceAccount:${var.default_sa_dataform}"
   ]

@@ -12,7 +12,7 @@ resource "google_project_iam_binding" "bigquery_admin" {
   project = var.project_id
   role    = "roles/bigquery.admin"
   members = [
-    "serviceAccount:${google_service_account.custom_sa_terraform_runner.email}"
+    "serviceAccount:${google_service_account.terraform_runner.email}"
   ]
 }
 
@@ -105,7 +105,7 @@ resource "google_project_iam_binding" "bigquery_data_transfer_service_agent" {
   project = var.project_id
   role    = "roles/compute.admin"
   members = [
-    "serviceAccount:${google_service_account.custom_sa_terraform_runner.email}"
+    "serviceAccount:${google_service_account.terraform_runner.email}"
   ]
 }
 
@@ -171,6 +171,6 @@ resource "google_project_iam_binding" "bigquery_data_transfer_service_agent" {
   project = var.project_id
   role    = "roles/storage.admin"
   members = [
-    "serviceAccount:${google_service_account.custom_sa_terraform_runner.email}"
+    "serviceAccount:${google_service_account.terraform_runner.email}"
   ]
 }

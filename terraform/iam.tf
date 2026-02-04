@@ -1,5 +1,5 @@
 # Artifact Registry Service Agent
-resource "google_project_iam_binding" "roles_artifactregistry_service_agent" {
+resource "google_project_iam_binding" "artifact_registry_service_agent" {
   project = var.project_id
   role    = "roles/artifactregistry.serviceAgent"
   members = [
@@ -8,7 +8,7 @@ resource "google_project_iam_binding" "roles_artifactregistry_service_agent" {
 }
 
 # BigQuery Admin
-resource "google_project_iam_binding" "roles_bigquery_admin" {
+resource "google_project_iam_binding" "bigquery_admin" {
   project = var.project_id
   role    = "roles/bigquery.admin"
   members = [
@@ -17,7 +17,7 @@ resource "google_project_iam_binding" "roles_bigquery_admin" {
 }
 
 # BigQuery Data Editor
-resource "google_project_iam_binding" "roles_bigquery_data_editor" {
+resource "google_project_iam_binding" "bigquery_data_editor" {
   project = var.project_id
   role    = "roles/bigquery.dataEditor"
   members = [
@@ -26,7 +26,7 @@ resource "google_project_iam_binding" "roles_bigquery_data_editor" {
 }
 
 # BigQuery Data Transfer Service Agent
-resource "google_project_iam_binding" "roles_bigquery_data_transfer_service_agent" {
+resource "google_project_iam_binding" "bigquery_data_transfer_service_agent" {
   project = var.project_id
   role    = "roles/bigquery.dataTransferServiceAgent"
   members = [
@@ -35,7 +35,7 @@ resource "google_project_iam_binding" "roles_bigquery_data_transfer_service_agen
 }
 
 # BigQuery Job User
- resource "google_project_iam_binding" "roles_bigquery_job_user" {
+ resource "google_project_iam_binding" "bigquery_job_user" {
   project = var.project_id
   role    = "roles/bigquery.jobUser"
   members = [
@@ -45,7 +45,7 @@ resource "google_project_iam_binding" "roles_bigquery_data_transfer_service_agen
 }
 
 # BigQuery User
- resource "google_project_iam_binding" "roles_bigquery_user" {
+ resource "google_project_iam_binding" "bigquery_user" {
   project = var.project_id
   role    = "roles/bigquery.user"
   members = [
@@ -54,7 +54,7 @@ resource "google_project_iam_binding" "roles_bigquery_data_transfer_service_agen
 }
 
 # Cloud Pub/Sub Service Agent
- resource "google_project_iam_binding" "roles_cloud_pubsub_service_agent" {
+ resource "google_project_iam_binding" "cloud_pubsub_service_agent" {
   project = var.project_id
   role    = "roles/pubsub.serviceAgent"
   members = [
@@ -63,7 +63,7 @@ resource "google_project_iam_binding" "roles_bigquery_data_transfer_service_agen
 }
 
 # Cloud Run Developer
- resource "google_project_iam_binding" "roles_cloud_run_developer" {
+ resource "google_project_iam_binding" "cloud_run_developer" {
   project = var.project_id
   role    = "roles/run.developer"
   members = [
@@ -72,7 +72,7 @@ resource "google_project_iam_binding" "roles_bigquery_data_transfer_service_agen
 }
 
 # Cloud Run Invoker
- resource "google_project_iam_binding" "roles_cloud_run_invoker" {
+ resource "google_project_iam_binding" "cloud_run_invoker" {
   project = var.project_id
   role    = "roles/run.invoker"
   members = [
@@ -82,7 +82,7 @@ resource "google_project_iam_binding" "roles_bigquery_data_transfer_service_agen
 }
 
 # Cloud Run Service Agent
- resource "google_project_iam_binding" "roles_cloud_run_service_agent" {
+ resource "google_project_iam_binding" "cloud_run_service_agent" {
   project = var.project_id
   role    = "roles/run.serviceAgent"
   members = [
@@ -91,7 +91,7 @@ resource "google_project_iam_binding" "roles_bigquery_data_transfer_service_agen
 }
 
 # Cloud Scheduler Service Agent
- resource "google_project_iam_binding" "roles_cloud_scheduler_service_agent" {
+ resource "google_project_iam_binding" "cloud_scheduler_service_agent" {
   project = var.project_id
   role    = "roles/cloudscheduler.serviceAgent"
   members = [
@@ -101,7 +101,7 @@ resource "google_project_iam_binding" "roles_bigquery_data_transfer_service_agen
 }
 
 # Compute Admin
- resource "google_project_iam_binding" "roles_compute_admin" {
+ resource "google_project_iam_binding" "compute_admin" {
   project = var.project_id
   role    = "roles/compute.admin"
   members = [
@@ -110,7 +110,7 @@ resource "google_project_iam_binding" "roles_bigquery_data_transfer_service_agen
 }
 
 # Container Registry Service Agent
- resource "google_project_iam_binding" "roles_container_registry_service_agent" {
+ resource "google_project_iam_binding" "container_registry_service_agent" {
   project = var.project_id
   role    = "roles/containerregistry.serviceAgent"
   members = [
@@ -119,7 +119,7 @@ resource "google_project_iam_binding" "roles_bigquery_data_transfer_service_agen
 }
 
 # Dataform Service Agent
- resource "google_project_iam_binding" "roles_dataform_service_agent" {
+ resource "google_project_iam_binding" "dataform_service_agent" {
   project = var.project_id
   role    = "roles/dataform.serviceAgent"
   members = [
@@ -128,7 +128,7 @@ resource "google_project_iam_binding" "roles_bigquery_data_transfer_service_agen
 }
 
 # Editor
- resource "google_project_iam_binding" "roles_editor" {
+ resource "google_project_iam_binding" "editor" {
   project = var.project_id
   role    = "roles/editor"
   members = [
@@ -139,7 +139,7 @@ resource "google_project_iam_binding" "roles_bigquery_data_transfer_service_agen
 }
 
 # Secret Manager Secret Accessor
- resource "google_project_iam_binding" "roles_secret_manager_secret_accessor" {
+ resource "google_project_iam_binding" "secret_manager_secret_accessor" {
   project = var.project_id
   role    = "roles/secretmanager.secretAccessor"
   members = [
@@ -148,7 +148,7 @@ resource "google_project_iam_binding" "roles_bigquery_data_transfer_service_agen
 }
 
 # Secret Account Token Creator
- resource "google_project_iam_binding" "roles_secret_account_token_creator" {
+ resource "google_project_iam_binding" "secret_account_token_creator" {
   project = var.project_id
   role    = "roles/secretmanager.secretAccountTokenCreator"
   members = [
@@ -158,7 +158,7 @@ resource "google_project_iam_binding" "roles_bigquery_data_transfer_service_agen
 }
 
 # Secret Account User
- resource "google_project_iam_binding" "roles_secret_account_user" {
+ resource "google_project_iam_binding" "secret_account_user" {
   project = var.project_id
   role    = "roles/secretmanager.secretAccountUser"
   members = [
@@ -167,7 +167,7 @@ resource "google_project_iam_binding" "roles_bigquery_data_transfer_service_agen
 }
 
 # Storage Admin
- resource "google_project_iam_binding" "roles_storage_admin" {
+ resource "google_project_iam_binding" "storage_admin" {
   project = var.project_id
   role    = "roles/storage.admin"
   members = [

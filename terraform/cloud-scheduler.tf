@@ -16,7 +16,7 @@ resource "google_cloud_scheduler_job" "ingestion_alerts" {
       "User-Agent" = "Google-Cloud-Scheduler"
     }
     oidc_token {
-      service_account_email = vars.default_sa_compute_engine
+      service_account_email = var.default_sa_compute_engine
       audience              = "https://www.googleapis.com/auth/cloud-platform"
     }
   }
@@ -40,7 +40,7 @@ resource "google_cloud_scheduler_job" "ingestion_routes" {
       "User-Agent" = "Google-Cloud-Scheduler"
     }
     oidc_token {
-      service_account_email = vars.default_sa_compute_engine
+      service_account_email = var.default_sa_compute_engine
       audience              = "https://www.googleapis.com/auth/cloud-platform"
     }
   }

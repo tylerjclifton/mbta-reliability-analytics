@@ -3,5 +3,5 @@ resource "google_artifact_registry_repository" "data-ingestion" {
   location     = var.location
   repository_id = "data-ingestion"
   format       = "DOCKER"
-  description  = "Repository for storing Docker images for Cloud Run Jobs"
+  description  = "MBTA data ingestion Docker images"
 }

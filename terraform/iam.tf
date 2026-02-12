@@ -1,3 +1,12 @@
+# Artifact Registry Administrator
+resource "google_project_iam_binding" "artifact_registry_administrator" {
+  project = var.project_id
+  role    = "roles/artifactregistry.admin"
+  members = [
+    "serviceAccount:${google_service_account.terraform_runner.email}"
+  ]
+}
+
 # Artifact Registry Service Agent
 resource "google_project_iam_binding" "artifact_registry_service_agent" {
   project = var.project_id
@@ -28,7 +37,7 @@ resource "google_project_iam_binding" "bigquery_data_editor" {
 # BigQuery Data Transfer Service Agent
 resource "google_project_iam_binding" "bigquery_data_transfer_service_agent" {
   project = var.project_id
-  role    = "roles/bigquery.dataTransferServiceAgent"
+  role    = "roles/bigquerydatatransfer.serviceAgent"
   members = [
     "serviceAccount:${var.default_sa_bigquery_data_transfer}"
   ]
@@ -59,6 +68,15 @@ resource "google_project_iam_binding" "bigquery_data_transfer_service_agent" {
   role    = "roles/pubsub.serviceAgent"
   members = [
     "serviceAccount:${var.default_sa_cloud_pubsub}"
+  ]
+}
+
+# Cloud Run Admin
+ resource "google_project_iam_binding" "cloud_run_admin" {
+  project = var.project_id
+  role    = "roles/run.admin"
+  members = [
+    "serviceAccount:${google_service_account.terraform_runner.email}"
   ]
 }
 
@@ -112,7 +130,7 @@ resource "google_project_iam_binding" "bigquery_data_transfer_service_agent" {
 # Container Registry Service Agent
  resource "google_project_iam_binding" "container_registry_service_agent" {
   project = var.project_id
-  role    = "roles/containerregistry.serviceAgent"
+  role    = "roles/containerregistry.ServiceAgent"
   members = [
     "serviceAccount:${var.default_sa_google_container_registry}"
   ]
@@ -138,6 +156,15 @@ resource "google_project_iam_binding" "bigquery_data_transfer_service_agent" {
   ]
 }
 
+# Project IAM Admin
+ resource "google_project_iam_binding" "project_iam_admin" {
+  project = var.project_id
+  role    = "roles/resourcemanager.projectIamAdmin"
+  members = [
+    "serviceAccount:${google_service_account.terraform_runner.email}"
+  ]
+}
+
 # Secret Manager Secret Accessor
  resource "google_project_iam_binding" "secret_manager_secret_accessor" {
   project = var.project_id
@@ -147,20 +174,29 @@ resource "google_project_iam_binding" "bigquery_data_transfer_service_agent" {
   ]
 }
 
-# Secret Account Token Creator
- resource "google_project_iam_binding" "secret_account_token_creator" {
+# Service Account Admin
+ resource "google_project_iam_binding" "service_account_admin" {
   project = var.project_id
-  role    = "roles/secretmanager.secretAccountTokenCreator"
+  role    = "roles/iam.serviceAccountAdmin"
+  members = [
+    "serviceAccount:${google_service_account.terraform_runner.email}"
+  ]
+}
+
+# Service Account Token Creator
+ resource "google_project_iam_binding" "service_account_token_creator" {
+  project = var.project_id
+  role    = "roles/iam.serviceAccountTokenCreator"
   members = [
     "serviceAccount:${var.default_sa_compute_engine}",
     "serviceAccount:${var.default_sa_dataform}"
   ]
 }
 
-# Secret Account User
- resource "google_project_iam_binding" "secret_account_user" {
+# Service Account User
+ resource "google_project_iam_binding" "service_account_user" {
   project = var.project_id
-  role    = "roles/secretmanager.secretAccountUser"
+  role    = "roles/iam.serviceAccountUser"
   members = [
     "serviceAccount:${var.default_sa_dataform}"
   ]

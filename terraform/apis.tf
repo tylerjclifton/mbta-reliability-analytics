@@ -87,8 +87,13 @@ resource "google_project_service" "storage_api" {
   disable_on_destroy = false
 }
 
-resource "google_project_service" "sql_admin" {
-  service            = "sqladmin.googleapis.com"
+resource "google_project_service" "storage_component" {
+  service            = "storage-component.googleapis.com"
+  disable_on_destroy = false
+}
+
+resource "google_project_service" "sql_component" {
+  service            = "sql-component.googleapis.com"
   disable_on_destroy = false
 }
 

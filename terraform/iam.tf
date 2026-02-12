@@ -198,7 +198,7 @@ resource "google_project_iam_binding" "bigquery_data_transfer_service_agent" {
   project = var.project_id
   role    = "roles/iam.serviceAccountUser"
   members = [
-    "serviceAccount:${var.default_sa_dataform}"
+    "serviceAccount:${var.default_sa_compute_engine}"
   ]
 }
 

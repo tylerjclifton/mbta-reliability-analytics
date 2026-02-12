@@ -1,7 +1,7 @@
 # Artifact Registry for Docker Containers
 resource "google_artifact_registry_repository" "data-ingestion" {
-  location     = var.location
+  location      = var.location
   repository_id = "data-ingestion"
-  format       = "DOCKER"
-  description  = "MBTA data ingestion Docker images"
+  format        = "DOCKER"
+  description   = "MBTA data ingestion Docker images"
 }

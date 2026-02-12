@@ -1,47 +1,39 @@
 resource "google_cloud_scheduler_job" "ingestion_alerts" {
   name             = "ingestion-alerts"
-  description      = "Job for ingesting MBTA alerts data"
   schedule         = "0 * * * *"
-  time_zone        = "UTC"
-  attempt_deadline = "5m"
+  time_zone        = "Etc/UTC"
+  attempt_deadline = "180s"
 
   retry_config {
-    retry_count = 1
+    retry_count = 0
   }
 
   http_target {
     http_method = "POST"
     uri         = "https://us-east1-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/mbta-reliability-analytics/jobs/ingestion-alerts:run"
-    headers = {
-      "User-Agent" = "Google-Cloud-Scheduler"
-    }
-    oidc_token {
+    oauth_token {
       service_account_email = var.default_sa_compute_engine
-      audience              = "https://www.googleapis.com/auth/cloud-platform"
+      scope                 = "https://www.googleapis.com/auth/cloud-platform"
     }
   }
 }
 
 resource "google_cloud_scheduler_job" "ingestion_routes" {
   name             = "ingestion-routes"
-  description      = "Job for ingesting MBTA routes data"
-  schedule         = "0 * * * *"
-  time_zone        = "UTC"
-  attempt_deadline = "5m"
+  schedule         = "0 0 1 1,4,7,10 *"
+  time_zone        = "Etc/UTC"
+  attempt_deadline = "180s"
 
   retry_config {
-    retry_count = 1
+    retry_count = 0
   }
 
   http_target {
     http_method = "POST"
     uri         = "https://us-east1-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/mbta-reliability-analytics/jobs/ingestion-routes:run"
-    headers = {
-      "User-Agent" = "Google-Cloud-Scheduler"
-    }
-    oidc_token {
+    oauth_token {
       service_account_email = var.default_sa_compute_engine
-      audience              = "https://www.googleapis.com/auth/cloud-platform"
+      scope                 = "https://www.googleapis.com/auth/cloud-platform"
     }
   }
 }

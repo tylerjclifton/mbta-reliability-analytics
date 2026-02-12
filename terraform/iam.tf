@@ -199,7 +199,8 @@ resource "google_project_iam_binding" "service_account_user" {
   role    = "roles/iam.serviceAccountUser"
   members = [
     "serviceAccount:${var.default_sa_compute_engine}",
-    "serviceAccount:${var.default_sa_dataform}"
+    "serviceAccount:${var.default_sa_dataform}",
+    "serviceAccount:${google_service_account.terraform_runner.email}"
   ]
 }
 

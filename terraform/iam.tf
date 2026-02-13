@@ -1,214 +1,170 @@
-# Artifact Registry Administrator
-resource "google_project_iam_binding" "artifact_registry_administrator" {
-  project = var.project_id
-  role    = "roles/artifactregistry.admin"
-  members = [
-    "serviceAccount:${google_service_account.terraform_runner.email}"
+# Terraform Runner Service Account Roles
+locals {
+  terraform_runner_roles = [
+    "roles/artifactregistry.admin",
+    "roles/bigquery.admin",
+    "roles/run.admin",
+    "roles/compute.admin",
+    "roles/resourcemanager.projectIamAdmin",
+    "roles/iam.serviceAccountAdmin",
+    "roles/iam.serviceAccountUser",
+    "roles/storage.admin"
   ]
 }
 
-# Artifact Registry Service Agent
-resource "google_project_iam_binding" "artifact_registry_service_agent" {
+resource "google_project_iam_member" "terraform_runner" {
+  for_each = toset(local.terraform_runner_roles)
+
   project = var.project_id
-  role    = "roles/artifactregistry.serviceAgent"
-  members = [
-    "serviceAccount:${var.default_sa_artifact_registry}"
+  role    = each.value
+  member  = "serviceAccount:${google_service_account.terraform_runner.email}"
+}
+
+# Default Compute Engine Service Account Roles
+locals {
+  compute_engine_roles = [
+    "roles/bigquery.jobUser",
+    "roles/run.developer",
+    "roles/run.invoker",
+    "roles/cloudscheduler.serviceAgent",
+    "roles/editor",
+    "roles/iam.serviceAccountTokenCreator",
+    "roles/iam.serviceAccountUser"
   ]
 }
 
-# BigQuery Admin
-resource "google_project_iam_binding" "bigquery_admin" {
+resource "google_project_iam_member" "compute_engine" {
+  for_each = toset(local.compute_engine_roles)
+
   project = var.project_id
-  role    = "roles/bigquery.admin"
-  members = [
-    "serviceAccount:${google_service_account.terraform_runner.email}"
+  role    = each.value
+  member  = "serviceAccount:${var.default_sa_compute_engine}"
+}
+
+# Default Dataform Service Account Roles
+locals {
+  dataform_roles = [
+    "roles/bigquery.dataEditor",
+    "roles/bigquery.jobUser",
+    "roles/bigquery.user",
+    "roles/dataform.serviceAgent",
+    "roles/editor",
+    "roles/secretmanager.secretAccessor",
+    "roles/iam.serviceAccountTokenCreator",
+    "roles/iam.serviceAccountUser"
   ]
 }
 
-# BigQuery Data Editor
-resource "google_project_iam_binding" "bigquery_data_editor" {
+resource "google_project_iam_member" "dataform" {
+  for_each = toset(local.dataform_roles)
+
   project = var.project_id
-  role    = "roles/bigquery.dataEditor"
-  members = [
-    "serviceAccount:${var.default_sa_dataform}"
+  role    = each.value
+  member  = "serviceAccount:${var.default_sa_dataform}"
+}
+
+# Default Cloud Scheduler Service Account Roles
+locals {
+  cloud_scheduler_roles = [
+    "roles/run.invoker",
+    "roles/cloudscheduler.serviceAgent"
   ]
 }
 
-# BigQuery Data Transfer Service Agent
-resource "google_project_iam_binding" "bigquery_data_transfer_service_agent" {
+resource "google_project_iam_member" "cloud_scheduler" {
+  for_each = toset(local.cloud_scheduler_roles)
+
   project = var.project_id
-  role    = "roles/bigquerydatatransfer.serviceAgent"
-  members = [
-    "serviceAccount:${var.default_sa_bigquery_data_transfer}"
+  role    = each.value
+  member  = "serviceAccount:${var.default_sa_cloud_scheduler}"
+}
+
+# Artifact Registry Service Agent Roles
+locals {
+  artifact_registry_service_agent_roles = [
+    "roles/artifactregistry.serviceAgent"
   ]
 }
 
-# BigQuery Job User
-resource "google_project_iam_binding" "bigquery_job_user" {
+resource "google_project_iam_member" "artifact_registry_service_agent" {
+  for_each = toset(local.artifact_registry_service_agent_roles)
+
   project = var.project_id
-  role    = "roles/bigquery.jobUser"
-  members = [
-    "serviceAccount:${var.default_sa_compute_engine}",
-    "serviceAccount:${var.default_sa_dataform}"
+  role    = each.value
+  member  = "serviceAccount:${var.default_sa_artifact_registry}"
+}
+
+# BigQuery Data Transfer Service Agent Roles
+locals {
+  bigquery_data_transfer_service_agent_roles = [
+    "roles/bigquerydatatransfer.serviceAgent"
   ]
 }
 
-# BigQuery User
-resource "google_project_iam_binding" "bigquery_user" {
+resource "google_project_iam_member" "bigquery_data_transfer_service_agent" {
+  for_each = toset(local.bigquery_data_transfer_service_agent_roles)
+
   project = var.project_id
-  role    = "roles/bigquery.user"
-  members = [
-    "serviceAccount:${var.default_sa_dataform}"
+  role    = each.value
+  member  = "serviceAccount:${var.default_sa_bigquery_data_transfer}"
+}
+
+# Cloud Pub/Sub Service Agent Roles
+locals {
+  cloud_pubsub_service_agent_roles = [
+    "roles/pubsub.serviceAgent"
   ]
 }
 
-# Cloud Pub/Sub Service Agent
-resource "google_project_iam_binding" "cloud_pubsub_service_agent" {
+resource "google_project_iam_member" "cloud_pubsub_service_agent" {
+  for_each = toset(local.cloud_pubsub_service_agent_roles)
+
   project = var.project_id
-  role    = "roles/pubsub.serviceAgent"
-  members = [
-    "serviceAccount:${var.default_sa_cloud_pubsub}"
+  role    = each.value
+  member  = "serviceAccount:${var.default_sa_cloud_pubsub}"
+}
+
+# Cloud Run Service Agent Roles
+locals {
+  cloud_run_service_agent_roles = [
+    "roles/run.serviceAgent"
   ]
 }
 
-# Cloud Run Admin
-resource "google_project_iam_binding" "cloud_run_admin" {
+resource "google_project_iam_member" "cloud_run_service_agent" {
+  for_each = toset(local.cloud_run_service_agent_roles)
+
   project = var.project_id
-  role    = "roles/run.admin"
-  members = [
-    "serviceAccount:${google_service_account.terraform_runner.email}"
+  role    = each.value
+  member  = "serviceAccount:${var.default_sa_cloud_run}"
+}
+
+# Container Registry Service Agent Roles
+locals {
+  container_registry_service_agent_roles = [
+    "roles/containerregistry.ServiceAgent"
   ]
 }
 
-# Cloud Run Developer
-resource "google_project_iam_binding" "cloud_run_developer" {
+resource "google_project_iam_member" "container_registry_service_agent" {
+  for_each = toset(local.container_registry_service_agent_roles)
+
   project = var.project_id
-  role    = "roles/run.developer"
-  members = [
-    "serviceAccount:${var.default_sa_compute_engine}"
+  role    = each.value
+  member  = "serviceAccount:${var.default_sa_google_container_registry}"
+}
+
+# Google APIs Service Agent Roles
+locals {
+  google_apis_service_agent_roles = [
+    "roles/editor"
   ]
 }
 
-# Cloud Run Invoker
-resource "google_project_iam_binding" "cloud_run_invoker" {
-  project = var.project_id
-  role    = "roles/run.invoker"
-  members = [
-    "serviceAccount:${var.default_sa_compute_engine}",
-    "serviceAccount:${var.default_sa_cloud_scheduler}"
-  ]
-}
+resource "google_project_iam_member" "google_apis_service_agent" {
+  for_each = toset(local.google_apis_service_agent_roles)
 
-# Cloud Run Service Agent
-resource "google_project_iam_binding" "cloud_run_service_agent" {
   project = var.project_id
-  role    = "roles/run.serviceAgent"
-  members = [
-    "serviceAccount:${var.default_sa_cloud_run}"
-  ]
-}
-
-# Cloud Scheduler Service Agent
-resource "google_project_iam_binding" "cloud_scheduler_service_agent" {
-  project = var.project_id
-  role    = "roles/cloudscheduler.serviceAgent"
-  members = [
-    "serviceAccount:${var.default_sa_compute_engine}",
-    "serviceAccount:${var.default_sa_cloud_scheduler}"
-  ]
-}
-
-# Compute Admin
-resource "google_project_iam_binding" "compute_admin" {
-  project = var.project_id
-  role    = "roles/compute.admin"
-  members = [
-    "serviceAccount:${google_service_account.terraform_runner.email}"
-  ]
-}
-
-# Container Registry Service Agent
-resource "google_project_iam_binding" "container_registry_service_agent" {
-  project = var.project_id
-  role    = "roles/containerregistry.ServiceAgent"
-  members = [
-    "serviceAccount:${var.default_sa_google_container_registry}"
-  ]
-}
-
-# Dataform Service Agent
-resource "google_project_iam_binding" "dataform_service_agent" {
-  project = var.project_id
-  role    = "roles/dataform.serviceAgent"
-  members = [
-    "serviceAccount:${var.default_sa_dataform}"
-  ]
-}
-
-# Editor
-resource "google_project_iam_binding" "editor" {
-  project = var.project_id
-  role    = "roles/editor"
-  members = [
-    "serviceAccount:${var.default_sa_compute_engine}",
-    "serviceAccount:${var.default_sa_google_apis}",
-    "serviceAccount:${var.default_sa_dataform}"
-  ]
-}
-
-# Project IAM Admin
-resource "google_project_iam_binding" "project_iam_admin" {
-  project = var.project_id
-  role    = "roles/resourcemanager.projectIamAdmin"
-  members = [
-    "serviceAccount:${google_service_account.terraform_runner.email}"
-  ]
-}
-
-# Secret Manager Secret Accessor
-resource "google_project_iam_binding" "secret_manager_secret_accessor" {
-  project = var.project_id
-  role    = "roles/secretmanager.secretAccessor"
-  members = [
-    "serviceAccount:${var.default_sa_dataform}"
-  ]
-}
-
-# Service Account Admin
-resource "google_project_iam_binding" "service_account_admin" {
-  project = var.project_id
-  role    = "roles/iam.serviceAccountAdmin"
-  members = [
-    "serviceAccount:${google_service_account.terraform_runner.email}"
-  ]
-}
-
-# Service Account Token Creator
-resource "google_project_iam_binding" "service_account_token_creator" {
-  project = var.project_id
-  role    = "roles/iam.serviceAccountTokenCreator"
-  members = [
-    "serviceAccount:${var.default_sa_compute_engine}",
-    "serviceAccount:${var.default_sa_dataform}"
-  ]
-}
-
-# Service Account User
-resource "google_project_iam_binding" "service_account_user" {
-  project = var.project_id
-  role    = "roles/iam.serviceAccountUser"
-  members = [
-    "serviceAccount:${var.default_sa_compute_engine}",
-    "serviceAccount:${var.default_sa_dataform}",
-    "serviceAccount:${google_service_account.terraform_runner.email}"
-  ]
-}
-
-# Storage Admin
-resource "google_project_iam_binding" "storage_admin" {
-  project = var.project_id
-  role    = "roles/storage.admin"
-  members = [
-    "serviceAccount:${google_service_account.terraform_runner.email}"
-  ]
+  role    = each.value
+  member  = "serviceAccount:${var.default_sa_google_apis}"
 }

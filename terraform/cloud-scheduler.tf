@@ -3,6 +3,7 @@ resource "google_cloud_scheduler_job" "ingestion_alerts" {
   schedule         = "0 * * * *"
   time_zone        = "Etc/UTC"
   attempt_deadline = "180s"
+  paused           = false
 
   retry_config {
     retry_count = 0
@@ -23,6 +24,7 @@ resource "google_cloud_scheduler_job" "ingestion_routes" {
   schedule         = "0 0 1 1,4,7,10 *"
   time_zone        = "Etc/UTC"
   attempt_deadline = "180s"
+  paused           = false
 
   retry_config {
     retry_count = 0

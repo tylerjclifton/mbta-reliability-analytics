@@ -10,3 +10,6 @@ keys/
 *.tfstate.*
 terraform.tfvars
 .terraform.lock.hcl
+
+# macOS
+.DS_Store

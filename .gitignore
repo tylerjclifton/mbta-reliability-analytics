@@ -11,5 +11,21 @@ keys/
 terraform.tfvars
 .terraform.lock.hcl
 
+# Python
+venv/
+.venv/
+env/
+*.pyc
+__pycache__/
+*.egg-info/
+.pytest_cache/
+
+# dbt
+dbt_packages/
+logs/
+target/
+.user.yml
+profiles.yml
+
 # macOS
 .DS_Store

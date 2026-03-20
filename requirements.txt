@@ -1,0 +1,7 @@
+# dbt Core and BigQuery adapter
+dbt-core==1.7.8
+dbt-bigquery==1.7.4
+
+# Additional useful packages
+sqlfluff==3.0.3
+sqlfluff-templater-dbt==3.0.3

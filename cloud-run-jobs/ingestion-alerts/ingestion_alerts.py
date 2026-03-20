@@ -143,8 +143,8 @@ output_deduped = output.drop_duplicates(subset=['alert_id', 'route', 'stop'], ke
 
 # Define BigQuery project, dataset, and table using environment variables
 project_id = os.getenv('BQ_PROJECT_ID', 'mbta-reliability-analytics')
-dataset_id = os.getenv('BQ_DATASET_ID', 'alerts')
-table_id = os.getenv('BQ_TABLE_ID', 'staging')
+dataset_id = os.getenv('BQ_DATASET_ID', 'staging')
+table_id = os.getenv('BQ_TABLE_ID', 'mbta_alerts')
 
 # Write to BigQuery
 try:

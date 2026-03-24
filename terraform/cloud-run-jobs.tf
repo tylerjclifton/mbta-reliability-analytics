@@ -1,7 +1,7 @@
 resource "google_cloud_run_v2_job" "ingestion_alerts" {
   name     = "mbta-ingestion-alerts"
   location = var.location
-  
+
   template {
     task_count  = 1 # Total number of tasks to run
     parallelism = 0 # Maximum number of tasks to run concurrently
@@ -36,7 +36,7 @@ resource "google_cloud_run_v2_job" "ingestion_alerts" {
 resource "google_cloud_run_v2_job" "ingestion_routes" {
   name     = "mbta-ingestion-routes"
   location = var.location
-  
+
   template {
     task_count  = 1 # Total number of tasks to run
     parallelism = 0 # Maximum number of tasks to run concurrently
@@ -71,9 +71,9 @@ resource "google_cloud_run_v2_job" "ingestion_routes" {
 resource "google_cloud_run_v2_job" "dbt_transform" {
   name     = "mbta-transform"
   location = var.location
-  
+
   deletion_protection = false
-  
+
   template {
     task_count  = 1
     parallelism = 0
@@ -93,7 +93,7 @@ resource "google_cloud_run_v2_job" "dbt_transform" {
           }
         }
       }
-      timeout = "600s"  # 10 minutes for dbt to complete
+      timeout = "600s" # 10 minutes for dbt to complete
     }
   }
 }

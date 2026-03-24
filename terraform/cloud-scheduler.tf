@@ -42,13 +42,13 @@ resource "google_cloud_scheduler_job" "ingestion_routes" {
 
 resource "google_cloud_scheduler_job" "dbt_transform" {
   name             = "mbta-transform"
-  schedule         = "10 * * * *"  # Runs at :10 past each hour (after ingestion)
+  schedule         = "10 * * * *" # Runs at :10 past each hour (after ingestion)
   time_zone        = "Etc/UTC"
-  attempt_deadline = "600s"  # 10 minutes deadline for dbt
+  attempt_deadline = "600s" # 10 minutes deadline for dbt
   paused           = false
 
   retry_config {
-    retry_count = 1  # Retry once if it fails
+    retry_count = 1 # Retry once if it fails
   }
 
   http_target {

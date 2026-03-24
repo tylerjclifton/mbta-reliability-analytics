@@ -2,6 +2,8 @@ resource "google_cloud_run_v2_job" "ingestion_alerts" {
   name     = "mbta-ingestion-alerts"
   location = var.location
 
+  deletion_protection = false
+
   template {
     task_count  = 1 # Total number of tasks to run
     parallelism = 0 # Maximum number of tasks to run concurrently
@@ -36,6 +38,8 @@ resource "google_cloud_run_v2_job" "ingestion_alerts" {
 resource "google_cloud_run_v2_job" "ingestion_routes" {
   name     = "mbta-ingestion-routes"
   location = var.location
+
+  deletion_protection = false
 
   template {
     task_count  = 1 # Total number of tasks to run
@@ -81,7 +85,7 @@ resource "google_cloud_run_v2_job" "dbt_transform" {
       service_account = google_service_account.dbt_bigquery.email
       containers {
         name  = "mbta-transform"
-        image = "us-east1-docker.pkg.dev/mbta-reliability-analytics/data-ingestion/mbta-transform:latest"
+        image = "us-east1-docker.pkg.dev/mbta-reliability-analytics/data-ingestion/dbt-transform:latest"
         env {
           name  = "DBT_PROJECT_ID"
           value = var.project_id

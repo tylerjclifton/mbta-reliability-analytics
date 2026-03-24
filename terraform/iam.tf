@@ -94,6 +94,23 @@ resource "google_project_iam_member" "artifact_registry_service_agent" {
   member  = "serviceAccount:${var.default_sa_artifact_registry}"
 }
 
+# dbt BigQuery Service Account Roles
+locals {
+  dbt_bigquery_roles = [
+    "roles/bigquery.dataEditor",
+    "roles/bigquery.jobUser",
+    "roles/bigquery.user"
+  ]
+}
+
+resource "google_project_iam_member" "dbt_bigquery" {
+  for_each = toset(local.dbt_bigquery_roles)
+
+  project = var.project_id
+  role    = each.value
+  member  = "serviceAccount:${google_service_account.dbt_bigquery.email}"
+}
+
 # BigQuery Data Transfer Service Agent Roles
 locals {
   bigquery_data_transfer_service_agent_roles = [

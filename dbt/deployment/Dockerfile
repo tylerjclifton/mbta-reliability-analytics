@@ -14,13 +14,13 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the entire dbt project
-COPY mbta_analytics_dbt/ /app/mbta_analytics_dbt/
+COPY dbt/ /app/dbt/
 
 # Copy GCP service account key
 COPY keys/gcp-terraform-sa.json /app/keys/gcp-terraform-sa.json
 
 # Set working directory to dbt project
-WORKDIR /app/mbta_analytics_dbt
+WORKDIR /app/dbt
 
 # Run dbt
 CMD ["dbt", "run", "--profiles-dir", "."]

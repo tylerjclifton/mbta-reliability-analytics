@@ -3,10 +3,10 @@ resource "google_cloud_run_v2_job" "ingestion_alerts" {
   location = var.location
   
   template {
-    service_account = var.default_sa_compute_engine
     task_count  = 1 # Total number of tasks to run
     parallelism = 0 # Maximum number of tasks to run concurrently
     template {
+      service_account = var.default_sa_compute_engine
       containers {
         name  = "mbta-ingestion-alerts"
         image = "us-east1-docker.pkg.dev/mbta-reliability-analytics/data-ingestion/ingestion-alerts@sha256:c50e7cea84f2e6831ff6916f8fe7744e273d7497cf26404f3457ebf8b06b7f19"
@@ -38,10 +38,10 @@ resource "google_cloud_run_v2_job" "ingestion_routes" {
   location = var.location
   
   template {
-    service_account = var.default_sa_compute_engine
     task_count  = 1 # Total number of tasks to run
     parallelism = 0 # Maximum number of tasks to run concurrently
     template {
+      service_account = var.default_sa_compute_engine
       containers {
         name  = "mbta-ingestion-routes"
         image = "us-east1-docker.pkg.dev/mbta-reliability-analytics/data-ingestion/ingestion-routes@sha256:d89fee1b441b1bc5b7d94788f3ff176db88f5f248bbec23e92ed65c5979a3d61"
@@ -75,10 +75,10 @@ resource "google_cloud_run_v2_job" "dbt_transform" {
   deletion_protection = false
   
   template {
-    service_account = google_service_account.dbt_bigquery.email
     task_count  = 1
     parallelism = 0
     template {
+      service_account = google_service_account.dbt_bigquery.email
       containers {
         name  = "mbta-transform"
         image = "us-east1-docker.pkg.dev/mbta-reliability-analytics/data-ingestion/mbta-transform:latest"

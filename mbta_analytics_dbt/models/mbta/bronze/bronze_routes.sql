@@ -1,27 +1,2 @@
-{{
-    config(
-        materialized='incremental',
-        unique_key=['route_id', 'ingestion_timestamp'],
-        on_schema_change='sync_all_columns'
-    )
-}}
-
-with source_data as (
-    select
-        route_id,
-        long_name,
-        route_type,
-        color,
-        description,
-        direction_destinations,
-        ingestion_timestamp,
-        ingestion_source
-    from `{{ env_var('DBT_PROJECT_ID', 'mbta-reliability-analytics') }}.staging.mbta_routes`
-    
-    {% if is_incremental() %}
-    -- Only load new records since the last run
-    where ingestion_timestamp > (select max(ingestion_timestamp) from {{ this }})
-    {% endif %}
-)
-
-select * from source_data
+{# Bronze layer: DELETE-INSERT pattern from staging #}
+{{ build_bronze_desert('routes') }}

@@ -2,6 +2,17 @@
 dbt-core==1.7.8
 dbt-bigquery==1.7.4
 
-# Additional useful packages
+# Google Cloud dependencies (explicitly pinned for compatibility)
+protobuf<5,>=4.0.0  # dbt 1.7.8 requires protobuf 4.x
+grpcio-status<1.60.0  # Compatible with protobuf 4.x
+google-cloud-bigquery==3.40.1
+google-cloud-storage==2.19.0
+
+# Code quality and linting
 sqlfluff==3.0.3
 sqlfluff-templater-dbt==3.0.3
+
+# Testing
+pytest==8.4.2
+
+# Note: For exact environment recreation, see requirements-frozen.txt

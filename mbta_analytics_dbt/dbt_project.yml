@@ -31,16 +31,13 @@ models:
   mbta_analytics_dbt:
     # MBTA transformed data models
     mbta:
-      +schema: mbta
       +materialized: incremental
       +on_schema_change: "sync_all_columns"
     
     # Weather transformed data models (future)
     weather:
-      +schema: weather
       +materialized: table
     
     # Gold - cross-domain analytics and final aggregations
     gold:
-      +schema: gold
       +materialized: table

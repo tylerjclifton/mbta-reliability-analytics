@@ -63,3 +63,29 @@ resource "google_cloud_run_v2_job" "ingestion_routes" {
     }
   }
 }
+
+resource "google_cloud_run_v2_job" "dbt_transform" {
+  name     = "dbt-transform"
+  location = var.location
+  template {
+    task_count  = 1
+    parallelism = 0
+    template {
+      containers {
+        name  = "dbt-transform"
+        image = "us-east1-docker.pkg.dev/mbta-reliability-analytics/data-ingestion/dbt-transform:latest"
+        env {
+          name  = "DBT_PROJECT_ID"
+          value = var.project_id
+        }
+        resources {
+          limits = {
+            memory = "1Gi"
+            cpu    = "2000m"
+          }
+        }
+      }
+      timeout = "600s"  # 10 minutes for dbt to complete
+    }
+  }
+}

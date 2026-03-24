@@ -67,13 +67,16 @@ resource "google_cloud_run_v2_job" "ingestion_routes" {
 resource "google_cloud_run_v2_job" "dbt_transform" {
   name     = "dbt-transform"
   location = var.location
+  
+  deletion_protection = false
+  
   template {
     task_count  = 1
     parallelism = 0
     template {
       containers {
         name  = "dbt-transform"
-        image = "us-east1-docker.pkg.dev/mbta-reliability-analytics/data-ingestion/dbt-transform:latest"
+        image = "us-east1-docker.pkg.dev/mbta-reliability-analytics/data-ingestion/dbt-transform@sha256:520e9b5b6abcdbc0df7a1fed5d99c6ccfa363700805ed4a915dac80f06cc4930"
         env {
           name  = "DBT_PROJECT_ID"
           value = var.project_id

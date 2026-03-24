@@ -33,11 +33,3 @@ models:
     mbta:
       +materialized: incremental
       +on_schema_change: "sync_all_columns"
-    
-    # Weather transformed data models (future)
-    weather:
-      +materialized: table
-    
-    # Gold - cross-domain analytics and final aggregations
-    gold:
-      +materialized: table

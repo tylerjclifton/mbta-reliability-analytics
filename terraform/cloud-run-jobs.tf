@@ -11,7 +11,7 @@ resource "google_cloud_run_v2_job" "ingestion_alerts" {
       service_account = var.default_sa_compute_engine
       containers {
         name  = "mbta-ingestion-alerts"
-        image = "us-east1-docker.pkg.dev/mbta-reliability-analytics/data-ingestion/ingestion-alerts@sha256:c50e7cea84f2e6831ff6916f8fe7744e273d7497cf26404f3457ebf8b06b7f19"
+        image = "us-east1-docker.pkg.dev/mbta-reliability-analytics/data-ingestion/mbta-ingestion-alerts:latest"
         env {
           name  = "BQ_PROJECT_ID"
           value = var.project_id
@@ -48,7 +48,7 @@ resource "google_cloud_run_v2_job" "ingestion_routes" {
       service_account = var.default_sa_compute_engine
       containers {
         name  = "mbta-ingestion-routes"
-        image = "us-east1-docker.pkg.dev/mbta-reliability-analytics/data-ingestion/ingestion-routes@sha256:d89fee1b441b1bc5b7d94788f3ff176db88f5f248bbec23e92ed65c5979a3d61"
+        image = "us-east1-docker.pkg.dev/mbta-reliability-analytics/data-ingestion/mbta-ingestion-routes:latest"
         env {
           name  = "BQ_PROJECT_ID"
           value = var.project_id

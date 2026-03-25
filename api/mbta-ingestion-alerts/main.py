@@ -62,16 +62,26 @@ if response.status_code == 200:
             cause = attributes.get('cause', None)
             effect = attributes.get('effect', None)
             severity = attributes.get('severity', None)
-            created_at = attributes.get('created_at', None)
-            updated_at = attributes.get('updated_at', None)
+            
+            # Parse created_at timestamp
+            try:
+                created_at = datetime.datetime.fromisoformat(attributes.get('created_at')) if attributes.get('created_at') else None
+            except (ValueError, TypeError):
+                created_at = None
+            
+            # Parse updated_at timestamp
+            try:
+                updated_at = datetime.datetime.fromisoformat(attributes.get('updated_at')) if attributes.get('updated_at') else None
+            except (ValueError, TypeError):
+                updated_at = None
             
             # Extract the start and end timestamps of the alert, if available
             if active_period:
                 # Use first available active_period (in case multiple are provided by MBTA)
                 period = active_period[0]
-                # Try to get extract start value from active_period
+                # Try to extract start value from active_period
                 try:
-                    # Attempt to parse the start value into a Python timestamps object
+                    # Attempt to parse the start value into a Python datetime object
                     # If the value is missing → default to None
                     active_period_start = datetime.datetime.fromisoformat(period.get('start')) if period.get('start') else None
                 # If the value exists but is malformed
@@ -96,23 +106,19 @@ if response.status_code == 200:
             ingestion_timestamp = current_datetime
             ingestion_source = os.path.basename(__file__) if '__file__' in globals() else 'Unknown file name'
             
-            # If the alert affects any routes, create one row per route and stop
+            # If the alert affects any routes, create one row per route
             has_entity = False
             for entity in informed_entity:
                 route = entity.get('route')
-                stop = entity.get('stop')
                 if (
                     route
                     and route in target_routes
                     and effect not in exclude_effects
-                    and stop
-                    and stop.startswith('place-')
                 ):
                     has_entity = True
                     standardized_alerts.append({
                         'alert_id': alert_id,
                         'route': route,
-                        'stop': stop,
                         'active_period_start': active_period_start,
                         'active_period_end': active_period_end,
                         'duration_certainty': duration_certainty,
@@ -138,8 +144,8 @@ else:
 # Convert the list of alert dictionaries into a pandas DataFrame
 output = pandas.DataFrame(standardized_alerts)
 
-# Deduplicate based on unique combination of alert_id, route, and stop
-output_deduped = output.drop_duplicates(subset=['alert_id', 'route', 'stop'], keep='first')
+# Deduplicate based on unique combination of alert_id and route
+output_deduped = output.drop_duplicates(subset=['alert_id', 'route'], keep='first')
 
 # Define BigQuery project, dataset, and table using environment variables
 project_id = os.getenv('BQ_PROJECT_ID', 'mbta-reliability-analytics')

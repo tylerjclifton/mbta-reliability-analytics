@@ -2,7 +2,7 @@
   Silver Layer - Combined MBTA Data
   
   Joins all MBTA bronze sources together:
-  - bronze_alerts (base table - grain: alert_id, route_id, stop_id)
+  - bronze_alerts (base table - grain: alert_id, route_id)
   - bronze_routes (lookup for route details)
   
   Applies type casting and field aliasing.
@@ -33,7 +33,6 @@ SELECT
     CAST(REGEXP_EXTRACT(CAST(a.active_period_end AS STRING), r"^\d{4}-\d{2}-\d{2}") AS DATE) AS alert_end_date,
     CAST(a.alert_id AS STRING) AS alert_id,
     CAST(a.route AS STRING) AS route_id,
-    CAST(a.stop AS STRING) AS stop_id,
     CAST(a.header AS STRING) AS alert_header,
     CAST(a.description AS STRING) AS alert_description,
     CAST(a.cause AS STRING) AS alert_cause,

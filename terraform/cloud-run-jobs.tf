@@ -85,7 +85,7 @@ resource "google_cloud_run_v2_job" "dbt_transform" {
       service_account = google_service_account.dbt_bigquery.email
       containers {
         name  = "mbta-transform"
-        image = "us-east1-docker.pkg.dev/mbta-reliability-analytics/data-ingestion/dbt-transform:latest"
+        image = "us-east1-docker.pkg.dev/mbta-reliability-analytics/data-ingestion/mbta-transform:latest"
         env {
           name  = "DBT_PROJECT_ID"
           value = var.project_id

@@ -1,6 +1,6 @@
 resource "google_cloud_scheduler_job" "ingestion_alerts" {
   name             = "mbta-ingestion-alerts"
-  schedule         = "0 * * * *"
+  schedule         = "0 */6 * * *" # Every 6 hours at minute 0
   time_zone        = "Etc/UTC"
   attempt_deadline = "180s"
   paused           = false
@@ -42,7 +42,7 @@ resource "google_cloud_scheduler_job" "ingestion_routes" {
 
 resource "google_cloud_scheduler_job" "dbt_transform" {
   name             = "mbta-transform"
-  schedule         = "10 * * * *" # Runs at :10 past each hour (after ingestion)
+  schedule         = "10 */6 * * *" # Every 6 hours at minute 10 (after ingestion)
   time_zone        = "Etc/UTC"
   attempt_deadline = "600s" # 10 minutes deadline for dbt
   paused           = false

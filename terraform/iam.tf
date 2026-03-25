@@ -99,7 +99,8 @@ locals {
   dbt_bigquery_roles = [
     "roles/bigquery.dataEditor",
     "roles/bigquery.jobUser",
-    "roles/bigquery.user"
+    "roles/bigquery.user",
+    "roles/run.invoker"
   ]
 }
 

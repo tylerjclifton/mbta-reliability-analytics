@@ -135,6 +135,12 @@ mbta_sources:
       - raw: visibility_miles
         alias: visibility_miles
         type: float64
+      - raw: cloud_base_meters
+        alias: cloud_base_meters
+        type: float64
+      - raw: cloud_coverage
+        alias: cloud_coverage
+        type: string
       - raw: conditions
         alias: conditions
         type: string

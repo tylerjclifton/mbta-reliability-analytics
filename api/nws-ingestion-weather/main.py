@@ -92,6 +92,31 @@ if response.status_code == 200:
         # Extract text description
         text_description = properties.get('textDescription')
 
+        # Extract cloud layers (get lowest layer for ceiling info)
+        cloud_layers = properties.get('cloudLayers', [])
+        lowest_cloud_base_m = None
+        lowest_cloud_amount = None
+        
+        if cloud_layers and len(cloud_layers) > 0:
+            # Find the lowest cloud layer with actual cloud coverage (not CLR)
+            for layer in cloud_layers:
+                base_data = layer.get('base', {})
+                base_value = base_data.get('value')
+                amount = layer.get('amount')
+                
+                # Skip clear layers
+                if amount != 'CLR' and base_value is not None:
+                    if lowest_cloud_base_m is None or base_value < lowest_cloud_base_m:
+                        lowest_cloud_base_m = base_value
+                        lowest_cloud_amount = amount
+                    break  # Take first non-clear layer as it's typically the lowest
+            
+            # If all layers are clear, take the first one anyway
+            if lowest_cloud_base_m is None and cloud_layers:
+                first_layer = cloud_layers[0]
+                lowest_cloud_base_m = first_layer.get('base', {}).get('value')
+                lowest_cloud_amount = first_layer.get('amount')
+
         # Record ingestion metadata
         current_datetime = datetime.datetime.now(datetime.timezone.utc)
         ingestion_timestamp = current_datetime
@@ -111,6 +136,8 @@ if response.status_code == 200:
             'relative_humidity_percent': humidity,
             'barometric_pressure_pa': pressure_pa,
             'visibility_miles': visibility_miles,
+            'cloud_base_meters': lowest_cloud_base_m,
+            'cloud_coverage': lowest_cloud_amount,
             'conditions': text_description,
             'ingestion_timestamp': ingestion_timestamp,
             'ingestion_source': ingestion_source

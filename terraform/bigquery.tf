@@ -17,11 +17,11 @@ resource "google_bigquery_dataset" "mbta" {
   location      = var.location
 }
 
-# Weather dataset - cleaned and transformed weather data (future)
-resource "google_bigquery_dataset" "weather" {
-  dataset_id    = "weather"
-  friendly_name = "Weather Dataset"
-  description   = "Cleaned and transformed weather data"
+# NWS dataset - cleaned and transformed NWS weather data
+resource "google_bigquery_dataset" "nws" {
+  dataset_id    = "nws"
+  friendly_name = "NWS Weather Dataset"
+  description   = "Cleaned and transformed National Weather Service data"
   location      = var.location
 }
 

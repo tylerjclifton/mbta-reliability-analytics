@@ -10,9 +10,9 @@
   Mirrors Dataform's buildCteBase() function with desert pattern.
 #}
 
-{% macro build_silver_desert(source_name) %}
+{% macro build_silver_desert(partner, source_name) %}
 
-{% set source_config = get_field_config(source_name) %}
+{% set source_config = get_partner_field_config(partner, source_name) %}
 {% set fields = source_config.fields %}
 {% set unique_key_raw = source_config.unique_key %}
 

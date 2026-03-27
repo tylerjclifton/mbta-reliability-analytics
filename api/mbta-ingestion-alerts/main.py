@@ -104,7 +104,7 @@ if response.status_code == 200:
             # Record ingestion metadata
             current_datetime = datetime.datetime.now(datetime.timezone.utc)
             ingestion_timestamp = current_datetime
-            ingestion_source = os.path.basename(__file__) if '__file__' in globals() else 'Unknown file name'
+            ingestion_source = 'mbta-ingestion-alerts'
             
             # If the alert affects any routes, create one row per route
             has_entity = False

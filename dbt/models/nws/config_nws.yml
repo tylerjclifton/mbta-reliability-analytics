@@ -1,0 +1,73 @@
+# NWS Source Configuration (Documentation)
+# 
+# This is a human-readable reference version of the field definitions.
+# The executable version is in macros/configs/nws.sql (Jinja dict).
+# Used by macros in macros/builders/ (bronze.sql, silver.sql)
+#
+# Pattern Used: DELETE-INSERT (Desert)
+#   Bronze: Deletes rows by key from bronze where key exists in staging, then inserts all staging rows
+#   Silver: Deletes rows by key from silver where key exists in bronze, then inserts all bronze rows
+#
+# Data types are lowercase for readability. Macros will uppercase when needed for BigQuery.
+# When updating fields, update BOTH files to keep them in sync.
+
+version: 2
+
+nws_sources:
+  weather:
+    staging_table: nws_weather
+    unique_key:
+      - observation_timestamp
+      - station_id
+    fields:
+      - raw: observation_timestamp
+        alias: observation_timestamp
+        type: timestamp
+      - raw: station_id
+        alias: station_id
+        type: string
+      - raw: temperature_fahrenheit
+        alias: temperature_fahrenheit
+        type: float64
+      - raw: temperature_celsius
+        alias: temperature_celsius
+        type: float64
+      - raw: dewpoint_fahrenheit
+        alias: dewpoint_fahrenheit
+        type: float64
+      - raw: dewpoint_celsius
+        alias: dewpoint_celsius
+        type: float64
+      - raw: wind_speed_mph
+        alias: wind_speed_mph
+        type: float64
+      - raw: wind_direction_degrees
+        alias: wind_direction_degrees
+        type: float64
+      - raw: precipitation_last_hour_mm
+        alias: precipitation_last_hour_mm
+        type: float64
+      - raw: relative_humidity_percent
+        alias: relative_humidity_percent
+        type: float64
+      - raw: barometric_pressure_pa
+        alias: barometric_pressure_pa
+        type: float64
+      - raw: visibility_miles
+        alias: visibility_miles
+        type: float64
+      - raw: cloud_base_meters
+        alias: cloud_base_meters
+        type: float64
+      - raw: cloud_coverage
+        alias: cloud_coverage
+        type: string
+      - raw: conditions
+        alias: conditions
+        type: string
+      - raw: ingestion_timestamp
+        alias: ingestion_timestamp
+        type: timestamp
+      - raw: ingestion_source
+        alias: ingestion_source
+        type: string

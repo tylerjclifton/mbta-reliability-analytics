@@ -10,10 +10,10 @@
   Mirrors Dataform's buildDesertBronze() function.
 #}
 
-{% macro build_bronze_desert(source_name) %}
+{% macro build_bronze_desert(partner, source_name) %}
 
-{% set source_config = get_field_config(source_name) %}
-{% set raw_fields = get_raw_fields(source_name) %}
+{% set source_config = get_partner_field_config(partner, source_name) %}
+{% set raw_fields = get_raw_fields(partner, source_name) %}
 {% set unique_key = source_config.unique_key %}
 {% set staging_table = source_config.staging_table %}
 {% set project_id = env_var('DBT_PROJECT_ID', 'mbta-reliability-analytics') %}

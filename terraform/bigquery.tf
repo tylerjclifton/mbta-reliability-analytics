@@ -9,19 +9,19 @@ resource "google_bigquery_dataset" "staging" {
   default_table_expiration_ms = 604800000 # 7 days in milliseconds
 }
 
-# MBTA dataset - cleaned and transformed MBTA transit data
+# MBTA dataset - data sourced from MBTA
 resource "google_bigquery_dataset" "mbta" {
   dataset_id    = "mbta"
   friendly_name = "MBTA Dataset"
-  description   = "Cleaned and transformed MBTA transit data"
+  description   = "Data sourced from MBTA"
   location      = var.location
 }
 
-# NWS dataset - cleaned and transformed NWS weather data
+# NWS dataset - data sourced from National Weather Service
 resource "google_bigquery_dataset" "nws" {
   dataset_id    = "nws"
-  friendly_name = "NWS Weather Dataset"
-  description   = "Cleaned and transformed National Weather Service data"
+  friendly_name = "NWS Dataset"
+  description   = "Data sourced from National Weather Service"
   location      = var.location
 }
 

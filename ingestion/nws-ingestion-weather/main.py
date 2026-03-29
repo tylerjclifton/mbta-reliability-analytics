@@ -154,17 +154,20 @@ else:
 # Convert the list of observation dictionaries into a pandas DataFrame
 output = pandas.DataFrame(standardized_observations)
 
+# Deduplicate based on unique combination of relevant columns
+output_deduped = output.drop_duplicates(subset=['observation_timestamp', 'station_id'], keep='first')
+
 # Define BigQuery project, dataset, and table using environment variables
 project_id = os.getenv('BQ_PROJECT_ID', 'mbta-reliability-analytics')
 dataset_id = os.getenv('BQ_DATASET_ID', 'staging')
 table_id = os.getenv('BQ_TABLE_ID', 'nws_weather')
 
-# Write to BigQuery
+# Change the BigQuery write mode to replace the table
 try:
-    # Upload the DataFrame to BigQuery (append to existing table)
-    to_gbq(output, f'{dataset_id}.{table_id}', project_id=project_id, if_exists='append')
+    # Upload the DataFrame to BigQuery (replace table if it already exists)
+    to_gbq(output_deduped, f'{dataset_id}.{table_id}', project_id=project_id, if_exists='replace')
     # Log number of uploaded rows
-    logging.info(f"{len(output)} rows uploaded to BigQuery")
+    logging.info(f"{len(output_deduped)} rows uploaded to BigQuery")
 except Exception as e:
     # Log that the BigQuery upload failed
     logging.error(f"BigQuery upload failed: {e}")

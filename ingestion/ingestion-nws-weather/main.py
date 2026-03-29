@@ -162,6 +162,39 @@ project_id = os.getenv('BQ_PROJECT_ID', 'mbta-reliability-analytics')
 dataset_id = os.getenv('BQ_DATASET_ID', 'staging')
 table_id = os.getenv('BQ_TABLE_ID', 'nws_weather')
 
+# Ensure staging table is cleared before ingestion
+from google.cloud import bigquery
+
+client = bigquery.Client()
+
+# Delete all rows from the staging table
+query = f"DELETE FROM `{project_id}.{dataset_id}.{table_id}` WHERE TRUE"
+client.query(query).result()
+
+# Define the schema for the table
+schema = [
+    bigquery.SchemaField("observation_timestamp", "TIMESTAMP"),
+    bigquery.SchemaField("station_id", "STRING"),
+    bigquery.SchemaField("temperature_fahrenheit", "FLOAT"),
+    bigquery.SchemaField("temperature_celsius", "FLOAT"),
+    bigquery.SchemaField("dewpoint_fahrenheit", "FLOAT"),
+    bigquery.SchemaField("dewpoint_celsius", "FLOAT"),
+    bigquery.SchemaField("wind_speed_mph", "FLOAT"),
+    bigquery.SchemaField("wind_direction_degrees", "FLOAT"),
+    bigquery.SchemaField("precipitation_last_hour_mm", "FLOAT"),
+    bigquery.SchemaField("relative_humidity_percent", "FLOAT"),
+    bigquery.SchemaField("barometric_pressure_pa", "FLOAT"),
+    bigquery.SchemaField("visibility_miles", "FLOAT"),
+    bigquery.SchemaField("cloud_base_meters", "FLOAT"),
+    bigquery.SchemaField("cloud_coverage", "STRING"),
+    bigquery.SchemaField("conditions", "STRING"),
+    bigquery.SchemaField("ingestion_source", "STRING"),
+    bigquery.SchemaField("ingestion_timestamp", "TIMESTAMP"),
+]
+
+# Ensure the table schema is consistent
+client.create_table(bigquery.Table(f"{project_id}.{dataset_id}.{table_id}", schema=schema), exists_ok=True)
+
 # Change the BigQuery write mode to replace the table
 try:
     # Upload the DataFrame to BigQuery (replace table if it already exists)

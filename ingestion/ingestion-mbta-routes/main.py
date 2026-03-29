@@ -87,6 +87,31 @@ project_id = os.getenv('BQ_PROJECT_ID', 'mbta-reliability-analytics')
 dataset_id = os.getenv('BQ_DATASET_ID', 'staging')
 table_id = os.getenv('BQ_TABLE_ID', 'mbta_routes')
 
+# Define the schema for the table
+schema = [
+    bigquery.SchemaField("route_id", "STRING"),
+    bigquery.SchemaField("long_name", "STRING"),
+    bigquery.SchemaField("route_type", "STRING"),
+    bigquery.SchemaField("color", "STRING"),
+    bigquery.SchemaField("description", "STRING"),
+    bigquery.SchemaField("direction_destinations", "STRING"),
+    bigquery.SchemaField("ingestion_source", "STRING"),
+    bigquery.SchemaField("ingestion_timestamp", "TIMESTAMP"),
+]
+
+# Ensure the table schema is consistent
+client = bigquery.Client()
+client.create_table(bigquery.Table(f"{project_id}.{dataset_id}.{table_id}", schema=schema), exists_ok=True)
+
+# Ensure staging table is cleared before ingestion
+from google.cloud import bigquery
+
+client = bigquery.Client()
+
+# Delete all rows from the staging table
+query = f"DELETE FROM `{project_id}.{dataset_id}.{table_id}` WHERE TRUE"
+client.query(query).result()
+
 # Deduplicate based on unique combination of relevant columns
 output_deduped = output.drop_duplicates(subset=['route_id'], keep='first')
 

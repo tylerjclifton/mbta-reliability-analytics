@@ -1,0 +1,28 @@
+# Ignore everything by default
+**
+
+# Allow specific files and directories
+!Dockerfile
+!requirements.txt
+!keys/
+!transformation/
+!infrastructure/
+!ingestion/
+
+# Ignore unnecessary files within allowed directories
+keys/*.backup
+keys/*.tmp
+transformation/logs/
+transformation/target/
+transformation/dbt_packages/
+logs/
+
+# Ignore Python virtual environments
+venv/
+
+# Ignore Git files
+.git/
+.gitignore
+
+# Ignore macOS system files
+.DS_Store

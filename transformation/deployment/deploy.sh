@@ -5,7 +5,7 @@ set -e
 
 PROJECT_ID="mbta-reliability-analytics"
 REGION="us-east1"
-IMAGE_NAME="transform"
+IMAGE_NAME="transform-pipeline"
 REPOSITORY="data-ingestion"
 
 echo "Building Docker image..."
@@ -23,4 +23,4 @@ cd ../../terraform
 terraform apply -auto-approve
 
 echo "Deployment complete!"
-echo "To trigger manually: gcloud run jobs execute mbta-transform --region=${REGION}"
+echo "To trigger manually: gcloud run jobs execute transform-pipeline --region=${REGION}"

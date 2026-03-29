@@ -13,14 +13,14 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the entire dbt project
-COPY dbt/ /app/dbt/
+# Copy the entire transformation directory
+COPY transformation/ /app/transformation/
 
 # Copy GCP service account key
-COPY keys/gcp-terraform-sa.json /app/keys/gcp-terraform-sa.json
+COPY keys/gcp-dbt-sa.json /app/keys/gcp-dbt-sa.json
 
-# Set working directory to dbt project
-WORKDIR /app/dbt
+# Set working directory to transformation project
+WORKDIR /app/transformation
 
 # Run dbt
 CMD ["dbt", "run", "--profiles-dir", "."]

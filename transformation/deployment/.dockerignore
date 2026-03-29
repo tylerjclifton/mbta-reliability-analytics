@@ -35,3 +35,7 @@ terraform/.terraform/
 # Ignore logs
 logs/
 *.log
+
+# Ensure GCP service account key is included
+!keys/
+!keys/gcp-dbt-sa.json

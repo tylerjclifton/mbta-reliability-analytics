@@ -61,8 +61,8 @@ resource "google_cloud_scheduler_job" "ingestion_weather" {
   }
 }
 
-resource "google_cloud_scheduler_job" "dbt_transform" {
-  name             = "mbta-transform"
+resource "google_cloud_scheduler_job" "transform_pipeline" {
+  name             = "transform-pipeline"
   schedule         = "10 */6 * * *" # Every 6 hours at minute 10 (after ingestion)
   time_zone        = "Etc/UTC"
   attempt_deadline = "600s" # 10 minutes deadline for dbt
@@ -74,7 +74,7 @@ resource "google_cloud_scheduler_job" "dbt_transform" {
 
   http_target {
     http_method = "POST"
-    uri         = "https://${var.location}-run.googleapis.com/v2/projects/${var.project_id}/locations/${var.location}/jobs/mbta-transform:run"
+    uri         = "https://${var.location}-run.googleapis.com/v2/projects/${var.project_id}/locations/${var.location}/jobs/transform-pipeline:run"
     oauth_token {
       service_account_email = google_service_account.dbt_bigquery.email
       scope                 = "https://www.googleapis.com/auth/cloud-platform"

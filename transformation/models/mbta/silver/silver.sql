@@ -50,8 +50,8 @@ SELECT
     CAST(r.direction_destinations AS STRING) AS route_destinations,
     
     -- Metadata
-    CAST(a.ingestion_timestamp AS TIMESTAMP) AS ingestion_timestamp,
-    CAST(a.ingestion_source AS STRING) AS ingestion_source
+    CAST(a.ingestion_source AS STRING) AS ingestion_source,
+    CAST(a.ingestion_timestamp AS TIMESTAMP) AS ingestion_timestamp
 
 FROM {{ ref('bronze_alerts') }} AS a
 LEFT JOIN {{ ref('bronze_routes') }} AS r

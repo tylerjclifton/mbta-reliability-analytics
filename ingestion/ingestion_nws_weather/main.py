@@ -139,8 +139,8 @@ if response.status_code == 200:
             'cloud_base_meters': lowest_cloud_base_m,
             'cloud_coverage': lowest_cloud_amount,
             'conditions': text_description,
-            'ingestion_timestamp': ingestion_timestamp,
-            'ingestion_source': ingestion_source
+            'ingestion_source': ingestion_source,
+            'ingestion_timestamp': ingestion_timestamp
         })
 
     else:

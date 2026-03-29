@@ -67,8 +67,8 @@ if response.status_code == 200:
                 'color': color,
                 'description': description,
                 'direction_destinations': str(direction_destinations) if direction_destinations else None,
-                'ingestion_timestamp': ingestion_timestamp,
-                'ingestion_source': ingestion_source
+                'ingestion_source': ingestion_source,
+                'ingestion_timestamp': ingestion_timestamp
             })
 
     else:

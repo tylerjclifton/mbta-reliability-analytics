@@ -5,7 +5,7 @@ set -e
 
 PROJECT_ID="mbta-reliability-analytics"
 REGION="us-east1"
-IMAGE_NAME="mbta-transform"
+IMAGE_NAME="transform"
 REPOSITORY="data-ingestion"
 
 echo "Building Docker image..."

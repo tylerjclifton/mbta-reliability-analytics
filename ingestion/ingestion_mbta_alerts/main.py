@@ -129,8 +129,8 @@ if response.status_code == 200:
                         'severity': severity,
                         'created_at': created_at,
                         'updated_at': updated_at,
-                        'ingestion_timestamp': ingestion_timestamp,
-                        'ingestion_source': ingestion_source
+                        'ingestion_source': ingestion_source,
+                        'ingestion_timestamp': ingestion_timestamp
                     })
 
     else:

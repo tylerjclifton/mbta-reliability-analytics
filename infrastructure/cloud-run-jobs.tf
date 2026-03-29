@@ -109,8 +109,8 @@ resource "google_cloud_run_v2_job" "ingestion_weather" {
   }
 }
 
-resource "google_cloud_run_v2_job" "dbt_transform" {
-  name     = "mbta-transform"
+resource "google_cloud_run_v2_job" "transform_pipeline" {
+  name     = "transform-pipeline"
   location = var.location
 
   deletion_protection = false

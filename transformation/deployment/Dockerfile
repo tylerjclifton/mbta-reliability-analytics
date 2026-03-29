@@ -6,18 +6,16 @@ RUN apt-get update && apt-get install -y \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# Set working directory
+# Set working directory to the repository root
 WORKDIR /app
 
-# Copy requirements first for better caching
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy the entire transformation directory
+# Copy only necessary files from the repository root
+COPY requirements.txt /app/requirements.txt
 COPY transformation/ /app/transformation/
-
-# Copy GCP service account key
 COPY keys/gcp-dbt-sa.json /app/keys/gcp-dbt-sa.json
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r /app/requirements.txt
 
 # Set working directory to transformation project
 WORKDIR /app/transformation

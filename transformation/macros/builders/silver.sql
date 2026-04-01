@@ -12,7 +12,7 @@
 
 {% macro build_silver_desert(partner, source_name) %}
 
-{% set source_config = get_partner_field_config(partner, source_name) %}
+{% set source_config = get_partner_config(partner, source_name) %}
 {% set fields = source_config.fields %}
 {% set unique_key_raw = source_config.unique_key %}
 
@@ -37,7 +37,7 @@
 {% set delete_sql %}
   DELETE FROM {{ this }} AS target
   WHERE EXISTS (
-    SELECT 1 FROM {{ ref('bronze_' ~ source_name) }} AS source
+    SELECT 1 FROM {{ ref(partner ~ '_bronze_' ~ source_name) }} AS source
     WHERE {{ delete_where }}
   )
 {% endset %}
@@ -59,6 +59,6 @@ select
     cast({{ field.raw }} as {{ field.type | upper }}) as {{ field.alias }}{{ "," if not loop.last else "" }}
     {% endif %}
     {% endfor %}
-from {{ ref('bronze_' ~ source_name) }}
+from {{ ref(partner ~ '_bronze_' ~ source_name) }}
 
 {% endmacro %}

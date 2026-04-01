@@ -12,7 +12,7 @@
 
 {% macro build_bronze_desert(partner, source_name) %}
 
-{% set source_config = get_partner_field_config(partner, source_name) %}
+{% set source_config = get_partner_config(partner, source_name) %}
 {% set raw_fields = get_raw_fields(partner, source_name) %}
 {% set unique_key = source_config.unique_key %}
 {% set staging_table = source_config.staging_table %}
@@ -34,7 +34,7 @@
 {# Execute DELETE before INSERT when incremental #}
 {%if is_incremental() %}
   {% set delete_sql %}
-    DELETE FROM `{{ project_id }}.{{ target.dataset }}.bronze_{{ source_name }}`
+    DELETE FROM `{{ project_id }}.{{ target.dataset }}.{{ partner }}_bronze_{{ source_name }}`
     WHERE {{ delete_where_conditions[0] }}
   {% endset %}
   

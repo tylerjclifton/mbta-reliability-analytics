@@ -20,8 +20,8 @@
 {% if is_incremental() %}
   {% set project_id = env_var('DBT_PROJECT_ID', 'mbta-reliability-analytics') %}
   {% set delete_sql %}
-    DELETE FROM `{{ project_id }}.{{ target.dataset }}.silver`
-    WHERE alert_id IN (SELECT DISTINCT alert_id FROM `{{ project_id }}.{{ target.dataset }}.bronze_alerts`)
+    DELETE FROM `{{ project_id }}.{{ target.dataset }}.mbta_silver`
+    WHERE alert_id IN (SELECT DISTINCT alert_id FROM `{{ project_id }}.{{ target.dataset }}.mbta_bronze_alerts`)
   {% endset %}
   
   {% do run_query(delete_sql) %}
@@ -53,6 +53,6 @@ SELECT
     CAST(a.ingestion_source AS STRING) AS ingestion_source,
     CAST(a.ingestion_timestamp AS TIMESTAMP) AS ingestion_timestamp
 
-FROM {{ ref('bronze_alerts') }} AS a
-LEFT JOIN {{ ref('bronze_routes') }} AS r
+FROM {{ ref('mbta_bronze_alerts') }} AS a
+LEFT JOIN {{ ref('mbta_bronze_routes') }} AS r
     ON a.route = r.route_id

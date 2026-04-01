@@ -1,4 +1,4 @@
-{% macro get_mbta_field_config(source_name) %}
+{% macro get_mbta_config(source_name) %}
   
   {% set config = {
     'alerts': {

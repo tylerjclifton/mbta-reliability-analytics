@@ -2,12 +2,12 @@
 # Name your project! Project names should contain only lowercase characters
 # and underscores. A good package name should reflect your organization's
 # name or the intended use of these models
-name: 'mbta_analytics_dbt'
+name: 'mbta_reliability_analytics'
 version: '1.0.0'
 config-version: 2
 
 # This setting configures which "profile" dbt uses for this project.
-profile: 'mbta_analytics_dbt'
+profile: 'mbta_reliability_analytics'
 
 # These configurations specify where dbt should look for different types of files.
 # The `model-paths` config, for example, states that models in this project can be
@@ -31,7 +31,7 @@ on-run-end:
 # Full documentation: https://docs.getdbt.com/docs/configuring-models
 
 models:
-  mbta_analytics_dbt:
+  mbta_reliability_analytics:
     # MBTA transformed data models
     mbta:
       +materialized: incremental

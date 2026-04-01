@@ -1,19 +1,4 @@
-{# 
-  MBTA Source Configuration
-  
-  This file contains field definitions as Jinja dictionary that the bronze and 
-  silver builders (macros/builders/) use at compile time.
-  
-  NOTE: A human-readable YAML version exists at models/mbta/config_mbta.yml
-  When updating field definitions, update BOTH files to keep them in sync.
-  
-  Mirrors the Dataform config.js structure.
-#}
-
-{% macro get_partner_field_config(partner, source_name) %}
-  {% if partner != 'mbta' %}
-    {% do return(none) %}
-  {% endif %}
+{% macro get_mbta_field_config(source_name) %}
   
   {% set config = {
     'alerts': {
@@ -51,5 +36,5 @@
       ]
     }
   } %}
-  {% do return(config[source_name]) %}
+    {% do return(config[source_name]) %}
 {% endmacro %}

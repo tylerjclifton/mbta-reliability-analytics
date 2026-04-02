@@ -1,6 +1,7 @@
-{% macro get_mbta_config(source_name) %}
+{% macro get_mbta_config() %}
   
   {% set config = {
+    'sources': {
     'alerts': {
       'staging_table': 'mbta_alerts',
       'unique_key': ['alert_id', 'route'],
@@ -35,6 +36,14 @@
         {'raw': 'ingestion_source', 'alias': 'ingestion_source', 'type': 'string'}
       ]
     }
+  },
+  'joins': [
+        {
+          'source': 'routes',
+          'join_type': 'left',
+          'on': [{'left': 'route_id', 'right': 'route_id'}]
+        }
+      ]
   } %}
-    {% do return(config[source_name]) %}
+  {% do return(config) %}
 {% endmacro %}

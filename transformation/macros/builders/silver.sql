@@ -1,64 +1,102 @@
 {# 
-  Silver Layer Model Builder (Desert Pattern)
+  Silver Layer Model Builder (CTE + JOIN Pattern)
   
   Generic builder that works across all data sources.
-  Implements MERGE pattern (BigQuery equivalent of DELETE-INSERT):
-    - Matches on unique_key to update existing rows
-    - Inserts new rows with type casting and field renaming
+  Creates modular CTEs for each source with transformations, then joins them.
   
-  Reads field config from macros/configs/{source}.sql
-  Mirrors Dataform's buildCteBase() function with desert pattern.
+  Pattern:
+    1. Base CTE: Main source with field renaming and type casting
+    2. Join CTEs: Each joined source with its field transformations
+    3. Final SELECT: Joins all CTEs based on config
+  
+  Uses dbt's native incremental MERGE strategy with unique_key.
+  Reads field config and join config from macros/configs/{partner}.sql
 #}
 
-{% macro build_silver_desert(partner, source_name) %}
+{% macro build_silver_with_joins(partner, source_name) %}
 
-{% set source_config = get_partner_config(partner, source_name) %}
-{% set fields = source_config.fields %}
+{% set source_config = get_source_config(partner, source_name) %}
+{% set base_fields = source_config.fields %}
 {% set unique_key_raw = source_config.unique_key %}
+{% set joins = get_partner_joins(partner) %}
 
 {# Map raw field names to their aliases for unique_key #}
 {% set unique_key_aliases = [] %}
 {% for raw_field in unique_key_raw %}
-  {% for field in fields %}
+  {% for field in base_fields %}
     {% if field.raw == raw_field %}
       {% do unique_key_aliases.append(field.alias) %}
     {% endif %}
   {% endfor %}
 {% endfor %}
 
-{# Build WHERE clause for DELETE based on unique_key (using aliases) #}
-{% set delete_where_conditions = [] %}
-{% for i in range(unique_key_raw | length) %}
-  {% do delete_where_conditions.append("target." ~ unique_key_aliases[i] ~ " = source." ~ unique_key_raw[i]) %}
-{% endfor %}
-{% set delete_where = delete_where_conditions | join(' AND ') %}
-
-{# DELETE statement in pre-hook #}
-{% set delete_sql %}
-  DELETE FROM {{ this }} AS target
-  WHERE EXISTS (
-    SELECT 1 FROM {{ ref(partner ~ '_bronze_' ~ source_name) }} AS source
-    WHERE {{ delete_where }}
-  )
-{% endset %}
-
 {{
     config(
         materialized='incremental',
-        on_schema_change='sync_all_columns',
-        pre_hook="{{ delete_sql if is_incremental() else '' }}"
+        unique_key=unique_key_aliases,
+        on_schema_change='sync_all_columns'
     )
 }}
 
-{# Select all data from bronze with type casting and renaming #}
-select
-    {% for field in fields %}
+WITH base AS (
+  SELECT
+    {% for field in base_fields %}
     {% if field.type | lower == 'date' %}
-    cast(regexp_extract(cast({{ field.raw }} as string), r"^\d{4}-\d{2}-\d{2}") as date) as {{ field.alias }}{{ "," if not loop.last else "" }}
+    CAST(REGEXP_EXTRACT(CAST({{ field.raw }} AS STRING), r"^\d{4}-\d{2}-\d{2}") AS DATE) AS {{ field.alias }}{{ "," if not loop.last else "" }}
     {% else %}
-    cast({{ field.raw }} as {{ field.type | upper }}) as {{ field.alias }}{{ "," if not loop.last else "" }}
+    CAST({{ field.raw }} AS {{ field.type | upper }}) AS {{ field.alias }}{{ "," if not loop.last else "" }}
     {% endif %}
     {% endfor %}
-from {{ ref(partner ~ '_bronze_' ~ source_name) }}
+  FROM {{ ref(partner ~ '_bronze_' ~ source_name) }}
+)
+
+{# Generate CTE for each joined source #}
+{% for join in joins %}
+{% set join_config = get_source_config(partner, join.source) %}
+{% set join_fields = join_config.fields %}
+,
+
+{{ join.source }}_base AS (
+  SELECT
+    {% for field in join_fields %}
+    {% if field.type | lower == 'date' %}
+    CAST(REGEXP_EXTRACT(CAST({{ field.raw }} AS STRING), r"^\d{4}-\d{2}-\d{2}") AS DATE) AS {{ field.alias }}{{ "," if not loop.last else "" }}
+    {% else %}
+    CAST({{ field.raw }} AS {{ field.type | upper }}) AS {{ field.alias }}{{ "," if not loop.last else "" }}
+    {% endif %}
+    {% endfor %}
+  FROM {{ ref(partner ~ '_bronze_' ~ join.source) }}
+)
+{% endfor %}
+
+{# Final SELECT with joins #}
+SELECT
+  base.*
+  {# Add fields from joined sources #}
+  {% for join in joins %}
+  {% set join_config = get_source_config(partner, join.source) %}
+  {% set join_fields = join_config.fields %}
+  {# Get the alias from the first character of the join source #}
+  {% set join_alias = join.source[0] %}
+  {% for field in join_fields %}
+  {# Skip join key fields to avoid duplicates #}
+  {% set is_join_key = false %}
+  {% for on_clause in join.on %}
+    {% if field.raw == on_clause.right %}
+      {% set is_join_key = true %}
+    {% endif %}
+  {% endfor %}
+  {% if not is_join_key %}
+  ,
+  {{ join_alias }}.{{ field.alias }}
+  {% endif %}
+  {% endfor %}
+  {% endfor %}
+FROM base
+{% for join in joins %}
+{% set join_alias = join.source[0] %}
+{{ join.join_type | upper }} JOIN {{ join.source }}_base AS {{ join_alias }}
+  ON {% for on_clause in join.on %}base.{{ on_clause.left }} = {{ join_alias }}.{{ on_clause.right }}{{ ' AND ' if not loop.last else '' }}{% endfor %}
+{% endfor %}
 
 {% endmacro %}

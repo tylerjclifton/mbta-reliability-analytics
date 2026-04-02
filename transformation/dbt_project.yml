@@ -13,11 +13,11 @@ profile: 'mbta_reliability_analytics'
 # The `model-paths` config, for example, states that models in this project can be
 # found in the "models/" directory. You probably won't need to change these!
 model-paths: ["models"]
-analysis-paths: ["analyses"]
+# analysis-paths: ["analyses"]
 test-paths: ["tests"]
-seed-paths: ["seeds"]
+# seed-paths: ["seeds"]
 macro-paths: ["macros"]
-snapshot-paths: ["snapshots"]
+# snapshot-paths: ["snapshots"]
 
 clean-targets:         # directories to be removed by `dbt clean`
   - "target"

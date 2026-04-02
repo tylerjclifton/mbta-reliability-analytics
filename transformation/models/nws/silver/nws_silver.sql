@@ -9,7 +9,7 @@
   
   Grain: observation_timestamp, station_id
   Source: bronze_weather (nws dataset)
-  Pattern: DELETE-INSERT (Desert)
+  Pattern: CTE + MERGE (native dbt)
 #}
 
-{{ build_silver_desert('nws', 'weather') }}
+{{ build_silver_with_joins('nws', 'weather') }}

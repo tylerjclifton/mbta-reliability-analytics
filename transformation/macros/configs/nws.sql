@@ -1,10 +1,11 @@
-{% macro get_nws_config(source_name) %}
+{% macro get_nws_config() %}
   
   {% set config = {
-    'weather': {
-      'staging_table': 'nws_weather',
-      'unique_key': ['observation_timestamp', 'station_id'],
-      'fields': [
+    'sources': {
+      'weather': {
+        'staging_table': 'nws_weather',
+        'unique_key': ['observation_timestamp', 'station_id'],
+        'fields': [
         {'raw': 'observation_timestamp', 'alias': 'observation_timestamp', 'type': 'timestamp'},
         {'raw': 'station_id', 'alias': 'station_id', 'type': 'string'},
         {'raw': 'temperature_fahrenheit', 'alias': 'temperature_fahrenheit', 'type': 'float64'},
@@ -23,7 +24,9 @@
         {'raw': 'ingestion_timestamp', 'alias': 'ingestion_timestamp', 'type': 'timestamp'},
         {'raw': 'ingestion_source', 'alias': 'ingestion_source', 'type': 'string'}
       ]
-    }
+      }
+    },
+    'joins': []
   } %}
-  {% do return(config[source_name]) %}
+  {% do return(config) %}
 {% endmacro %}

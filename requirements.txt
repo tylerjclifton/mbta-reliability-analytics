@@ -22,3 +22,7 @@ sqlfluff-templater-dbt==3.0.3
 
 # Testing
 pytest==8.4.2
+
+# Jupyter notebooks
+ipykernel>=6.29.0
+sqlparse>=0.4.4  # SQL formatting

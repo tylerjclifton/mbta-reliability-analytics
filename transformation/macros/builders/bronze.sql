@@ -27,10 +27,10 @@
 }}
 
 {# Select all data from staging - dbt handles MERGE automatically #}
-select
-    {% for field in raw_fields -%}
+SELECT
+    {% for field in raw_fields %}
     {{ field }}{{ "," if not loop.last else "" }}
     {% endfor %}
-from `{{ project_id }}.staging.{{ staging_table }}`
+FROM `{{ project_id }}.staging.{{ staging_table }}`
 
 {% endmacro %}

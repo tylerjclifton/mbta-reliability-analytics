@@ -3,9 +3,13 @@
   {% set config = {
     'sources': {
     'alerts': {
-      'staging_table': 'mbta_alerts',
-      'unique_key': ['alert_id', 'route'],
-      'fields': [
+      'lookup': false,
+      'staging': {
+        'dataset': 'staging',
+        'table': 'mbta_alerts',
+      },
+      'fields': {
+        'dimensions': [
         {'raw': 'active_period_start', 'alias': 'alert_start_date', 'type': 'date'},
         {'raw': 'active_period_end', 'alias': 'alert_end_date', 'type': 'date'},
         {'raw': 'alert_id', 'alias': 'alert_id', 'type': 'string'},
@@ -20,30 +24,38 @@
         {'raw': 'updated_at', 'alias': 'alert_updated_at', 'type': 'date'},
         {'raw': 'ingestion_timestamp', 'alias': 'ingestion_timestamp', 'type': 'timestamp'},
         {'raw': 'ingestion_source', 'alias': 'ingestion_source', 'type': 'string'}
-      ]
+      ],
+      'metrics': []
     },
     'routes': {
-      'staging_table': 'mbta_routes',
-      'unique_key': ['route_id'],
-      'fields': [
-        {'raw': 'route_id', 'alias': 'route_id', 'type': 'string'},
-        {'raw': 'long_name', 'alias': 'route_name', 'type': 'string'},
-        {'raw': 'description', 'alias': 'route_description', 'type': 'string'},
-        {'raw': 'route_type', 'alias': 'route_type', 'type': 'string'},
-        {'raw': 'color', 'alias': 'route_color', 'type': 'string'},
-        {'raw': 'direction_destinations', 'alias': 'route_destinations', 'type': 'string'},
-        {'raw': 'ingestion_timestamp', 'alias': 'ingestion_timestamp', 'type': 'timestamp'},
-        {'raw': 'ingestion_source', 'alias': 'ingestion_source', 'type': 'string'}
-      ]
+      'lookup': true,
+      'staging': {
+        'dataset': 'staging',
+        'table': 'mbta_routes',
+      },
+      'fields': {
+        'dimensions': [
+          {'raw': 'route_id', 'alias': 'route_id', 'type': 'string'},
+          {'raw': 'long_name', 'alias': 'route_name', 'type': 'string'},
+          {'raw': 'description', 'alias': 'route_description', 'type': 'string'},
+          {'raw': 'route_type', 'alias': 'route_type', 'type': 'string'},
+          {'raw': 'color', 'alias': 'route_color', 'type': 'string'},
+          {'raw': 'direction_destinations', 'alias': 'route_destinations', 'type': 'string'},
+          {'raw': 'ingestion_timestamp', 'alias': 'ingestion_timestamp', 'type': 'timestamp'},
+          {'raw': 'ingestion_source', 'alias': 'ingestion_source', 'type': 'string'}
+        ],
+        'metrics': []
+      }
     }
   },
   'joins': [
-        {
-          'source': 'routes',
-          'join_type': 'left',
-          'on': [{'left': 'route_id', 'right': 'route_id'}]
-        }
-      ]
+    {
+      'base_source': 'alerts',
+      'join_source': 'routes',
+      'join_type': 'left',
+      'on': [{'left': 'route_id', 'right': 'route_id'}]
+    }
+  ]
   } %}
   {% do return(config) %}
 {% endmacro %}

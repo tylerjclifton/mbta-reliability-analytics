@@ -3,6 +3,7 @@
   {% set config = {
     'sources': {
       'weather': {
+        'lookup': false,
         'staging_table': 'nws_weather',
         'unique_key': ['observation_timestamp', 'station_id'],
         'fields': [
@@ -28,5 +29,5 @@
     },
     'joins': []
   } %}
-  {% do return(config) %}
+    {% do return(config) %}
 {% endmacro %}

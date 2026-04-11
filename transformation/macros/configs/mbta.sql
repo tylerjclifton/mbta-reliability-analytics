@@ -85,11 +85,6 @@
           'metrics': []
         }
       },
-            'alias': 'ingestion_source',
-            'type': 'string'
-          }
-        ]
-      },
       'routes': {
         'lookup': true,
         'staging': {

@@ -1,15 +1,3 @@
-{# 
-  Gold Layer: MBTA Alerts with Weather Context
-  
-  Combines MBTA transit alerts with weather conditions at the time of the alert.
-  This enables analysis of weather impact on transit reliability.
-  
-  Join Logic:
-    - Each alert is matched with weather observations from the same date
-    - Weather metrics are aggregated (avg/min/max) for each day
-    - Alerts can span multiple days, so we join on alert_start_date
-#}
-
 {{
     config(
         materialized='incremental',

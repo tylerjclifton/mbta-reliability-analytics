@@ -13,12 +13,13 @@
   Reads field config and join config from macros/configs/{partner}.sql
 #}
 
-{% macro build_silver_with_joins(partner, source_name) -%}
+{% macro build_silver_merge(partner_key) -%}
 
-{%- set source_config = get_source_config(partner, source_name) -%}
+{%- set base_source_key = get_base_source(partner_key) -%}
+{%- set source_config = get_source_config(partner_key, base_source_key) -%}
 {%- set base_fields = source_config.fields.dimensions -%}
 {%- set grain_keys_raw = source_config.grain_keys -%}
-{%- set joins = get_partner_joins(partner, source_name) -%}
+{%- set joins = get_partner_joins(partner_key) -%}
 
 {# Map raw field names to their aliases for grain_keys #}
 {%- set grain_keys_aliases = [] -%}
@@ -45,10 +46,10 @@ WITH base AS (
         CAST({{ field.raw }} AS {{ field.type | upper }}) AS {{ field.alias }}{{ "," if not loop.last else "" }}
         {%- endif %}
 {%- endfor %}
-    FROM {{ ref(partner ~ '_bronze_' ~ source_name) }}
+    FROM {{ ref(partner_key ~ '_bronze_' ~ base_source_key) }}
 )
 {%- for join in joins %}
-{%- set join_config = get_source_config(partner, join.join_source) %}
+{%- set join_config = get_source_config(partner_key, join.join_source) %}
 {%- set join_fields = join_config.fields.dimensions %}
 ,
 {{ join.join_source }}_base AS (
@@ -60,14 +61,14 @@ WITH base AS (
         CAST({{ field.raw }} AS {{ field.type | upper }}) AS {{ field.alias }}{{ "," if not loop.last else "" }}
         {%- endif %}
 {%- endfor %}
-    FROM {{ ref(partner ~ '_bronze_' ~ join.join_source) }}
+    FROM {{ ref(partner_key ~ '_bronze_' ~ join.join_source) }}
 )
 {%- endfor %}
 
 SELECT
     base.*
 {%- for join in joins %}
-{%- set join_config = get_source_config(partner, join.join_source) %}
+{%- set join_config = get_source_config(partner_key, join.join_source) %}
 {%- set join_fields = join_config.fields.dimensions %}
 {%- set join_alias = join.join_source[0] %}
 {%- for field in join_fields %}

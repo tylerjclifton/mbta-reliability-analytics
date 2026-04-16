@@ -10,10 +10,10 @@
   Reads field config from macros/configs/{source}.sql
 #}
 
-{% macro build_bronze_desert(partner, source_name) -%}
+{% macro build_bronze_merge(partner_key, source_key) -%}
 
-{%- set source_config = get_source_config(partner, source_name) -%}
-{%- set raw_fields = get_raw_fields(partner, source_name) -%}
+{%- set source_config = get_source_config(partner_key, source_key) -%}
+{%- set raw_fields = get_raw_fields(partner_key, source_key) -%}
 {%- set grain_keys = source_config.grain_keys -%}
 {%- set staging_table = source_config.staging_table -%}
 {%- set project_id = env_var('DBT_PROJECT_ID', 'mbta-reliability-analytics') -%}

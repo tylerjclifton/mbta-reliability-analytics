@@ -1,21 +1,10 @@
-{# 
-  Bronze Layer Model Builder (Native dbt MERGE Pattern)
-  
-  Generic builder that works across all data sources.
-  Uses dbt's native incremental materialization with MERGE strategy:
-    - dbt automatically generates MERGE statement based on unique_key
-    - Updates existing records and inserts new ones atomically
-    - Simpler, more maintainable, and idiomatic dbt approach
-  
-  Reads field config from macros/configs/{source}.sql
-#}
-
 {% macro build_bronze_merge(partner_key, source_key) -%}
 
-{%- set source_config = get_source_config(partner_key, source_key) -%}
+{%- set source_definition = get_source_definition(partner_key, source_key) -%}
 {%- set raw_fields = get_raw_fields(partner_key, source_key) -%}
-{%- set grain_keys = source_config.grain_keys -%}
-{%- set staging_table = source_config.staging_table -%}
+{%- set grain_keys = get_source_grain_keys(partner_key, source_key) -%}
+{%- set source_dataset = source_definition.staging.dataset -%}
+{%- set source_table = source_definition.staging.table -%}
 {%- set project_id = env_var('DBT_PROJECT_ID', 'mbta-reliability-analytics') -%}
 
 {{-
@@ -26,11 +15,10 @@
     )
 -}}
 
-{# Select all data from staging - dbt handles MERGE automatically #}
 SELECT
 {%- for field in raw_fields %}
     {{ field }}{{ "," if not loop.last else "" }}
 {%- endfor %}
-FROM `{{ project_id }}.staging.{{ staging_table }}`
+FROM `{{ target.project }}.{{ source_dataset }}.{{ source_table }}`
 
 {% endmacro %}

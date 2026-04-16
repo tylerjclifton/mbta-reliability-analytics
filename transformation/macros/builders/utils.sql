@@ -10,53 +10,62 @@
 
 {% macro get_partner_config(partner_key) %}
     {# Returns the full config object for a partner #}
-    {% if partner_key == 'mbta' %}
-    {% do return(get_mbta_config()) %}
-  {% elif partner_key == 'nws' %}
-    {% do return(get_nws_config()) %}
-  {% else %}
-        {% do return(none) %}
-    {% endif %}
-{% endmacro %}
-
-{% macro get_source_config(partner_key, source_key) %}
-    {# Returns the config for a specific source #}
-    {% set full_config = get_partner_config(partner_key) %}
-    {% do return(full_config.sources[source_key]) %}
-{% endmacro %}
-
-{% macro get_partner_joins(partner_key) %}
-    {# Returns the joins configuration for a partner #}
-    {% set full_config = get_partner_config(partner_key) %}
-    {% set all_joins = full_config.get('joins', []) %}
-    {% do return(all_joins) %}
+    {# Dynamically calls get_{partner_key}_config() macro #}
+    {% set macro_name = 'get_' ~ partner_key ~ '_config' %}
+    {% set config_macro = context[macro_name] %}
+    {% do return(config_macro()) %}
 {% endmacro %}
 
 
-{% macro get_base_source(partner_key) %}
-    {# Get the base source for a partner (used in silver layer) #}
-    {% set full_config = get_partner_config(partner_key) %}
-    {% set joins = full_config.get('joins', []) %}
-    
-    {# If there are joins, use the base_source from the first join #}
-    {% if joins and joins | length > 0 %}
-        {% do return(joins[0].base_source) %}
-    {% else %}
-        {# Otherwise, return the first source in the sources dict #}
-        {% set sources_keys = full_config.sources.keys() | list %}
-        {% do return(sources_keys[0]) %}
-    {% endif %}
+{% macro get_partner_sources(partner_key) %}
+    {# Returns the sources object for a partner #}
+    {% set partner_config = get_partner_config(partner_key) %}
+    {% do return(partner_config.sources) %}
+{% endmacro %}
+
+
+{% macro get_source_definition(partner_key, source_key) %}
+    {# Returns the definition for a specific source #}
+    {% set partner_sources = get_partner_sources(partner_key) %}
+    {% do return(partner_sources[source_key]) %}
+{% endmacro %}
+
+
+{% macro get_source_grain_keys(partner_key, source_key) %}
+    {# Get the grain keys for a specific source #}
+    {% set source_definition = get_source_definition(partner_key, source_key) %}
+    {% do return(source_definition.grain_keys) %}
+{% endmacro %}
+
+
+{% macro get_source_fields(partner_key, source_key) %}
+    {# Returns the fields object for a source #}
+    {% set source_definition = get_source_definition(partner_key, source_key) %}
+    {% do return(source_definition.fields) %}
+{% endmacro %}
+
+
+{% macro get_source_dimension_definitions(partner_key, source_key) %}
+    {# Returns the dimension definitions array for a source #}
+    {% set source_fields = get_source_fields(partner_key, source_key) %}
+    {% do return(source_fields.dimensions) %}
+{% endmacro %}
+
+
+{% macro get_source_metric_definitions(partner_key, source_key) %}
+    {# Returns the metric definitions array for a source #}
+    {% set source_fields = get_source_fields(partner_key, source_key) %}
+    {% do return(source_fields.metrics) %}
 {% endmacro %}
 
 
 {% macro get_raw_fields(partner_key, source_key) %}
-    {# Get field config for source #}
-    {% set source_config = get_source_config(partner_key, source_key) %}
-    {% set fields = source_config.fields.dimensions %}
+    {# Extracts just the raw field names from dimension definitions #}
+    {% set dimension_definitions = get_source_dimension_definitions(partner_key, source_key) %}
   
     {# Extract just the raw field names #}
     {% set raw_fields = [] %}
-    {% for field in fields %}
+    {% for field in dimension_definitions %}
         {% do raw_fields.append(field.raw) %}
     {% endfor %}
   
@@ -64,35 +73,40 @@
 {% endmacro %}
 
 
-{% macro get_grain_keys(partner_key, source_key) %}
-    {# Get the grain key configuration for incremental models #}
-    {% set source_config = get_source_config(partner_key, source_key) %}
-    {% do return(source_config.grain_keys) %}
+{% macro get_partner_joins(partner_key) %}
+    {# Returns the joins configuration for a partner #}
+    {% set partner_config = get_partner_config(partner_key) %}
+    {% set partner_joins = partner_config.get('joins', []) %}
+    {% do return(partner_joins) %}
 {% endmacro %}
 
 
-{% macro get_delete_key_field(partner_key, source_key) %}
-    {# Get the primary delete key field (first field with _id, or first grain_keys field) #}
-    {% set source_config = get_source_config(partner_key, source_key) %}
-    {% set fields = source_config.fields.dimensions %}
-  
-    {# Try to find a field ending in _id #}
-    {% for field in fields %}
-        {% if field.raw.endswith('_id') %}
-            {% do return(field.raw) %}
-        {% endif %}
-    {% endfor %}
-  
-    {# Otherwise, return the first grain_keys field #}
-    {% do return(source_config.grain_keys[0]) %}
+{% macro get_base_source(partner_key) %}
+    {# Get the base source for a partner (used in silver layer) #}
+    {% set partner_config = get_partner_config(partner_key) %}
+    {% set joins = partner_config.get('joins', []) %}
+    
+    {# If there are joins, use the base_source from the first join #}
+    {% if joins and joins | length > 0 %}
+        {% do return(joins[0].base_source) %}
+    {% else %}
+        {# Otherwise, return the first source in the sources dict #}
+        {% set partner_sources = get_partner_sources(partner_key) %}
+        {% set sources_keys = partner_sources.keys() | list %}
+        {% do return(sources_keys[0]) %}
+    {% endif %}
 {% endmacro %}
 
 
-{% macro get_staging_table(partner_key, source_key) %}
-    {# Get the staging table name for a source #}
-    {% set source_config = get_source_config(partner_key, source_key) %}
-    {% do return(source_config.staging_table) %}
-{% endmacro %}
+
+
+
+
+
+
+
+
+
 
 
 {# ============================================================================

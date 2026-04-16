@@ -1,24 +1,8 @@
-{# 
-  Silver Layer Model Builder (CTE + JOIN Pattern)
-  
-  Generic builder that works across all data sources.
-  Creates modular CTEs for each source with transformations, then joins them.
-  
-  Pattern:
-    1. Base CTE: Main source with field renaming and type casting
-    2. Join CTEs: Each joined source with its field transformations
-    3. Final SELECT: Joins all CTEs based on config
-  
-  Uses dbt's native incremental MERGE strategy with unique_key.
-  Reads field config and join config from macros/configs/{partner}.sql
-#}
-
 {% macro build_silver_merge(partner_key) -%}
 
 {%- set base_source_key = get_base_source(partner_key) -%}
-{%- set source_config = get_source_config(partner_key, base_source_key) -%}
-{%- set base_fields = source_config.fields.dimensions -%}
-{%- set grain_keys_raw = source_config.grain_keys -%}
+{%- set base_fields = get_source_dimension_definitions(partner_key, base_source_key) -%}
+{%- set grain_keys_raw = get_source_grain_keys(partner_key, base_source_key) -%}
 {%- set joins = get_partner_joins(partner_key) -%}
 
 {# Map raw field names to their aliases for grain_keys #}
@@ -49,8 +33,7 @@ WITH base AS (
     FROM {{ ref(partner_key ~ '_bronze_' ~ base_source_key) }}
 )
 {%- for join in joins %}
-{%- set join_config = get_source_config(partner_key, join.join_source) %}
-{%- set join_fields = join_config.fields.dimensions %}
+{%- set join_fields = get_source_dimension_definitions(partner_key, join.join_source) %}
 ,
 {{ join.join_source }}_base AS (
     SELECT
@@ -68,8 +51,7 @@ WITH base AS (
 SELECT
     base.*
 {%- for join in joins %}
-{%- set join_config = get_source_config(partner_key, join.join_source) %}
-{%- set join_fields = join_config.fields.dimensions %}
+{%- set join_fields = get_source_dimension_definitions(partner_key, join.join_source) %}
 {%- set join_alias = join.join_source[0] %}
 {%- for field in join_fields %}
     {%- set is_join_key = false %}

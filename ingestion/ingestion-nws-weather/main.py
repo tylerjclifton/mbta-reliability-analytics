@@ -7,9 +7,13 @@ import os
 import pandas
 from pandas_gbq import to_gbq
 import requests
+from google.cloud import bigquery
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Initialize BigQuery client
+client = bigquery.Client()
 
 # National Weather Service API endpoint for Boston Logan Airport
 STATION_ID = 'KBOS'
@@ -154,22 +158,10 @@ else:
 # Convert the list of observation dictionaries into a pandas DataFrame
 output = pandas.DataFrame(standardized_observations)
 
-# Deduplicate based on unique combination of relevant columns
-output_deduped = output.drop_duplicates(subset=['observation_timestamp', 'station_id'], keep='first')
-
 # Define BigQuery project, dataset, and table using environment variables
 project_id = os.getenv('BQ_PROJECT_ID', 'mbta-reliability-analytics')
 dataset_id = os.getenv('BQ_DATASET_ID', 'staging')
 table_id = os.getenv('BQ_TABLE_ID', 'nws_weather')
-
-# Ensure staging table is cleared before ingestion
-from google.cloud import bigquery
-
-client = bigquery.Client()
-
-# Delete all rows from the staging table
-query = f"DELETE FROM `{project_id}.{dataset_id}.{table_id}` WHERE TRUE"
-client.query(query).result()
 
 # Define the schema for the table
 schema = [
@@ -195,7 +187,14 @@ schema = [
 # Ensure the table schema is consistent
 client.create_table(bigquery.Table(f"{project_id}.{dataset_id}.{table_id}", schema=schema), exists_ok=True)
 
-# Change the BigQuery write mode to replace the table
+# Delete all rows from the staging table
+query = f"DELETE FROM `{project_id}.{dataset_id}.{table_id}` WHERE TRUE"
+client.query(query).result()
+
+# Deduplicate based on unique combination of observation_timestamp and station_id
+output_deduped = output.drop_duplicates(subset=['observation_timestamp', 'station_id'], keep='first')
+
+# Write deduplicated data to BigQuery
 try:
     # Upload the DataFrame to BigQuery (replace table if it already exists)
     to_gbq(output_deduped, f'{dataset_id}.{table_id}', project_id=project_id, if_exists='replace')

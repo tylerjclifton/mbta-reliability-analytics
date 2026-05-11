@@ -7,9 +7,13 @@ import os
 import pandas
 from pandas_gbq import to_gbq
 import requests
+from google.cloud import bigquery
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Initialize BigQuery client
+client = bigquery.Client()
 
 # Attempt to request response from MBTA alerts API endpoint
 try:
@@ -144,9 +148,6 @@ else:
 # Convert the list of alert dictionaries into a pandas DataFrame
 output = pandas.DataFrame(standardized_alerts)
 
-# Deduplicate based on unique combination of alert_id and route
-output_deduped = output.drop_duplicates(subset=['alert_id', 'route'], keep='first')
-
 # Define BigQuery project, dataset, and table using environment variables
 project_id = os.getenv('BQ_PROJECT_ID', 'mbta-reliability-analytics')
 dataset_id = os.getenv('BQ_DATASET_ID', 'staging')
@@ -173,16 +174,14 @@ schema = [
 # Ensure the table schema is consistent
 client.create_table(bigquery.Table(f"{project_id}.{dataset_id}.{table_id}", schema=schema), exists_ok=True)
 
-# Ensure staging table is cleared before ingestion
-from google.cloud import bigquery
-
-client = bigquery.Client()
-
 # Delete all rows from the staging table
 query = f"DELETE FROM `{project_id}.{dataset_id}.{table_id}` WHERE TRUE"
 client.query(query).result()
 
-# Write to BigQuery
+# Deduplicate based on unique combination of alert_id and route
+output_deduped = output.drop_duplicates(subset=['alert_id', 'route'], keep='first')
+
+# Write deduplicated data to BigQuery
 try:
     # Upload the DataFrame to BigQuery (replace table if it already exists)
     to_gbq(output_deduped, f'{dataset_id}.{table_id}', project_id=project_id, if_exists='replace')

@@ -7,9 +7,13 @@ import os
 import pandas
 from pandas_gbq import to_gbq
 import requests
+from google.cloud import bigquery
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Initialize BigQuery client
+client = bigquery.Client()
 
 # Attempt to request response from MBTA routes API endpoint
 try:
@@ -100,19 +104,13 @@ schema = [
 ]
 
 # Ensure the table schema is consistent
-client = bigquery.Client()
 client.create_table(bigquery.Table(f"{project_id}.{dataset_id}.{table_id}", schema=schema), exists_ok=True)
-
-# Ensure staging table is cleared before ingestion
-from google.cloud import bigquery
-
-client = bigquery.Client()
 
 # Delete all rows from the staging table
 query = f"DELETE FROM `{project_id}.{dataset_id}.{table_id}` WHERE TRUE"
 client.query(query).result()
 
-# Deduplicate based on unique combination of relevant columns
+# Deduplicate based on unique combination of route_id
 output_deduped = output.drop_duplicates(subset=['route_id'], keep='first')
 
 # Write deduplicated data to BigQuery

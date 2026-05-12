@@ -11,7 +11,7 @@ resource "google_cloud_run_v2_job" "ingestion_mbta_alerts" {
       service_account = var.default_sa_compute_engine
       containers {
         name  = "ingestion-mbta-alerts"
-        image = "us-east1-docker.pkg.dev/mbta-reliability-analytics/data-ingestion/ingestion-mbta-alerts:latest"
+        image = "us-east1-docker.pkg.dev/mbta-reliability-analytics/data-ingestion/ingestion-mbta-alerts:v1.0.0"
         env {
           name  = "BQ_PROJECT_ID"
           value = var.project_id
@@ -48,7 +48,7 @@ resource "google_cloud_run_v2_job" "ingestion_mbta_routes" {
       service_account = var.default_sa_compute_engine
       containers {
         name  = "ingestion-mbta-routes"
-        image = "us-east1-docker.pkg.dev/mbta-reliability-analytics/data-ingestion/ingestion-mbta-routes:latest"
+        image = "us-east1-docker.pkg.dev/mbta-reliability-analytics/data-ingestion/ingestion-mbta-routes:v1.0.0"
         env {
           name  = "BQ_PROJECT_ID"
           value = var.project_id
@@ -85,7 +85,7 @@ resource "google_cloud_run_v2_job" "ingestion_nws_weather" {
       service_account = var.default_sa_compute_engine
       containers {
         name  = "ingestion-nws-weather"
-        image = "us-east1-docker.pkg.dev/mbta-reliability-analytics/data-ingestion/ingestion-nws-weather:latest"
+        image = "us-east1-docker.pkg.dev/mbta-reliability-analytics/data-ingestion/ingestion-nws-weather:v1.0.0"
         env {
           name  = "BQ_PROJECT_ID"
           value = var.project_id

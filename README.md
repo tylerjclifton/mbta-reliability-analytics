@@ -198,18 +198,29 @@ python3 main.py
 
 ### Rebuilding and Deploying Docker Images
 
-When you update ingestion scripts, rebuild and push images to Artifact Registry:
+When you update ingestion scripts, rebuild and push images to Artifact Registry with versioned tags:
 
 ```bash
 # Build for Cloud Run (AMD64 architecture required)
+# Tag with both version number and latest for flexibility
 cd ingestion/ingestion-mbta-alerts
 docker build --platform linux/amd64 \
+  -t us-east1-docker.pkg.dev/mbta-reliability-analytics/data-ingestion/ingestion-mbta-alerts:v1.0.0 \
   -t us-east1-docker.pkg.dev/mbta-reliability-analytics/data-ingestion/ingestion-mbta-alerts:latest .
+
+# Push both tags
+docker push us-east1-docker.pkg.dev/mbta-reliability-analytics/data-ingestion/ingestion-mbta-alerts:v1.0.0
 docker push us-east1-docker.pkg.dev/mbta-reliability-analytics/data-ingestion/ingestion-mbta-alerts:latest
 
 # Repeat for other ingestion jobs (mbta-routes, nws-weather)
+```
 
-# Update Cloud Run jobs with new images
+**Production Best Practice:** Cloud Run jobs reference specific version tags (e.g., `v1.0.0`) in Terraform for reproducibility and rollback capability. The `latest` tag is maintained for convenience but not used in production.
+
+**After building new versions:**
+1. Update the version tag in `infrastructure/cloud-run-jobs.tf`
+2. Apply Terraform changes to deploy new images:
+```bash
 cd infrastructure
 terraform apply
 ```

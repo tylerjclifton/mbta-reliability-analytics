@@ -53,14 +53,21 @@ SELECT
 {%- for join in joins %}
 {%- set join_fields = get_source_dimension_definitions(partner_key, join.join_source) %}
 {%- set join_alias = join.join_source[0] %}
+
+{# Build list of field aliases to exclude #}
+{%- set exclude_aliases = [] %}
+{# Add join key fields #}
+{%- for on_clause in join.on %}
+    {%- do exclude_aliases.append(on_clause.right) %}
+{%- endfor %}
+{# Add fields that already exist in base #}
+{%- for base_field in base_fields %}
+    {%- do exclude_aliases.append(base_field.alias) %}
+{%- endfor %}
+
+{# Select non-excluded fields from join table #}
 {%- for field in join_fields %}
-    {%- set is_join_key = false %}
-    {%- for on_clause in join.on %}
-        {%- if field.raw == on_clause.right %}
-            {%- set is_join_key = true %}
-        {%- endif %}
-    {%- endfor %}
-    {%- if not is_join_key %}
+    {%- if field.alias not in exclude_aliases %}
     ,
     {{ join_alias }}.{{ field.alias }}
     {%- endif %}

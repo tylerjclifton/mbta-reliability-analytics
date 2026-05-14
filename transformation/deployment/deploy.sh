@@ -7,20 +7,22 @@ PROJECT_ID="mbta-reliability-analytics"
 REGION="us-east1"
 IMAGE_NAME="transform-pipeline"
 REPOSITORY="data-ingestion"
+VERSION="${1:-v1.0.0}"  # Accept version as argument, default to v1.0.0
 
-echo "Building Docker image..."
+echo "Building Docker image with version ${VERSION}..."
 cd "$(dirname "$0")"
 docker build --platform linux/amd64 \
-  -t "${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/${IMAGE_NAME}:latest" \
+  -t "${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/${IMAGE_NAME}:${VERSION}" \
   -f Dockerfile \
   ../..
 
 echo "Pushing image to Artifact Registry..."
-docker push "${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/${IMAGE_NAME}:latest"
+docker push "${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/${IMAGE_NAME}:${VERSION}"
 
-echo "Updating Cloud Run job via Terraform..."
-cd ../../terraform
-terraform apply -auto-approve
-
-echo "Deployment complete!"
-echo "To trigger manually: gcloud run jobs execute transform-pipeline --region=${REGION}"
+echo ""
+echo "✅ Docker image pushed successfully!"
+echo "📝 Next steps:"
+echo "   1. Update infrastructure/cloud-run-jobs.tf to use :${VERSION}"
+echo "   2. Run: cd infrastructure && terraform apply"
+echo "   3. Test: gcloud run jobs execute transform-pipeline --region=${REGION}"
+echo ""

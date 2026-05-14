@@ -81,7 +81,7 @@ Each ingestion job runs as a Docker container on Cloud Run, triggered automatica
 
 Located in the [transformation](transformation) folder, dbt Core handles data modeling and transformation:
 
-**Status**: 🚧 **Work in Progress** - Currently migrating from GCP Dataform to dbt Core for better version control, local development, and testing capabilities
+**Status**: 🚧 **Work in Progress** - dbt Core models built and deployed to Cloud Run, currently validating data quality and accumulating historical data
 
 The transformation layer uses a **medallion architecture**:
 - **Bronze**: Raw data from APIs with minimal transformation (standardization only)
@@ -198,24 +198,35 @@ python3 main.py
 
 ### Rebuilding and Deploying Docker Images
 
-When you update ingestion scripts, rebuild and push images to Artifact Registry with versioned tags:
+**Current Deployed Versions:**
+- `ingestion-mbta-alerts`: v1.0.0
+- `ingestion-mbta-routes`: v1.0.0
+- `ingestion-nws-weather`: v1.0.0
+- `transform-pipeline`: v1.0.1
 
+When you update code, rebuild and push images to Artifact Registry with versioned tags:
+
+**For ingestion jobs:**
 ```bash
 # Build for Cloud Run (AMD64 architecture required)
-# Tag with both version number and latest for flexibility
 cd ingestion/ingestion-mbta-alerts
 docker build --platform linux/amd64 \
-  -t us-east1-docker.pkg.dev/mbta-reliability-analytics/data-ingestion/ingestion-mbta-alerts:v1.0.0 \
-  -t us-east1-docker.pkg.dev/mbta-reliability-analytics/data-ingestion/ingestion-mbta-alerts:latest .
+  -t us-east1-docker.pkg.dev/mbta-reliability-analytics/data-ingestion/ingestion-mbta-alerts:v1.0.1 .
 
-# Push both tags
-docker push us-east1-docker.pkg.dev/mbta-reliability-analytics/data-ingestion/ingestion-mbta-alerts:v1.0.0
-docker push us-east1-docker.pkg.dev/mbta-reliability-analytics/data-ingestion/ingestion-mbta-alerts:latest
+# Push to Artifact Registry
+docker push us-east1-docker.pkg.dev/mbta-reliability-analytics/data-ingestion/ingestion-mbta-alerts:v1.0.1
 
 # Repeat for other ingestion jobs (mbta-routes, nws-weather)
 ```
 
-**Production Best Practice:** Cloud Run jobs reference specific version tags (e.g., `v1.0.0`) in Terraform for reproducibility and rollback capability. The `latest` tag is maintained for convenience but not used in production.
+**For transformation pipeline:**
+```bash
+# Use the deployment script (includes build, push, and instructions)
+cd transformation/deployment
+bash deploy.sh v1.0.2  # Or specify your version
+```
+
+**Production Best Practice:** Cloud Run jobs reference specific version tags (e.g., `v1.0.0`) in Terraform for reproducibility and rollback capability.
 
 **After building new versions:**
 1. Update the version tag in `infrastructure/cloud-run-jobs.tf`
@@ -229,14 +240,23 @@ terraform apply
 
 ### Working with dbt
 
-The dbt transformation layer is currently being developed:
-
+**Local development:**
 ```bash
 cd transformation
+source ../venv/bin/activate  # Activate virtual environment
 dbt deps         # Install dbt packages
 dbt debug        # Test connection
-dbt run          # Run transformations (when ready)
+dbt run          # Run all transformations
+dbt run --select mbta_silver+  # Run specific model and downstream dependencies
 dbt test         # Run data quality tests
+```
+
+**Deploy to Cloud Run:**
+```bash
+cd transformation/deployment
+bash deploy.sh v1.0.2  # Build, push, and get next steps
+cd ../../infrastructure
+terraform apply  # Update Cloud Run job to use new version
 ```
 
 ## Current Status
@@ -248,6 +268,9 @@ dbt test         # Run data quality tests
 - [x] NWS weather ingestion pipeline (deployed and operational)
 - [x] Cloud Run job deployment for all ingestion workflows
 - [x] Cloud Scheduler automation for scheduled data collection
+- [x] dbt Core transformation pipeline with medallion architecture (bronze/silver/gold)
+- [x] Automated Cloud Run deployment for dbt transformations
+- [x] Data quality and join validation (alerts+routes, alerts+weather)
 - [x] BigQuery data warehouse setup with staging tables
 
 ### 🚧 In Progress

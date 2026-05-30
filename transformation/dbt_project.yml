@@ -1,18 +1,17 @@
-# Project metadata
-name: 'mbta_reliability_analytics'  # Project name (lowercase, underscores)
-version: '1.0.0'  # Project version
+name: 'mbta_reliability_analytics'  # project name for this dbt project
+version: '1.0.0'  # project version
 config-version: 2  # dbt config version
 
-# Profile to use (must match profiles.yml)
+# Profile to use for dbt runs
 profile: 'mbta_reliability_analytics'
 
-# File/folder locations
-model-paths: ["models"]  # Where dbt models are stored
-# analysis-paths: ["analyses"]  # (Optional) Where analysis files are stored
-test-paths: ["tests"]  # Where dbt tests are stored
-# seed-paths: ["seeds"]  # (Optional) Where seed files are stored
-macro-paths: ["macros"]  # Where dbt macros are stored
-# snapshot-paths: ["snapshots"]  # (Optional) Where snapshots are stored
+# File and folder locations
+model-paths: ["models"]  # where dbt models are stored
+# analysis-paths: ["analyses"]  # (optional) where analysis files are stored
+test-paths: ["tests"]  # where dbt tests are stored
+# seed-paths: ["seeds"]  # (optional) where seed files are stored
+macro-paths: ["macros"]  # where dbt macros are stored
+# snapshot-paths: ["snapshots"]  # (optional) where snapshots are stored
 
 # Directories to be removed by `dbt clean`
 clean-targets:
@@ -21,7 +20,7 @@ clean-targets:
 
 # Post-run cleanup hook
 on-run-end:
-  - "{{ drop_temp_tables() }}"  # Custom macro to drop temp tables
+  - "{{ drop_temp_tables() }}"  # custom macro to drop temp tables
 
-# For model configuration, set schema and alias in each model file for clarity
+# Model configuration
 # See: https://docs.getdbt.com/docs/configuring-models

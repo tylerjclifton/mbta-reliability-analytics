@@ -1,0 +1,20 @@
+mbta_reliability_analytics:  # dbt profile name, must match dbt_project.yml
+  target: gcp  # Default target to use (Cloud Run/production)
+  outputs:
+    local:  # Local development target
+      type: bigquery  # Use BigQuery as the data warehouse
+      method: service-account  # Authenticate with a service account key file
+      project: mbta-reliability-analytics  # GCP project ID
+      threads: 4  # Number of threads dbt can use
+      keyfile: ../keys/gcp-dbt-sa.json  # Path to service account key file
+      location: us-east1  # BigQuery dataset location
+      timeout_seconds: 300  # Query timeout in seconds
+      priority: interactive  # Query priority (interactive or batch)
+    gcp:  # Cloud Run/production target
+      type: bigquery  # Use BigQuery as the data warehouse
+      method: oauth  # Authenticate with attached service account (no keyfile needed)
+      project: "{{ env_var('DBT_PROJECT_ID', 'mbta-reliability-analytics') }}"  # Use env var or fallback project
+      threads: 4  # Number of threads dbt can use
+      location: us-east1  # BigQuery dataset location
+      timeout_seconds: 300  # Query timeout in seconds
+      priority: interactive  # Query priority (interactive or batch)

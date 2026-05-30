@@ -25,7 +25,6 @@ dbt_packages/
 logs/
 target/
 .user.yml
-profiles.yml
 
 # macOS
 .DS_Store

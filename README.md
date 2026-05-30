@@ -238,26 +238,26 @@ terraform apply
 
 **Note:** Images in Artifact Registry persist indefinitely and won't expire. Only rebuild when you modify the code.
 
+
 ### Working with dbt
 
-**Local development:**
+For local development and deployment, see the in-repo configuration files for detailed, well-commented settings:
+
+- [transformation/profiles.yml](transformation/profiles.yml): dbt connection and environment settings
+- [transformation/dbt_project.yml](transformation/dbt_project.yml): dbt project structure and paths
+
+**Common dbt commands:**
 ```bash
-cd transformation
-source ../venv/bin/activate  # Activate virtual environment
-dbt deps         # Install dbt packages
-dbt debug        # Test connection
-dbt run          # Run all transformations
-dbt run --select mbta_silver+  # Run specific model and downstream dependencies
-dbt test         # Run data quality tests
+cd transformation  # Enter dbt project directory
+source ../venv/bin/activate  # Activate Python virtual environment
+dbt deps           # Install dbt packages
+dbt debug          # Test dbt connection
+dbt run            # Run all dbt models
+dbt test           # Run dbt data quality tests
 ```
 
-**Deploy to Cloud Run:**
-```bash
-cd transformation/deployment
-bash deploy.sh v1.0.2  # Build, push, and get next steps
-cd ../../infrastructure
-terraform apply  # Update Cloud Run job to use new version
-```
+**Deployment:**
+See [transformation/deployment/deploy.sh](transformation/deployment/deploy.sh) and in-file comments for build and deployment steps.
 
 ## Current Status
 

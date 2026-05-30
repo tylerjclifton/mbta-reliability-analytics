@@ -1,38 +1,27 @@
+# Project metadata
+name: 'mbta_reliability_analytics'  # Project name (lowercase, underscores)
+version: '1.0.0'  # Project version
+config-version: 2  # dbt config version
 
-# Name your project! Project names should contain only lowercase characters
-# and underscores. A good package name should reflect your organization's
-# name or the intended use of these models
-name: 'mbta_reliability_analytics'
-version: '1.0.0'
-config-version: 2
-
-# This setting configures which "profile" dbt uses for this project.
+# Profile to use (must match profiles.yml)
 profile: 'mbta_reliability_analytics'
 
-# These configurations specify where dbt should look for different types of files.
-# The `model-paths` config, for example, states that models in this project can be
-# found in the "models/" directory. You probably won't need to change these!
-model-paths: ["models"]
-# analysis-paths: ["analyses"]
-test-paths: ["tests"]
-# seed-paths: ["seeds"]
-macro-paths: ["macros"]
-# snapshot-paths: ["snapshots"]
+# File/folder locations
+model-paths: ["models"]  # Where dbt models are stored
+# analysis-paths: ["analyses"]  # (Optional) Where analysis files are stored
+test-paths: ["tests"]  # Where dbt tests are stored
+# seed-paths: ["seeds"]  # (Optional) Where seed files are stored
+macro-paths: ["macros"]  # Where dbt macros are stored
+# snapshot-paths: ["snapshots"]  # (Optional) Where snapshots are stored
 
-clean-targets:         # directories to be removed by `dbt clean`
-  - "target"
-  - "dbt_packages"
+# Directories to be removed by `dbt clean`
+clean-targets:
+  - "target"  # dbt build artifacts
+  - "dbt_packages"  # dbt package dependencies
 
 # Post-run cleanup hook
 on-run-end:
-  - "{{ drop_temp_tables() }}"
+  - "{{ drop_temp_tables() }}"  # Custom macro to drop temp tables
 
-# Configuring models
-# Full documentation: https://docs.getdbt.com/docs/configuring-models
-
-models:
-  mbta_reliability_analytics:
-    # MBTA transformed data models
-    mbta:
-      +materialized: incremental
-      +on_schema_change: "sync_all_columns"
+# For model configuration, set schema and alias in each model file for clarity
+# See: https://docs.getdbt.com/docs/configuring-models

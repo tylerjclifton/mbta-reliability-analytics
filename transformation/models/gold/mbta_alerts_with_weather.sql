@@ -1,5 +1,7 @@
 {{
     config(
+        schema='gold',
+        alias='mbta_alerts_with_weather',
         materialized='incremental',
         unique_key=['alert_id'],
         on_schema_change='sync_all_columns'

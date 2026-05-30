@@ -20,5 +20,5 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 # Set working directory to transformation project
 WORKDIR /app/transformation
 
-# Run dbt with prod target (uses attached service account, no keyfile)
-CMD ["dbt", "run", "--profiles-dir", ".", "--target", "prod"]
+# Run dbt with gcp target (uses attached service account, no keyfile)
+CMD ["dbt", "run", "--profiles-dir", ".", "--target", "gcp"]

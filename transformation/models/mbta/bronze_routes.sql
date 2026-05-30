@@ -1,10 +1,10 @@
 {{
 	config(
 		schema='mbta',
-		alias='bronze_alerts',
+		alias='bronze_routes',
 		materialized='incremental',
-		unique_key=['alert_id'],
+		unique_key=['route_id'],
 		on_schema_change='sync_all_columns'
 	)
 }}
-{{ build_bronze_merge('mbta', 'alerts') }}
+{{ build_bronze_merge('mbta', 'routes') }}

@@ -1,10 +1,9 @@
 {{
-	config(
-		schema='mbta',
-		alias='silver',
-		materialized='incremental',
-		unique_key=['alert_id'],
-		on_schema_change='sync_all_columns'
-	)
+    config(
+        schema='mbta',
+        alias='silver',
+        unique_key=['alert_id']
+    )
 }}
+
 {{ build_silver_merge('mbta') }}

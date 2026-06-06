@@ -15,6 +15,22 @@ variable "location" {
   default     = "us-east1"
 }
 
+# Scheduler configuration
+variable "scheduler_time_zone" {
+  description = "Cloud Scheduler time zone for cron jobs"
+  default     = "America/New_York"
+}
+
+variable "ingestion_schedule" {
+  description = "Cron for ingestion jobs. Format: minute hour day-of-month month day-of-week"
+  default     = "0 7,19 * * *"
+}
+
+variable "transform_schedule" {
+  description = "Cron for transform job. Format: minute hour day-of-month month day-of-week"
+  default     = "30 7,19 * * *"
+}
+
 # Default Service Accounts
 variable "default_sa_compute_engine" {
   description = "Default compute service account"

@@ -13,8 +13,6 @@
   {%- set source_dataset = source_definition.staging.dataset -%}
   {%- set source_table = source_definition.staging.table -%}
   {%- set raw_fields = get_raw_fields(partner_key, source_key) -%}
-  {%- set lookback_hours = var('incremental_lookback_hours', 24) -%}
-  {%- set has_ingestion_timestamp = 'ingestion_timestamp' in raw_fields -%}
 
   {%- set sql -%}
 SELECT
@@ -22,15 +20,6 @@ SELECT
     {{ field }}{{ "," if not loop.last else "" }}
 {%- endfor %}
 FROM `{{ target.project }}.{{ source_dataset }}.{{ source_table }}`
-{% if is_incremental() and has_ingestion_timestamp %}
-WHERE ingestion_timestamp >= TIMESTAMP_SUB(
-  (
-    SELECT COALESCE(MAX(ingestion_timestamp), TIMESTAMP('1970-01-01'))
-    FROM {{ this }}
-  ),
-  INTERVAL {{ lookback_hours }} HOUR
-)
-{% endif %}
   {%- endset -%}
 
   {{ sql }}

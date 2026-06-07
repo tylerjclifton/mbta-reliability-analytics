@@ -4,9 +4,6 @@ resource "google_bigquery_dataset" "staging" {
   friendly_name = "Staging Dataset"
   description   = "Raw data from API ingestion jobs (all sources)"
   location      = var.location
-
-  # Optional: Set table expiration to 7 days to save costs
-  default_table_expiration_ms = 604800000 # 7 days in milliseconds
 }
 
 # MBTA dataset - data sourced from MBTA

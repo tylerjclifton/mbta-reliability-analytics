@@ -12,6 +12,12 @@ WITH
     base AS (
         SELECT *
         FROM {{ ref('mbta_silver') }}
+{%- if is_incremental() %}
+        WHERE ingestion_timestamp >= (
+            SELECT COALESCE(MAX(ingestion_timestamp), TIMESTAMP('1970-01-01'))
+            FROM {{ this }}
+        )
+{%- endif %}
     ),
 
     weather_agg AS (

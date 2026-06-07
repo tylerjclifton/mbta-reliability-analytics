@@ -28,7 +28,6 @@
   {%- set base_fields = get_source_dimension_definitions(partner_key, base_source_key) -%}
   {%- set joins = get_partner_joins(partner_key) -%}
   {%- set join_select_columns = [] -%}
-  {%- set lookback_hours = var('incremental_lookback_hours', 24) -%}
   {%- set ns = namespace(base_ingestion_raw=none) -%}
 
   {%- for field in base_source_definition.fields.dimensions -%}
@@ -66,15 +65,12 @@ WITH
             {{ ('CAST(REGEXP_EXTRACT(CAST(' ~ field.raw ~ ' AS STRING), r"^\\d{4}-\\d{2}-\\d{2}") AS DATE) AS ' ~ field.alias) if field.type | lower == 'date' else ('CAST(' ~ field.raw ~ ' AS ' ~ (field.type | upper) ~ ') AS ' ~ field.alias) }}{{ "," if not loop.last else "" }}
     {%- endfor %}
         FROM {{ ref(partner_key ~ '_bronze_' ~ base_source_key) }}
-    {% if is_incremental() and ns.base_ingestion_raw is not none %}
-        WHERE {{ ns.base_ingestion_raw }} >= TIMESTAMP_SUB(
-          (
+{%- if is_incremental() and ns.base_ingestion_raw is not none %}
+        WHERE {{ ns.base_ingestion_raw }} >= (
             SELECT COALESCE(MAX(ingestion_timestamp), TIMESTAMP('1970-01-01'))
             FROM {{ this }}
-          ),
-          INTERVAL {{ lookback_hours }} HOUR
         )
-    {% endif %}
+{%- endif %}
     ){% if joins | length > 0 %},{% endif %}
   {%- for join in joins %}
 

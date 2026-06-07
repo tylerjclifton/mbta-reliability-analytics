@@ -1,29 +1,27 @@
 {% macro build_bronze_merge(partner_key, source_key) -%}
-    -- Configure the incremental model and schema change behavior
-    {{
-        config(
-            materialized='incremental',
-            unique_key=get_source_grain_keys(partner_key, source_key),
-            on_schema_change='sync_all_columns'
-        )
-    }}
+  {# Configure incremental merge behavior for bronze tables. #}
+  {{
+    config(
+      materialized='incremental',
+      unique_key=get_source_grain_keys(partner_key, source_key),
+      on_schema_change='sync_all_columns'
+    )
+  }}
 
-    -- Set variables for project, source definition, and fields
-    {%- set project_id = env_var('DBT_PROJECT_ID', 'mbta-reliability-analytics') -%}
-    {%- set source_definition = get_source_definition(partner_key, source_key) -%}
-    {%- set source_dataset = source_definition.staging.dataset -%}
-    {%- set source_table = source_definition.staging.table -%}
-    {%- set raw_fields = get_raw_fields(partner_key, source_key) -%}
+  {# Resolve source metadata from partner config. #}
+  {%- set source_definition = get_source_definition(partner_key, source_key) -%}
+  {%- set source_dataset = source_definition.staging.dataset -%}
+  {%- set source_table = source_definition.staging.table -%}
+  {%- set raw_fields = get_raw_fields(partner_key, source_key) -%}
 
-    -- Build the select statement to fetch all raw fields from the staging table
-    {%- set select_statement -%}
-        SELECT
-            {%- for field in raw_fields %}
-                {{ field }}{{ "," if not loop.last else "" }}
-            {%- endfor %}
-        FROM `{{ target.project }}.{{ source_dataset }}.{{ source_table }}`
-    {%- endset %}
+  {# Build the raw select list dynamically to keep field mapping centralized in configs. #}
+  {%- set select_statement -%}
+    SELECT
+      {%- for field in raw_fields %}
+        {{ field }}{{ "," if not loop.last else "" }}
+      {%- endfor %}
+    FROM `{{ target.project }}.{{ source_dataset }}.{{ source_table }}`
+  {%- endset %}
 
-    -- Return the select_statement as the macro output
-    {{ select_statement }}
+  {{ select_statement }}
 {% endmacro %}

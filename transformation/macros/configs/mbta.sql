@@ -1,5 +1,5 @@
 {% macro get_mbta_config() %}
-  
+
   {% set config = {
     'sources': {
       'alerts': {

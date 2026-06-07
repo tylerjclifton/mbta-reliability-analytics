@@ -1,4 +1,4 @@
-{{
+{{-
     config(
         schema='gold',
         alias='mbta_alerts_with_weather',
@@ -6,28 +6,30 @@
         unique_key=['alert_id'],
         on_schema_change='sync_all_columns'
     )
-}}
+ -}}
 
-WITH base AS (
-    SELECT *
-    FROM {{ ref('mbta_silver') }}
-),
-weather_agg AS (
-    SELECT
-        DATE(observation_timestamp) AS observation_date,
-        AVG(temperature_fahrenheit) AS avg_temperature_f,
-        MIN(temperature_fahrenheit) AS min_temperature_f,
-        MAX(temperature_fahrenheit) AS max_temperature_f,
-        AVG(precipitation_last_hour_mm) AS avg_precipitation_mm,
-        MAX(precipitation_last_hour_mm) AS max_precipitation_mm,
-        AVG(wind_speed_mph) AS avg_wind_speed_mph,
-        MAX(wind_speed_mph) AS max_wind_speed_mph,
-        AVG(visibility_miles) AS avg_visibility_miles,
-        MIN(visibility_miles) AS min_visibility_miles,
-        AVG(relative_humidity_percent) AS avg_humidity_percent
-    FROM {{ ref('nws_silver') }}
-    GROUP BY DATE(observation_timestamp)
-)
+WITH
+    base AS (
+        SELECT *
+        FROM {{ ref('mbta_silver') }}
+    ),
+
+    weather_agg AS (
+        SELECT
+            DATE(observation_timestamp) AS observation_date,
+            AVG(temperature_fahrenheit) AS avg_temperature_f,
+            MIN(temperature_fahrenheit) AS min_temperature_f,
+            MAX(temperature_fahrenheit) AS max_temperature_f,
+            AVG(precipitation_last_hour_mm) AS avg_precipitation_mm,
+            MAX(precipitation_last_hour_mm) AS max_precipitation_mm,
+            AVG(wind_speed_mph) AS avg_wind_speed_mph,
+            MAX(wind_speed_mph) AS max_wind_speed_mph,
+            AVG(visibility_miles) AS avg_visibility_miles,
+            MIN(visibility_miles) AS min_visibility_miles,
+            AVG(relative_humidity_percent) AS avg_humidity_percent
+        FROM {{ ref('nws_silver') }}
+        GROUP BY DATE(observation_timestamp)
+    )
 
 SELECT
     base.*,

@@ -28,11 +28,18 @@
   {%- set base_fields = get_source_dimension_definitions(partner_key, base_source_key) -%}
   {%- set joins = get_partner_joins(partner_key) -%}
   {%- set join_select_columns = [] -%}
+  {%- set base_data_fields = [] -%}
+  {%- set base_audit_fields = [] -%}
   {%- set ns = namespace(base_ingestion_raw=none) -%}
 
   {%- for field in base_source_definition.fields.dimensions -%}
     {%- if field.alias == 'ingestion_timestamp' -%}
       {%- set ns.base_ingestion_raw = field.raw -%}
+      {%- do base_audit_fields.append(field) -%}
+    {%- elif field.alias == 'ingestion_source' -%}
+      {%- do base_audit_fields.append(field) -%}
+    {%- else -%}
+      {%- do base_data_fields.append(field) -%}
     {%- endif -%}
   {%- endfor -%}
 
@@ -86,14 +93,22 @@ WITH
 
 SELECT
   {%- if joins | length > 0 %}
-    {%- for field in base_fields %}
-    base_{{ base_source_key }}.{{ field.alias }}{{ "," if not loop.last or join_select_columns | length > 0 else "" }}
+    {%- for field in base_data_fields %}
+    base_{{ base_source_key }}.{{ field.alias }}{{ "," if not loop.last or join_select_columns | length > 0 or base_audit_fields | length > 0 else "" }}
     {%- endfor %}
     {%- for column in join_select_columns %}
-    {{ column }}{{ "," if not loop.last else "" }}
+    {{ column }}{{ "," if not loop.last or base_audit_fields | length > 0 else "" }}
+    {%- endfor %}
+    {%- for field in base_audit_fields %}
+    base_{{ base_source_key }}.{{ field.alias }}{{ "," if not loop.last else "" }}
     {%- endfor %}
   {%- else %}
-    *
+    {%- for field in base_data_fields %}
+    base_{{ base_source_key }}.{{ field.alias }}{{ "," if not loop.last or base_audit_fields | length > 0 else "" }}
+    {%- endfor %}
+    {%- for field in base_audit_fields %}
+    base_{{ base_source_key }}.{{ field.alias }}{{ "," if not loop.last else "" }}
+    {%- endfor %}
   {%- endif %}
 FROM base_{{ base_source_key }}
 {% for join in joins %}

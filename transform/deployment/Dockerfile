@@ -11,14 +11,14 @@ WORKDIR /app
 
 # Copy only necessary files from the repository root
 COPY requirements.txt /app/requirements.txt
-COPY transformation/ /app/transformation/
+COPY transform/ /app/transform/
 COPY keys/gcp-dbt-sa.json /app/keys/gcp-dbt-sa.json
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
 # Set working directory to transformation project
-WORKDIR /app/transformation
+WORKDIR /app/transform
 
 # Run dbt with gcp target (uses attached service account, no keyfile)
 CMD ["dbt", "run", "--profiles-dir", ".", "--target", "gcp"]

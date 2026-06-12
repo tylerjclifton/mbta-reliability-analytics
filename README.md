@@ -41,10 +41,10 @@ All infrastructure is managed as code using **Terraform** and includes:
 
 #### Infrastructure Setup
 
-The Terraform configuration is located in the [infrastructure](infrastructure) directory and is **fully deployed**.
+The Terraform configuration is located in the [infra](infra) directory and is **fully deployed**.
 
 ```bash
-cd infrastructure
+cd infra
 terraform init
 terraform plan
 terraform apply
@@ -54,22 +54,22 @@ terraform apply
 
 ### 1. Ingestion Layer
 
-Located in the [ingestion](ingestion) folder, containerized Python scripts collect data from external APIs and load directly into BigQuery staging tables:
+Located in the [ingest](ingest) folder, containerized Python scripts collect data from external APIs and load directly into BigQuery staging tables:
 
-#### MBTA Alerts Ingestion ([ingestion/ingestion-mbta-alerts](ingestion/ingestion-mbta-alerts))
+#### MBTA Alerts Ingestion ([ingest/ingestion-mbta-alerts](ingest/ingestion-mbta-alerts))
 - Fetches real-time transit alerts for subway routes
 - Filters relevant service disruptions (excludes elevator/parking issues)
 - Breaks out alerts by individual route for granular analysis
 - Loads data directly into BigQuery staging table
 - **Status**: ✅ **Deployed and Running** - Cloud Run Job executing on schedule
 
-#### MBTA Routes Ingestion ([ingestion/ingestion-mbta-routes](ingestion/ingestion-mbta-routes))
+#### MBTA Routes Ingestion ([ingest/ingestion-mbta-routes](ingest/ingestion-mbta-routes))
 - Retrieves route metadata (line names, types, descriptions)
 - Provides enrichment data for alert analysis
 - Loads data directly into BigQuery staging table
 - **Status**: ✅ **Deployed and Running** - Cloud Run Job executing on schedule
 
-#### NWS Weather Ingestion ([ingestion/ingestion-nws-weather](ingestion/ingestion-nws-weather))
+#### NWS Weather Ingestion ([ingest/ingestion-nws-weather](ingest/ingestion-nws-weather))
 - Retrieves latest weather observations from Boston Logan Airport
 - Captures temperature, precipitation, wind, visibility, and cloud coverage
 - Loads data directly into BigQuery staging table
@@ -79,7 +79,7 @@ Each ingestion job runs as a Docker container on Cloud Run, triggered automatica
 
 ### 2. Transformation Layer
 
-Located in the [transformation](transformation) folder, dbt Core handles data modeling and transformation:
+Located in the [transform](transform) folder, dbt Core handles data modeling and transformation:
 
 **Status**: 🚧 **Work in Progress** - dbt Core models built and deployed to Cloud Run, currently validating data quality and accumulating historical data
 
@@ -103,7 +103,7 @@ The transformation layer uses a **medallion architecture**:
 
 ```
 .
-├── infrastructure/          # Terraform IaC (✅ Complete & Deployed)
+├── infra/                  # Terraform IaC (✅ Complete & Deployed)
 │   ├── main.tf
 │   ├── bigquery.tf
 │   ├── cloud-run-jobs.tf
@@ -112,7 +112,7 @@ The transformation layer uses a **medallion architecture**:
 │   ├── service-accounts.tf
 │   └── iam.tf
 │
-├── ingestion/              # Data collection jobs (✅ Complete & Running)
+├── ingest/                 # Data collection jobs (✅ Complete & Running)
 │   ├── ingestion-mbta-alerts/
 │   │   ├── Dockerfile
 │   │   ├── main.py        # Alert collection script
@@ -126,7 +126,7 @@ The transformation layer uses a **medallion architecture**:
 │       ├── main.py        # Weather data collection
 │       └── requirements.txt
 │
-└── transformation/         # dbt Core project (🚧 In Progress - Migration from Dataform)
+└── transform/              # dbt Core project (🚧 In Progress - Migration from Dataform)
     ├── dbt_project.yml
     ├── profiles.yml
     ├── models/
@@ -170,7 +170,7 @@ pip install -r requirements.txt
 The Terraform infrastructure is fully configured and deployed. To make changes:
 
 ```bash
-cd infrastructure
+cd infra
 terraform plan   # Review planned changes
 terraform apply  # Apply changes to GCP
 ```
@@ -184,15 +184,15 @@ Test ingestion scripts locally before deployment:
 export GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account-key.json"
 
 # Run MBTA alerts ingestion
-cd ingestion/ingestion-mbta-alerts
+cd ingest/ingestion-mbta-alerts
 python3 main.py
 
 # Run MBTA routes ingestion
-cd ingestion/ingestion-mbta-routes
+cd ingest/ingestion-mbta-routes
 python3 main.py
 
 # Run NWS weather ingestion
-cd ingestion/ingestion-nws-weather
+cd ingest/ingestion-nws-weather
 python3 main.py
 ```
 
@@ -209,7 +209,7 @@ When you update code, rebuild and push images to Artifact Registry with versione
 **For ingestion jobs:**
 ```bash
 # Build for Cloud Run (AMD64 architecture required)
-cd ingestion/ingestion-mbta-alerts
+cd ingest/ingestion-mbta-alerts
 docker build --platform linux/amd64 \
   -t us-east1-docker.pkg.dev/mbta-reliability-analytics/data-ingestion/ingestion-mbta-alerts:v1.0.1 .
 
@@ -222,17 +222,17 @@ docker push us-east1-docker.pkg.dev/mbta-reliability-analytics/data-ingestion/in
 **For transformation pipeline:**
 ```bash
 # Use the deployment script (includes build, push, and instructions)
-cd transformation/deployment
+cd transform/deployment
 bash deploy.sh v1.0.2  # Or specify your version
 ```
 
 **Production Best Practice:** Cloud Run jobs reference specific version tags (e.g., `v1.0.0`) in Terraform for reproducibility and rollback capability.
 
 **After building new versions:**
-1. Update the version tag in `infrastructure/cloud-run-jobs.tf`
+1. Update the version tag in `infra/cloud-run-jobs.tf`
 2. Apply Terraform changes to deploy new images:
 ```bash
-cd infrastructure
+cd infra
 terraform apply
 ```
 
@@ -243,12 +243,12 @@ terraform apply
 
 For local development and deployment, see the in-repo configuration files for detailed, well-commented settings:
 
-- [transformation/profiles.yml](transformation/profiles.yml): dbt connection and environment settings
-- [transformation/dbt_project.yml](transformation/dbt_project.yml): dbt project structure and paths
+- [transform/profiles.yml](transform/profiles.yml): dbt connection and environment settings
+- [transform/dbt_project.yml](transform/dbt_project.yml): dbt project structure and paths
 
 **Common dbt commands:**
 ```bash
-cd transformation  # Enter dbt project directory
+cd transform  # Enter dbt project directory
 source ../venv/bin/activate  # Activate Python virtual environment
 dbt deps           # Install dbt packages
 dbt debug          # Test dbt connection
@@ -257,7 +257,7 @@ dbt test           # Run dbt data quality tests
 ```
 
 **Deployment:**
-See [transformation/deployment/deploy.sh](transformation/deployment/deploy.sh) and in-file comments for build and deployment steps.
+See [transform/deployment/deploy.sh](transform/deployment/deploy.sh) and in-file comments for build and deployment steps.
 
 ## Current Status
 

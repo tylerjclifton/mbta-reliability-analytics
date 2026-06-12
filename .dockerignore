@@ -5,16 +5,16 @@
 !Dockerfile
 !requirements.txt
 !keys/
-!transformation/
-!infrastructure/
-!ingestion/
+!transform/
+!infra/
+!ingest/
 
 # Ignore unnecessary files within allowed directories
 keys/*.backup
 keys/*.tmp
-transformation/logs/
-transformation/target/
-transformation/dbt_packages/
+transform/logs/
+transform/target/
+transform/dbt_packages/
 logs/
 
 # Ignore Python virtual environments

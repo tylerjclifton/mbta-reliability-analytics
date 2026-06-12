@@ -56,20 +56,20 @@ terraform apply
 
 Located in the [ingest](ingest) folder, containerized Python scripts collect data from external APIs and load directly into BigQuery staging tables:
 
-#### MBTA Alerts Ingestion ([ingest/ingestion-mbta-alerts](ingest/ingestion-mbta-alerts))
+#### MBTA Alerts Ingestion ([ingest/mbta-alerts](ingest/mbta-alerts))
 - Fetches real-time transit alerts for subway routes
 - Filters relevant service disruptions (excludes elevator/parking issues)
 - Breaks out alerts by individual route for granular analysis
 - Loads data directly into BigQuery staging table
 - **Status**: ✅ **Deployed and Running** - Cloud Run Job executing on schedule
 
-#### MBTA Routes Ingestion ([ingest/ingestion-mbta-routes](ingest/ingestion-mbta-routes))
+#### MBTA Routes Ingestion ([ingest/mbta-routes](ingest/mbta-routes))
 - Retrieves route metadata (line names, types, descriptions)
 - Provides enrichment data for alert analysis
 - Loads data directly into BigQuery staging table
 - **Status**: ✅ **Deployed and Running** - Cloud Run Job executing on schedule
 
-#### NWS Weather Ingestion ([ingest/ingestion-nws-weather](ingest/ingestion-nws-weather))
+#### NWS Weather Ingestion ([ingest/nws-weather](ingest/nws-weather))
 - Retrieves latest weather observations from Boston Logan Airport
 - Captures temperature, precipitation, wind, visibility, and cloud coverage
 - Loads data directly into BigQuery staging table
@@ -113,15 +113,15 @@ The transformation layer uses a **medallion architecture**:
 │   └── iam.tf
 │
 ├── ingest/                 # Data collection jobs (✅ Complete & Running)
-│   ├── ingestion-mbta-alerts/
+│   ├── mbta-alerts/
 │   │   ├── Dockerfile
 │   │   ├── main.py        # Alert collection script
 │   │   └── requirements.txt
-│   ├── ingestion-mbta-routes/
+│   ├── mbta-routes/
 │   │   ├── Dockerfile
 │   │   ├── main.py        # Route metadata collection
 │   │   └── requirements.txt
-│   └── ingestion-nws-weather/
+│   └── nws-weather/
 │       ├── Dockerfile
 │       ├── main.py        # Weather data collection
 │       └── requirements.txt
@@ -184,15 +184,15 @@ Test ingestion scripts locally before deployment:
 export GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account-key.json"
 
 # Run MBTA alerts ingestion
-cd ingest/ingestion-mbta-alerts
+cd ingest/mbta-alerts
 python3 main.py
 
 # Run MBTA routes ingestion
-cd ingest/ingestion-mbta-routes
+cd ingest/mbta-routes
 python3 main.py
 
 # Run NWS weather ingestion
-cd ingest/ingestion-nws-weather
+cd ingest/nws-weather
 python3 main.py
 ```
 
@@ -209,7 +209,7 @@ When you update code, rebuild and push images to Artifact Registry with versione
 **For ingestion jobs:**
 ```bash
 # Build for Cloud Run (AMD64 architecture required)
-cd ingest/ingestion-mbta-alerts
+cd ingest/mbta-alerts
 docker build --platform linux/amd64 \
   -t us-east1-docker.pkg.dev/mbta-reliability-analytics/data-ingestion/ingestion-mbta-alerts:v1.0.1 .
 

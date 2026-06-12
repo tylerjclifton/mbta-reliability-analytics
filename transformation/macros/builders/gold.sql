@@ -9,7 +9,7 @@
     2. Join CTEs: Additional sources with aggregations/transformations
     3. Final SELECT: Combined analytical dataset
 
-  Uses dbt's native incremental MERGE strategy with unique_key.
+  Uses dbts native incremental MERGE strategy with unique_key.
 #}
 
 {% macro build_gold_cross_source(config) -%}

@@ -1,9 +1,9 @@
-# Artifact Registry for backend pipeline containers (ingestion + transform)
+# Artifact Registry for backend containers
 resource "google_artifact_registry_repository" "backend" {
   location      = var.location
   repository_id = "backend"
   format        = "DOCKER"
-  description   = "MBTA backend pipeline Docker images (ingestion + transform)"
+  description   = "MBTA backend Docker images"
 }
 
 # Artifact Registry for frontend containers

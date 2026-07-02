@@ -116,8 +116,8 @@ resource "google_cloud_run_v2_job" "transform" {
   deletion_protection = false
 
   template {
-    task_count  = 1
-    parallelism = 0
+    task_count  = 1 # Total number of tasks to run
+    parallelism = 0 # Maximum number of tasks to run concurrently
     template {
       service_account = google_service_account.dbt_bigquery.email
       containers {

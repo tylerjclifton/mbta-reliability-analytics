@@ -61,7 +61,7 @@ resource "google_cloud_scheduler_job" "ingest_weather" {
   }
 }
 
-resource "google_cloud_scheduler_job" "transform_pipeline" {
+resource "google_cloud_scheduler_job" "transform" {
   name             = "transform"
   schedule         = var.transform_schedule
   time_zone        = var.scheduler_time_zone

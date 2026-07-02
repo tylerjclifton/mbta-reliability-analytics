@@ -157,6 +157,22 @@ resource "google_project_iam_member" "cloud_run_service_agent" {
   member  = "serviceAccount:${var.default_sa_cloud_run}"
 }
 
+# Serve Service Account Roles (read-only BigQuery access for the dashboard)
+locals {
+  serve_bigquery_roles = [
+    "roles/bigquery.dataViewer",
+    "roles/bigquery.jobUser",
+  ]
+}
+
+resource "google_project_iam_member" "serve_bigquery" {
+  for_each = toset(local.serve_bigquery_roles)
+
+  project = var.project_id
+  role    = each.value
+  member  = "serviceAccount:${google_service_account.serve_bigquery.email}"
+}
+
 # Container Registry Service Agent Roles
 locals {
   container_registry_service_agent_roles = [

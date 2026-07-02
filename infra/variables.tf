@@ -31,6 +31,12 @@ variable "transform_schedule" {
   default     = "30 7,19 * * *"
 }
 
+# Serve (dashboard) configuration
+variable "serve_domain" {
+  description = "Canonical domain for the Streamlit dashboard"
+  default     = "tylerclifton.com"
+}
+
 # Default Service Accounts
 variable "default_sa_compute_engine" {
   description = "Default compute service account"

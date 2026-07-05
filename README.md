@@ -1,6 +1,215 @@
 # MBTA Reliability Analytics
 
-A data engineering project analyzing patterns in MBTA (Massachusetts Bay Transportation Authority) heavy and light rail service disruptions over time. The pipeline correlates transit alerts with route metadata and weather conditions to identify relationships between environmental factors and service reliability.
+A full-stack data engineering project that ingests MBTA transit alerts and NWS weather observations, transforms them through a medallion architecture in dbt, and serves a live analytics dashboard exploring the relationship between weather conditions and subway reliability.
+
+**Live dashboard:** [tylerclifton.com](https://tylerclifton.com)
+
+---
+
+## Architecture
+
+```
+MBTA Alerts API ──┐
+MBTA Routes API ──┼──► Cloud Run Jobs ──► BigQuery (staging) ──► dbt Core ──► BigQuery (gold) ──► Streamlit Dashboard
+NWS Weather API ──┘         ↑
+                     Cloud Scheduler
+                    (twice daily, 7am/7pm ET)
+```
+
+The pipeline follows an **ELT** pattern with a **medallion architecture**:
+
+| Layer | Description |
+|---|---|
+| **Bronze** | Raw API data standardized into consistent schemas |
+| **Silver** | Cleaned, deduplicated, and enriched models (alerts + routes joined; weather cleaned) |
+| **Gold** | Analytical model — MBTA alerts joined with daily weather observations |
+
+---
+
+## Stack
+
+| Category | Technology |
+|---|---|
+| Cloud Platform | Google Cloud Platform (GCP) |
+| Infrastructure as Code | Terraform |
+| Data Warehouse | BigQuery |
+| Ingestion Compute | Cloud Run Jobs |
+| Scheduling | Cloud Scheduler |
+| Transformation | dbt Core |
+| Dashboard | Streamlit (Cloud Run Service) |
+| Containerization | Docker |
+| Container Registry | Artifact Registry |
+| Languages | Python, SQL |
+
+---
+
+## Project Structure
+
+```
+.
+├── infra/                        # Terraform — all GCP infrastructure
+│   ├── main.tf
+│   ├── variables.tf
+│   ├── bigquery.tf
+│   ├── artifact-registry.tf
+│   ├── cloud-run-jobs.tf         # Ingestion + transform jobs
+│   ├── cloud-run-services.tf     # Streamlit dashboard service
+│   ├── cloud-scheduler.tf
+│   ├── service-accounts.tf
+│   ├── iam.tf
+│   └── apis.tf
+│
+├── ingest/                       # Containerized ingestion jobs
+│   ├── mbta-alerts/              # MBTA service alert ingestion
+│   ├── mbta-routes/              # MBTA route metadata ingestion
+│   └── nws-weather/              # NWS Boston Logan weather ingestion
+│
+├── transform/                    # dbt Core project
+│   ├── dbt_project.yml
+│   ├── profiles.yml
+│   ├── models/
+│   │   ├── mbta/                 # Bronze + silver MBTA models
+│   │   ├── nws/                  # Bronze + silver weather models
+│   │   └── gold/                 # mbta_alerts_with_weather (final)
+│   ├── macros/                   # Bronze/silver/gold builders + utils
+│   └── deployment/               # Dockerfile + deploy.sh for Cloud Run
+│
+├── serve/                        # Streamlit analytics dashboard
+│   ├── app.py
+│   ├── Dockerfile
+│   └── requirements.txt
+│
+└── requirements.txt              # Local dev dependencies (dbt, testing, notebooks)
+```
+
+---
+
+## Data Sources
+
+| Source | What it provides |
+|---|---|
+| [MBTA Alerts API](https://www.mbta.com/developers/v3-api) | Real-time service alerts for Red, Blue, Orange, and Green Line routes |
+| [MBTA Routes API](https://www.mbta.com/developers/v3-api) | Route metadata (names, types, service characteristics) |
+| [NWS KBOS Observations](https://api.weather.gov/stations/KBOS/observations) | Hourly weather at Boston Logan Airport — temperature, precipitation, wind, visibility |
+
+---
+
+## Dashboard
+
+The dashboard is publicly accessible at [tylerclifton.com](https://tylerclifton.com) and served via Cloud Run (scales to zero when idle).
+
+**Sections:**
+- **KPIs** — Active alerts, routes currently affected, alerts this month, avg alert duration
+- **Active Alerts** — Live table of open alerts with route, cause, effect, and description
+- **Alert History** — Full searchable/filterable table of all past and present alerts
+- **Alerts By Route / Alerts By Month** — Volume trends by route and over time
+- **Alert Causes / Alert Cause By Route** — What triggers alerts and which lines are affected
+- **Daily Alerts vs Temperature / Precipitation** — Scatter plots with OLS trendlines to test weather correlation
+
+---
+
+## Infrastructure
+
+All infrastructure is managed with Terraform. Current deployed versions:
+
+| Component | Image |
+|---|---|
+| `ingest-mbta-alerts` | `backend/ingest-mbta-alerts:v1.0.0` |
+| `ingest-mbta-routes` | `backend/ingest-mbta-routes:v1.0.0` |
+| `ingest-nws-weather` | `backend/ingest-nws-weather:v1.0.0` |
+| `transform` | `backend/transform:v1.0.1` |
+| `serve` (dashboard) | `frontend/serve:v1.0.2` |
+
+```bash
+cd infra
+terraform init
+terraform plan
+terraform apply
+```
+
+---
+
+## Local Development
+
+### Prerequisites
+- Python 3.9+
+- Docker
+- Terraform 1.5+
+- GCP service account with appropriate roles
+
+### Setup
+
+```bash
+git clone https://github.com/tylerjclifton/mbta-reliability-analytics.git
+cd mbta-reliability-analytics
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+### Running Ingestion Locally
+
+```bash
+export GOOGLE_APPLICATION_CREDENTIALS="keys/gcp-dbt-sa.json"
+
+cd ingest/mbta-alerts && python main.py
+cd ingest/mbta-routes && python main.py
+cd ingest/nws-weather && python main.py
+```
+
+### Running dbt Locally
+
+```bash
+cd transform
+dbt deps
+dbt debug       # verify connection
+dbt run         # run all models
+dbt test        # run data quality tests
+```
+
+### Running the Dashboard Locally
+
+```bash
+cd serve
+pip install -r requirements.txt
+export GOOGLE_APPLICATION_CREDENTIALS="../keys/gcp-dbt-sa.json"
+streamlit run app.py
+```
+
+### Deploying New Versions
+
+**Ingestion jobs:**
+```bash
+cd ingest/mbta-alerts
+docker build --platform linux/amd64 \
+  -t us-east1-docker.pkg.dev/mbta-reliability-analytics/backend/ingest-mbta-alerts:v1.0.1 .
+docker push us-east1-docker.pkg.dev/mbta-reliability-analytics/backend/ingest-mbta-alerts:v1.0.1
+# Update tag in infra/cloud-run-jobs.tf, then terraform apply
+```
+
+**Transform pipeline:**
+```bash
+cd transform/deployment
+bash deploy.sh v1.0.2
+# Update tag in infra/cloud-run-jobs.tf, then terraform apply
+```
+
+**Dashboard:**
+```bash
+docker build --platform linux/amd64 \
+  -t us-east1-docker.pkg.dev/mbta-reliability-analytics/frontend/serve:v1.0.3 ./serve
+docker push us-east1-docker.pkg.dev/mbta-reliability-analytics/frontend/serve:v1.0.3
+gcloud run services update serve --region us-east1 \
+  --image us-east1-docker.pkg.dev/mbta-reliability-analytics/frontend/serve:v1.0.3
+# Update tag in infra/cloud-run-services.tf, then terraform apply
+```
+
+---
+
+## License
+
+For educational and analytical purposes.
+
 
 ## Project Overview
 

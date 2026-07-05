@@ -52,10 +52,10 @@ ROUTE_COLORS = {
     "Red":     "#DA291C",
     "Blue":    "#003DA5",
     "Orange":  "#ED8B00",
-    "Green-B": "#00843D",
+    "Green-B": "#005A28",
     "Green-C": "#00843D",
-    "Green-D": "#00843D",
-    "Green-E": "#00843D",
+    "Green-D": "#4DBD74",
+    "Green-E": "#93D6A8",
 }
 
 DARK_LAYOUT = dict(
@@ -69,10 +69,14 @@ DARK_LAYOUT = dict(
 )
 
 def route_color(route_id):
-    if route_id == "Red":    return "#DA291C"
-    if route_id == "Blue":   return "#003DA5"
-    if route_id == "Orange": return "#ED8B00"
-    return "#00843D"  # all Green branches
+    if route_id == "Red":     return "#DA291C"
+    if route_id == "Blue":    return "#003DA5"
+    if route_id == "Orange":  return "#ED8B00"
+    if route_id == "Green-B": return "#005A28"
+    if route_id == "Green-C": return "#00843D"
+    if route_id == "Green-D": return "#4DBD74"
+    if route_id == "Green-E": return "#93D6A8"
+    return "#00843D"  # fallback
 
 # ── BigQuery client ───────────────────────────────────────────────────────────
 
@@ -102,7 +106,12 @@ def load_alerts():
             alert_description,
             alert_cause,
             alert_effect,
-            avg_temperature_f
+            avg_temperature_f,
+            avg_precipitation_mm,
+            max_precipitation_mm,
+            avg_wind_speed_mph,
+            max_wind_speed_mph,
+            avg_visibility_miles
         FROM `{PROJECT_ID}.gold.mbta_alerts_with_weather`
         WHERE alert_start_date IS NOT NULL
         ORDER BY alert_start_date DESC
@@ -128,7 +137,7 @@ month_start = today.replace(day=1)
 # ── Header ────────────────────────────────────────────────────────────────────
 
 st.markdown(
-    "<h1 style='text-align:center; color:#ffffff;'>🚇 MBTA Alerts</h1>",
+    "<h1 style='text-align:center; color:#ffffff;'>🚇 MBTA Reliability Analytics</h1>",
     unsafe_allow_html=True,
 )
 
@@ -139,37 +148,33 @@ with col_f1:
     routes = sorted(df["route_id"].dropna().unique())
     selected_routes = st.multiselect("Routes", routes, default=routes)
 with col_f2:
-    min_date = df["alert_start_date"].min().date()
-    max_date = df["alert_start_date"].max().date()
-    date_range = st.date_input("Date range", value=(min_date, max_date), min_value=min_date, max_value=max_date)
+    effects = sorted(df["alert_effect"].dropna().unique())
+    selected_effects = st.multiselect("Alert Effect", effects, default=effects)
 
-if len(date_range) == 2:
-    start, end = pd.Timestamp(date_range[0]), pd.Timestamp(date_range[1])
-    filtered = df[
-        df["route_id"].isin(selected_routes) &
-        (df["alert_start_date"] >= start) &
-        (df["alert_start_date"] <= end)
-    ]
-else:
-    filtered = df[df["route_id"].isin(selected_routes)]
+filtered = df[
+    df["route_id"].isin(selected_routes) &
+    df["alert_effect"].isin(selected_effects)
+]
 
 # ── KPI row ───────────────────────────────────────────────────────────────────
 
+active_alerts = filtered[filtered["alert_end_date"].isna() | (filtered["alert_end_date"] >= today)]
+month_alerts  = filtered[filtered["alert_start_date"] >= month_start]
+
 st.divider()
 k1, k2, k3, k4 = st.columns(4)
-k1.metric("Total Alerts", f"{len(filtered):,}")
-k2.metric("Routes Affected", f"{filtered['route_id'].nunique()}")
+k1.metric("Active Alerts",             f"{len(active_alerts):,}")
+k2.metric("Routes Currently Affected", f"{active_alerts['route_id'].nunique()}")
+k3.metric("Alerts This Month",         f"{len(month_alerts):,}")
 avg_dur = filtered["duration_days"].mean()
-k3.metric("Avg Alert Duration", f"{avg_dur:.1f} days" if pd.notna(avg_dur) else "N/A")
-avg_tmp = filtered["avg_temperature_f"].mean()
-k4.metric("Avg Temp on Alert Days", f"{avg_tmp:.1f} °F" if pd.notna(avg_tmp) else "N/A")
+k4.metric("Avg Alert Duration",        f"{avg_dur:.1f} days" if pd.notna(avg_dur) else "N/A")
 st.divider()
 
 # ── Active Alerts table ───────────────────────────────────────────────────────
 
 st.subheader("Active Alerts")
 
-today_alerts = filtered[filtered["alert_end_date"].isna() | (filtered["alert_end_date"] >= today)]
+today_alerts = active_alerts
 
 if today_alerts.empty:
     st.info("No active alerts right now.")
@@ -197,40 +202,129 @@ else:
 
 st.divider()
 
-# ── Alerts By Line — running total current month ──────────────────────────────
+# ── Alert History table ───────────────────────────────────────────────────────
 
-st.subheader("Alerts By Line (Running Total — Current Month)")
+st.subheader("Alert History")
 
-month_df = filtered[filtered["alert_start_date"] >= month_start].copy()
+hist_c1, hist_c2 = st.columns(2)
+with hist_c1:
+    hist_min = df["alert_start_date"].min().date()
+    hist_max = df["alert_start_date"].max().date()
+    hist_dates = st.date_input(
+        "Date Range",
+        value=(hist_min, hist_max),
+        min_value=hist_min,
+        max_value=hist_max,
+        key="hist_dates",
+    )
+with hist_c2:
+    search_text = st.text_input("Search Header / Description", key="hist_search")
 
-if month_df.empty:
-    st.info("No alerts yet this month.")
+if len(hist_dates) == 2:
+    h_start = pd.Timestamp(hist_dates[0])
+    h_end   = pd.Timestamp(hist_dates[1])
+    history = filtered[
+        (filtered["alert_start_date"] >= h_start) &
+        (filtered["alert_start_date"] <= h_end)
+    ].copy()
 else:
-    month_df["day"] = month_df["alert_start_date"].dt.normalize()
-    cumulative = (
-        month_df.groupby(["day", "route_id"])
-        .size()
-        .reset_index(name="daily_count")
-        .sort_values(["route_id", "day"])
-    )
-    cumulative["running_total"] = cumulative.groupby("route_id")["daily_count"].cumsum()
+    history = filtered.copy()
 
-    fig_cum = px.line(
-        cumulative,
-        x="day",
-        y="running_total",
-        color="route_id",
-        color_discrete_map=ROUTE_COLORS,
-        labels={"day": "", "running_total": "Cumulative Alerts", "route_id": "Route"},
-        line_shape="linear",
+if search_text:
+    mask = (
+        history["alert_header"].str.contains(search_text, case=False, na=False) |
+        history["alert_description"].str.contains(search_text, case=False, na=False)
     )
-    fig_cum.update_traces(line_width=2.5)
-    fig_cum.update_layout(**DARK_LAYOUT)
-    st.plotly_chart(fig_cum, use_container_width=True)
+    history = history[mask]
+
+hist_display = history[
+    ["route_id", "alert_header", "alert_description", "alert_cause",
+     "alert_effect", "alert_start_date", "alert_end_date", "duration_days"]
+].rename(columns={
+    "route_id":          "Route",
+    "alert_header":      "Header",
+    "alert_description": "Description",
+    "alert_cause":       "Cause",
+    "alert_effect":      "Effect",
+    "alert_start_date":  "Start",
+    "alert_end_date":    "End",
+    "duration_days":     "Duration (days)",
+})
+
+def color_hist_row(row):
+    color = route_color(row["Route"])
+    return [f"color: {color}"] * len(row)
+
+st.caption(f"{len(history):,} alerts")
+st.dataframe(
+    hist_display.style.apply(color_hist_row, axis=1),
+    use_container_width=True,
+    hide_index=True,
+    height=400,
+)
 
 st.divider()
 
-# ── Alert Causes pie + Alert Cause x Temperature ─────────────────────────────
+# ── Alerts Over Time + Alerts By Month ───────────────────────────────────────
+
+time_col1, time_col2 = st.columns(2)
+
+with time_col1:
+    st.subheader("Alerts By Route")
+
+    all_routes = sorted(df["route_id"].dropna().unique())
+    route_counts = filtered.groupby("route_id").size().reset_index(name="alert_count")
+    all_routes_df = pd.DataFrame({"route_id": all_routes})
+    route_counts = all_routes_df.merge(route_counts, on="route_id", how="left").fillna(0)
+    route_counts["alert_count"] = route_counts["alert_count"].astype(int)
+
+    fig_bar = px.bar(
+        route_counts,
+        x="route_id",
+        y="alert_count",
+        color="route_id",
+        color_discrete_map=ROUTE_COLORS,
+        labels={"route_id": "Route", "alert_count": "Alerts"},
+    )
+    fig_bar.update_layout(**DARK_LAYOUT)
+    fig_bar.update_yaxes(tickformat="d", rangemode="tozero")
+    st.plotly_chart(fig_bar, use_container_width=True)
+
+with time_col2:
+    st.subheader("Alerts By Month")
+
+    if not filtered.empty:
+        monthly_df = filtered.copy()
+        monthly_df["month"] = monthly_df["alert_start_date"].dt.to_period("M").dt.to_timestamp()
+        monthly = (
+            monthly_df.groupby(["month", "route_id"])
+            .size()
+            .reset_index(name="alert_count")
+        )
+        fig_monthly = px.bar(
+            monthly,
+            x="month",
+            y="alert_count",
+            color="route_id",
+            barmode="stack",
+            color_discrete_map=ROUTE_COLORS,
+            labels={"month": "Month", "alert_count": "Alerts", "route_id": "Route"},
+        )
+        fig_monthly.update_layout(**DARK_LAYOUT)
+        fig_monthly.update_yaxes(tickformat="d", rangemode="tozero")
+        # Default view: last 12 months — user can zoom/pan to see full history
+        view_start = today - pd.DateOffset(months=12)
+        fig_monthly.update_xaxes(
+            range=[view_start, today + pd.DateOffset(months=1)],
+            dtick="M1", tickformat="%b %Y", tickangle=-30,
+        )
+        st.plotly_chart(fig_monthly, use_container_width=True)
+    else:
+        st.info("No data to display.")
+
+st.divider()
+
+# ── Alert Causes + Alert Cause By Temperature ─────────────────────────────────
 
 row2_l, row2_r = st.columns(2)
 
@@ -255,53 +349,92 @@ with row2_l:
     st.plotly_chart(fig_pie, use_container_width=True)
 
 with row2_r:
-    st.subheader("Alert Cause × Temperature")
-    temp_df = filtered.dropna(subset=["avg_temperature_f"]).copy()
-    if not temp_df.empty:
-        bins   = [float("-inf"), 32, 55, 75, float("inf")]
-        labels = ["Freezing (≤32°F)", "Cold (33–55°F)", "Mild (56–75°F)", "Hot (>75°F)"]
-        temp_df["temp_bucket"] = pd.cut(temp_df["avg_temperature_f"], bins=bins, labels=labels)
-        cause_temp = (
-            temp_df.groupby(["alert_cause", "temp_bucket"], observed=True)
-            .size()
-            .reset_index(name="count")
-        )
-        fig_ct = px.bar(
-            cause_temp,
+    st.subheader("Alert Cause By Route")
+    cause_route = (
+        filtered.groupby(["alert_cause", "route_id"])
+        .size()
+        .reset_index(name="count")
+    )
+    if not cause_route.empty:
+        fig_cr = px.bar(
+            cause_route,
             x="alert_cause",
             y="count",
-            color="temp_bucket",
+            color="route_id",
             barmode="stack",
-            labels={"alert_cause": "Cause", "count": "Alerts", "temp_bucket": "Temp Range"},
-            color_discrete_sequence=["#4e9af1", "#74b9ff", "#fdcb6e", "#e17055"],
+            color_discrete_map=ROUTE_COLORS,
+            labels={"alert_cause": "Cause", "count": "Alerts", "route_id": "Route"},
         )
-        fig_ct.update_layout(**{**DARK_LAYOUT, "xaxis_tickangle": -30})
-        st.plotly_chart(fig_ct, use_container_width=True)
+        fig_cr.update_layout(**{**DARK_LAYOUT, "xaxis_tickangle": -30})
+        st.plotly_chart(fig_cr, use_container_width=True)
     else:
-        st.info("Weather data not yet joined.")
+        st.info("No alert data available.")
 
 st.divider()
 
-# ── Alerts over time (weekly, by route) ──────────────────────────────────────
+# ── Weather Impact Scatters ───────────────────────────────────────────────────
 
-st.subheader("Alerts Over Time")
-filtered["week"] = filtered["alert_start_date"].dt.to_period("W").apply(lambda p: p.start_time)
-weekly = (
-    filtered.groupby(["week", "route_id"])
-    .size()
-    .reset_index(name="alert_count")
-)
-fig_line = px.line(
-    weekly,
-    x="week",
-    y="alert_count",
-    color="route_id",
-    color_discrete_map=ROUTE_COLORS,
-    labels={"week": "", "alert_count": "Alerts", "route_id": "Route"},
-)
-fig_line.update_traces(line_width=2.5)
-fig_line.update_layout(**DARK_LAYOUT)
-st.plotly_chart(fig_line, use_container_width=True)
+wx_col1, wx_col2 = st.columns(2)
+
+with wx_col1:
+    st.subheader("Daily Alerts vs Temperature")
+    scatter_df = filtered.dropna(subset=["avg_temperature_f"]).copy()
+    if not scatter_df.empty:
+        daily_temp = (
+            scatter_df.groupby("alert_start_date")
+            .agg(
+                alert_count=("alert_id", "count"),
+                avg_temp=("avg_temperature_f", "first"),
+            )
+            .reset_index()
+        )
+        fig_scatter = px.scatter(
+            daily_temp,
+            x="avg_temp",
+            y="alert_count",
+            trendline="ols",
+            trendline_color_override="#ff6b6b",
+            labels={"avg_temp": "Avg Temperature (°F)", "alert_count": "Alerts"},
+        )
+        fig_scatter.update_traces(
+            selector=dict(mode="markers"),
+            marker=dict(color="#4e9af1", size=8, opacity=0.7),
+        )
+        fig_scatter.update_layout(**DARK_LAYOUT)
+        fig_scatter.update_yaxes(tickformat="d", rangemode="tozero")
+        st.plotly_chart(fig_scatter, use_container_width=True)
+    else:
+        st.info("Weather data not yet joined.")
+
+with wx_col2:
+    st.subheader("Daily Alerts vs Precipitation")
+    prec_df = filtered.dropna(subset=["avg_precipitation_mm"]).copy()
+    if not prec_df.empty:
+        daily_prec = (
+            prec_df.groupby("alert_start_date")
+            .agg(
+                alert_count=("alert_id", "count"),
+                avg_precip=("avg_precipitation_mm", "first"),
+            )
+            .reset_index()
+        )
+        fig_prec = px.scatter(
+            daily_prec,
+            x="avg_precip",
+            y="alert_count",
+            trendline="ols",
+            trendline_color_override="#ff6b6b",
+            labels={"avg_precip": "Avg Precipitation (mm)", "alert_count": "Alerts"},
+        )
+        fig_prec.update_traces(
+            selector=dict(mode="markers"),
+            marker=dict(color="#74b9ff", size=8, opacity=0.7),
+        )
+        fig_prec.update_layout(**DARK_LAYOUT)
+        fig_prec.update_yaxes(tickformat="d", rangemode="tozero")
+        st.plotly_chart(fig_prec, use_container_width=True)
+    else:
+        st.info("Precipitation data not yet available.")
 
 # ── Footer ────────────────────────────────────────────────────────────────────
 

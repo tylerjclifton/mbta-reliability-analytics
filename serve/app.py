@@ -170,7 +170,7 @@ avg_dur = filtered["duration_days"].mean()
 k4.metric("Avg Alert Duration",        f"{avg_dur:.1f} days" if pd.notna(avg_dur) else "N/A")
 st.divider()
 
-# ── Active Alerts table ───────────────────────────────────────────────────────
+# ── Active Alerts Table ───────────────────────────────────────────────────────
 
 st.subheader("Active Alerts")
 
@@ -202,7 +202,7 @@ else:
 
 st.divider()
 
-# ── Alert History table ───────────────────────────────────────────────────────
+# ── Alert History Table ───────────────────────────────────────────────────────
 
 st.subheader("Alert History")
 
@@ -265,7 +265,7 @@ st.dataframe(
 
 st.divider()
 
-# ── Alerts Over Time + Alerts By Month ───────────────────────────────────────
+# ── Alerts By Route Bar + Alerts By Month Bar ───────────────────────────────────────
 
 time_col1, time_col2 = st.columns(2)
 
@@ -324,12 +324,12 @@ with time_col2:
 
 st.divider()
 
-# ── Alert Causes + Alert Cause By Temperature ─────────────────────────────────
+# ── Alert Cause Share Pie + Alerts By Cause Bar ─────────────────────────────────
 
 row2_l, row2_r = st.columns(2)
 
 with row2_l:
-    st.subheader("Alert Causes")
+    st.subheader("Alert Cause Share")
     causes = (
         filtered.groupby("alert_cause")
         .size()
@@ -349,7 +349,7 @@ with row2_l:
     st.plotly_chart(fig_pie, use_container_width=True)
 
 with row2_r:
-    st.subheader("Alert Cause By Route")
+    st.subheader("Alerts By Cause")
     cause_route = (
         filtered.groupby(["alert_cause", "route_id"])
         .size()
@@ -377,7 +377,7 @@ st.divider()
 wx_col1, wx_col2 = st.columns(2)
 
 with wx_col1:
-    st.subheader("Daily Alerts vs Temperature")
+    st.subheader("Alerts vs Temperature")
     scatter_df = filtered.dropna(subset=["avg_temperature_f"]).copy()
     if not scatter_df.empty:
         daily_temp = (
@@ -407,7 +407,7 @@ with wx_col1:
         st.info("Weather data not yet joined.")
 
 with wx_col2:
-    st.subheader("Daily Alerts vs Precipitation")
+    st.subheader("Alerts vs Precipitation")
     prec_df = filtered.dropna(subset=["avg_precipitation_mm"]).copy()
     if not prec_df.empty:
         daily_prec = (
@@ -440,7 +440,7 @@ with wx_col2:
 
 st.divider()
 st.caption(
-    f"Data refreshed twice daily at 7am & 7pm ET · "
-    f"{len(df):,} total records · "
-    "Source: MBTA Alerts API + NWS Boston Logan Airport (KBOS)"
+    f"Data refreshed twice daily at 7 AM and 7 PM EST. "
+    f"{len(df):,} total records. "
+    "Source: MBTA (Alerts, Routes) API + NWS (Weather) API"
 )

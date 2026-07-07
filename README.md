@@ -118,7 +118,7 @@ All infrastructure is managed with Terraform. Current deployed versions:
 | `ingest-mbta-routes` | `backend/ingest-mbta-routes:v1.0.0` |
 | `ingest-nws-weather` | `backend/ingest-nws-weather:v1.0.0` |
 | `transform` | `backend/transform:v1.0.1` |
-| `serve` (dashboard) | `frontend/serve:v1.0.2` |
+| `serve` (dashboard) | `frontend/serve:v1.0.3` |
 
 ```bash
 cd infra

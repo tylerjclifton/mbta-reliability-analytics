@@ -8,7 +8,7 @@
           'dataset': 'staging',
           'table': 'mbta_alerts',
         },
-        'grain_keys': ['alert_id'],
+        'grain_keys': ['alert_id', 'route'],
         'fields': {
           'dimensions': [
             {

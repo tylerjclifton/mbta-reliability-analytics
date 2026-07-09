@@ -61,6 +61,27 @@ resource "google_cloud_scheduler_job" "ingest_weather" {
   }
 }
 
+resource "google_cloud_scheduler_job" "ingest_ridership" {
+  name             = "ingest-mbta-ridership"
+  schedule         = "0 0 1 1,5,9 *" # Every 4 months: Jan 1, May 1, Sep 1
+  time_zone        = var.scheduler_time_zone
+  attempt_deadline = "180s"
+  paused           = false
+
+  retry_config {
+    retry_count = 0
+  }
+
+  http_target {
+    http_method = "POST"
+    uri         = "https://${var.location}-run.googleapis.com/v2/projects/${var.project_id}/locations/${var.location}/jobs/ingest-mbta-ridership:run"
+    oauth_token {
+      service_account_email = var.default_sa_compute_engine
+      scope                 = "https://www.googleapis.com/auth/cloud-platform"
+    }
+  }
+}
+
 resource "google_cloud_scheduler_job" "transform" {
   name             = "transform"
   schedule         = var.transform_schedule

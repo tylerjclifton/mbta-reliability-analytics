@@ -1,4 +1,5 @@
+google-cloud-bigquery
 pandas
-pandas-gbq
+pyarrow
 requests
 db-dtypes

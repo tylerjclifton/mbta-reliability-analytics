@@ -5,7 +5,6 @@ import os
 
 # Import third party libraries
 import pandas
-from pandas_gbq import to_gbq
 import requests
 from google.cloud import bigquery
 
@@ -101,17 +100,10 @@ while True:
         else:
             service_date = None
 
-        # gated_entries is stored as a string in the source — cast to float
-        gated_entries_raw = attrs.get('gated_entries')
-        try:
-            gated_entries = float(gated_entries_raw) if gated_entries_raw is not None else None
-        except (TypeError, ValueError):
-            gated_entries = None
-
         all_records.append({
             'service_date': service_date,
             'route_or_line': attrs.get('route_or_line'),
-            'gated_entries': gated_entries,
+            'gated_entries': attrs.get('gated_entries'),
         })
 
     logging.info(f"Fetched {offset + len(features)} records so far...")
@@ -129,6 +121,11 @@ if not all_records:
 
 # Build DataFrame from collected records
 df = pandas.DataFrame(all_records)
+
+# Explicitly cast metric columns to float so pandas never infers int64,
+# which would cause BigQuery schema mismatches when decimal values arrive
+# (ArcGIS stores gated_entries as a string; split stations can have decimal values)
+df['gated_entries'] = pandas.to_numeric(df['gated_entries'], errors='coerce').astype(float)
 
 # Aggregate by service_date and route_or_line — this collapses stop-level and
 # time-period granularity into a single daily total per line
@@ -158,23 +155,24 @@ schema = [
     bigquery.SchemaField("ingestion_timestamp", "TIMESTAMP"),
 ]
 
-# Ensure the table exists with the correct schema
-client.create_table(
-    bigquery.Table(f"{project_id}.{dataset_id}.{table_id}", schema=schema),
-    exists_ok=True
-)
-
-# Delete all rows from the staging table before reload
-query = f"DELETE FROM `{project_id}.{dataset_id}.{table_id}` WHERE TRUE"
-client.query(query).result()
-
 # Deduplicate on service_date + route_or_line before loading — groupby above
 # should already produce unique rows, but this guards against any API quirks
 output_deduped = df_aggregated.drop_duplicates(subset=['service_date', 'route_or_line'], keep='first')
 
 # Write deduplicated data to BigQuery
+# WRITE_TRUNCATE replaces the table atomically and enforces the explicit schema,
+# preventing pandas type inference from creating mismatched column types
 try:
-    to_gbq(output_deduped, f'{dataset_id}.{table_id}', project_id=project_id, if_exists='replace')
+    job_config = bigquery.LoadJobConfig(
+        schema=schema,
+        write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
+    )
+    load_job = client.load_table_from_dataframe(
+        output_deduped,
+        f"{project_id}.{dataset_id}.{table_id}",
+        job_config=job_config
+    )
+    load_job.result()
     logging.info(f"{len(output_deduped)} rows uploaded to BigQuery")
 except Exception as e:
     logging.error(f"BigQuery upload failed: {e}")

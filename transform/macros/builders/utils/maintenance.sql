@@ -11,20 +11,19 @@
   #}
   {% if execute %}
     {% set project_id = env_var('DBT_PROJECT_ID', 'mbta-reliability-analytics') %}
-    {% set dataset = target.dataset %}
     {% set get_temp_tables_query %}
-      SELECT table_name
-      FROM `{{ project_id }}.{{ dataset }}.INFORMATION_SCHEMA.TABLES`
+      SELECT table_schema, table_name
+      FROM `{{ project_id }}.region-us-east1.INFORMATION_SCHEMA.TABLES`
       WHERE table_name LIKE '%__dbt_tmp'
+        AND table_type = 'BASE TABLE'
     {% endset %}
     {% set temp_tables = run_query(get_temp_tables_query) %}
     {% if temp_tables %}
       {% for row in temp_tables %}
-        {% set table_name = row[0] %}
         {% set drop_sql %}
-          DROP TABLE IF EXISTS `{{ project_id }}.{{ dataset }}.{{ table_name }}`
+          DROP TABLE IF EXISTS `{{ project_id }}.{{ row[0] }}.{{ row[1] }}`
         {% endset %}
-        {% do log("Dropping temporary table: " ~ table_name, info=True) %}
+        {% do log("Dropping temporary table: " ~ row[0] ~ "." ~ row[1], info=True) %}
         {% do run_query(drop_sql) %}
       {% endfor %}
     {% endif %}

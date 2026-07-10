@@ -12,16 +12,6 @@
         'fields': {
           'dimensions': [
             {
-              'raw': 'active_period_start',
-              'alias': 'alert_start_date',
-              'type': 'date'
-            },
-            {
-              'raw': 'active_period_end',
-              'alias': 'alert_end_date',
-              'type': 'date'
-            },
-            {
               'raw': 'alert_id',
               'alias': 'alert_id',
               'type': 'string'
@@ -30,6 +20,16 @@
               'raw': 'route',
               'alias': 'route_id',
               'type': 'string'
+            },
+            {
+              'raw': 'active_period_start',
+              'alias': 'alert_start_date',
+              'type': 'date'
+            },
+            {
+              'raw': 'active_period_end',
+              'alias': 'alert_end_date',
+              'type': 'date'
             },
             {
               'raw': 'header',
@@ -85,8 +85,46 @@
           'metrics': []
         }
       },
+      'ridership': {
+        'lookup': false,
+        'staging': {
+          'dataset': 'staging',
+          'table': 'mbta_ridership',
+        },
+        'grain_keys': ['service_date', 'route_or_line'],
+        'fields': {
+          'dimensions': [
+            {
+              'raw': 'service_date',
+              'alias': 'service_date',
+              'type': 'date'
+            },
+            {
+              'raw': 'route_or_line',
+              'alias': 'route_name',
+              'type': 'string'
+            },
+            {
+              'raw': 'total_gated_entries',
+              'alias': 'ridership',
+              'type': 'float64'
+            },
+            {
+              'raw': 'ingestion_timestamp',
+              'alias': 'ingestion_timestamp',
+              'type': 'timestamp'
+            },
+            {
+              'raw': 'ingestion_source',
+              'alias': 'ingestion_source',
+              'type': 'string'
+            }
+          ],
+          'metrics': []
+        }
+      },
       'routes': {
-        'lookup': true,
+        'lookup': false,
         'staging': {
           'dataset': 'staging',
           'table': 'mbta_routes',
@@ -139,19 +177,7 @@
         }
       }
     },
-    'joins': [
-      {
-        'base_source': 'alerts',
-        'join_source': 'routes',
-        'join_type': 'left',
-        'on': [
-          {
-            'left': 'route_id',
-            'right': 'route_id'
-          }
-        ]
-      }
-    ]
+    'joins': []
   } %}
   {% do return(config) %}
 {% endmacro %}

@@ -39,8 +39,9 @@ WITH
 SELECT
     alert_id,
     route_id,
-    alert_start_date,
-    alert_end_date,
+    -- Replace 1970-01-01 epoch dates with alert_created_at as fallback
+    CASE WHEN alert_start_date = DATE('1970-01-01') THEN alert_created_at ELSE alert_start_date END AS alert_start_date,
+    CASE WHEN alert_end_date   = DATE('1970-01-01') THEN alert_created_at ELSE alert_end_date   END AS alert_end_date,
     alert_header,
     alert_description,
     INITCAP(REPLACE(alert_cause, '_', ' '))              AS alert_cause,

@@ -208,10 +208,15 @@ else:
 
 st.divider()
 
-# Past Alerts
+# Past Alerts — completed only (have a real end date in the past)
 st.subheader("Past Alerts")
 
-hist_display = filtered_alerts[[
+past_alerts = filtered_alerts[
+    filtered_alerts["alert_end_date"].notna() &
+    (filtered_alerts["alert_end_date"] < today)
+]
+
+hist_display = past_alerts[[
     "route_id", "alert_effect", "alert_cause",
     "alert_start_date", "alert_end_date", "alert_duration_days",
     "alert_header", "alert_description",
@@ -224,7 +229,7 @@ hist_display = filtered_alerts[[
 hist_display["Start"] = hist_display["Start"].dt.date
 hist_display["End"]   = hist_display["End"].apply(lambda x: x.date() if pd.notna(x) else "Ongoing")
 
-st.caption(f"{len(hist_display):,} alerts")
+st.caption(f"{len(past_alerts):,} alerts")
 st.dataframe(hist_display, use_container_width=True, hide_index=True, height=400)
 
 st.divider()

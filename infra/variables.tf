@@ -22,18 +22,18 @@ variable "scheduler_time_zone" {
 }
 
 variable "ingestion_schedule" {
-  description = "Cron for ingestion jobs. Format: minute hour day-of-month month day-of-week"
-  default     = "0 7,19 * * *"
+  description = "Cron for alert ingestion jobs. Runs 4x daily at midnight, 6AM, noon, and 6PM ET."
+  default     = "0 0,6,12,18 * * *"
 }
 
 variable "nws_ingestion_schedule" {
-  description = "Cron for NWS weather ingestion. Runs 4x daily to capture weather across the full day."
-  default     = "0 6,12,18,23 * * *"
+  description = "Cron for NWS weather ingestion. Runs 4x daily at midnight, 6AM, noon, and 6PM ET."
+  default     = "0 0,6,12,18 * * *"
 }
 
 variable "transform_schedule" {
-  description = "Cron for transform job. Format: minute hour day-of-month month day-of-week"
-  default     = "30 7,19 * * *"
+  description = "Cron for transform job. Runs 30 minutes after each ingestion window."
+  default     = "30 0,6,12,18 * * *"
 }
 
 # Serve (dashboard) configuration

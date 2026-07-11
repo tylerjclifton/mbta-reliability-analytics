@@ -63,7 +63,7 @@ resource "google_cloud_scheduler_job" "ingest_weather" {
 
 resource "google_cloud_scheduler_job" "ingest_ridership" {
   name             = "ingest-mbta-ridership"
-  schedule         = "0 0 1 1,5,9 *" # Every 4 months: Jan 1, May 1, Sep 1
+  schedule         = "0 0 1 1,4,7,10 *" # Quarterly: Jan 1, Apr 1, Jul 1, Oct 1 — aligns with routes and transform cycle
   time_zone        = var.scheduler_time_zone
   attempt_deadline = "180s"
   paused           = false

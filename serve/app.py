@@ -186,7 +186,7 @@ filtered_ridership = df_ridership[
 # Stable cause color order — computed once so both cause charts use matching colors
 cause_order = sorted(filtered_alerts["alert_cause"].dropna().unique().tolist())
 
-st.caption("Alert charts: last 12 months · Ridership: most recent 12 months available · Past Alerts table shows full history")
+st.caption("Alerts & weather refresh 4× daily (midnight, 6AM, noon, 6PM ET) · Ridership & routes update quarterly · Alert charts: last 12 months · Past Alerts: full history")
 
 # ── KPI row ───────────────────────────────────────────────────────────────────
 

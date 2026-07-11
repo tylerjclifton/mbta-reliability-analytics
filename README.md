@@ -1,6 +1,6 @@
 # MBTA Reliability Analytics
 
-A full-stack data engineering project tracking MBTA subway reliability, ridership, and weather across the Red, Orange, Blue, and Green Lines.
+A full-stack data engineering project tracking MBTA rail reliability, ridership, and weather across the Red, Orange, Blue, and Green Lines.
 
 **Live dashboard:** [tylerclifton.com](https://tylerclifton.com)
 
@@ -8,13 +8,14 @@ A full-stack data engineering project tracking MBTA subway reliability, ridershi
 
 ## What It Does
 
-Ingests data from three sources on an automated schedule, transforms it through a medallion architecture, and serves a live analytics dashboard.
+Ingests data from four sources on an automated schedule, transforms it through a medallion architecture, and serves a live analytics dashboard.
 
 | Source | Data | Schedule |
 |---|---|---|
-| MBTA Alerts API | Service alerts (delays, suspensions, closures) | Twice daily |
-| NWS Weather API | Observations at Boston Logan Airport | 4× daily |
-| MBTA ArcGIS Open Data | Gated station entries by route | Quarterly |
+| MBTA Alerts API | Service alerts (delays, suspensions, closures) | 4× daily — midnight, 6AM, noon, 6PM ET |
+| MBTA Routes API | Route metadata (names, types, colors) | Quarterly — Jan/Apr/Jul/Oct 1 at midnight ET |
+| NWS Weather API | Observations at Boston Logan Airport | 4× daily — midnight, 6AM, noon, 6PM ET |
+| MBTA ArcGIS Open Data | Gated station entries by route | Quarterly — Jan/Apr/Jul/Oct 1 at midnight ET |
 
 ---
 
@@ -22,13 +23,14 @@ Ingests data from three sources on an automated schedule, transforms it through 
 
 ```
 MBTA Alerts API  ──┐
-MBTA Routes API  ──┤
-NWS Weather API  ──┼──► Cloud Run Jobs ──► BigQuery (stage) ──► dbt Core ──► BigQuery (gold) ──► Streamlit
-MBTA Ridership   ──┘         ↑
-                      Cloud Scheduler
+MBTA Routes API  ──┤                        ┌─────────────────────────────────────────┐
+NWS Weather API  ──┼──► Cloud Run Jobs ──►  │  BigQuery                               │──► Streamlit
+MBTA Ridership   ──┘         ↑              │  stage → bronze → silver → gold         │
+                      Cloud Scheduler       │              ↑ dbt Core                 │
+                                            └─────────────────────────────────────────┘
 ```
 
-**Medallion layers:**
+**Medallion Layers**
 
 | Layer | Role |
 |---|---|
@@ -54,14 +56,14 @@ MBTA Ridership   ──┘         ↑
 
 ## Dashboard
 
-**Alerts section**
+**Alerts Section**
 - Active and past alerts with cause, effect, duration, and route
 - Alerts by route and by month (last 12 months)
 - Cause share and effect share (donut charts)
 - Causes and effects broken out by route (normalized %)
 - Cause → effect heatmap
 
-**Ridership section**
+**Ridership Section**
 - Daily ridership vs active alert count (dual-axis, by line)
 - Average ridership by day of week
 - Temperature vs ridership and precipitation vs ridership (scatter with trendlines)

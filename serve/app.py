@@ -166,11 +166,20 @@ st.markdown(
 # ── Global line filter ───────────────────────────────────────────────────────
 
 all_lines     = ["Red Line", "Orange Line", "Blue Line", "Green Line"]
-selected_lines = st.multiselect("Filter by Line", all_lines, default=all_lines)
+selected_lines = st.multiselect("Filter By Route", all_lines, default=all_lines)
 
 selected_route_ids = [r for line in selected_lines for r in LINE_TO_ROUTES[line]]
 filtered_alerts    = df_alerts[df_alerts["route_id"].isin(selected_route_ids)]
 filtered_ridership = df_ridership[df_ridership["route_name"].isin(selected_lines)]
+
+# 12-month window applied to all alert analysis charts
+year_start  = today - pd.DateOffset(months=12)
+year_alerts = filtered_alerts[filtered_alerts["alert_start_date"] >= year_start]
+
+# Stable cause color order — computed once so both cause charts use matching colors
+cause_order = sorted(filtered_alerts["alert_cause"].dropna().unique().tolist())
+
+st.caption("Alert analysis charts show the last 12 months · Ridership updated quarterly with ~1–2 month delay")
 
 # ── KPI row ───────────────────────────────────────────────────────────────────
 
@@ -248,10 +257,9 @@ st.divider()
 # Alerts by route + by month
 al_c1, al_c2 = st.columns(2)
 with al_c1:
-    st.subheader("Alerts By Route (Last 12 Months)")
-    year_start = today - pd.DateOffset(months=12)
+    st.subheader("Alerts By Route")
     route_counts = (
-        filtered_alerts[filtered_alerts["alert_start_date"] >= year_start]
+        year_alerts
         .groupby("route_id").size().reset_index(name="alert_count")
     )
     fig = px.bar(
@@ -264,8 +272,8 @@ with al_c1:
     st.plotly_chart(fig, use_container_width=True)
 
 with al_c2:
-    st.subheader("Alerts By Month (Last 12 Months)")
-    monthly_df = filtered_alerts.copy()
+    st.subheader("Alerts By Month")
+    monthly_df = year_alerts.copy()
     monthly_df["month"] = monthly_df["alert_start_date"].dt.to_period("M").dt.to_timestamp()
     monthly = monthly_df.groupby("month").size().reset_index(name="alert_count")
     fig = px.bar(
@@ -286,31 +294,30 @@ st.divider()
 # Cause share — full width
 st.subheader("Alert Cause Share")
 causes = (
-    filtered_alerts.groupby("alert_cause").size()
+    year_alerts.groupby("alert_cause").size()
     .reset_index(name="count").sort_values("count", ascending=False).head(10)
 )
 fig = px.pie(
     causes, names="alert_cause", values="count", hole=0.4,
     color_discrete_sequence=px.colors.qualitative.Set2,
+    category_orders={"alert_cause": cause_order},
 )
 fig.update_traces(textfont_color="white")
 fig.update_layout(**{**DARK_LAYOUT, "showlegend": True})
 st.plotly_chart(fig, use_container_width=True)
 
-# Cause breakdown by line — normalized to % so lines with fewer total alerts are comparable
-st.subheader("Alert Causes By Line")
-st.caption("Normalized to 100% per line — shows which cause types each line is most prone to.")
-cause_line = filtered_alerts.copy()
-cause_line["line"] = cause_line["route_id"].map(ROUTE_TO_LINE)
-cause_line_grp = cause_line.groupby(["line", "alert_cause"]).size().reset_index(name="count")
-if not cause_line_grp.empty:
-    totals = cause_line_grp.groupby("line")["count"].transform("sum")
-    cause_line_grp["pct"] = (cause_line_grp["count"] / totals * 100).round(1)
+# Cause breakdown by route — normalized to % so routes with fewer alerts are still comparable
+st.subheader("Alert Causes By Route")
+cause_route_grp = year_alerts.groupby(["route_id", "alert_cause"]).size().reset_index(name="count")
+if not cause_route_grp.empty:
+    totals = cause_route_grp.groupby("route_id")["count"].transform("sum")
+    cause_route_grp["pct"] = (cause_route_grp["count"] / totals * 100).round(1)
     fig = px.bar(
-        cause_line_grp, x="line", y="pct",
+        cause_route_grp, x="route_id", y="pct",
         color="alert_cause", barmode="stack",
         color_discrete_sequence=px.colors.qualitative.Set2,
-        labels={"line": "Line", "pct": "% of Alerts", "alert_cause": "Cause"},
+        category_orders={"alert_cause": cause_order},
+        labels={"route_id": "Route", "pct": "% of Alerts", "alert_cause": "Cause"},
         text="pct",
     )
     fig.update_traces(texttemplate="%{text:.0f}%", textposition="inside")
@@ -326,7 +333,7 @@ st.divider()
 st.subheader("What Causes Lead to What Effects")
 st.caption("Cell value = number of alerts with that cause/effect combination.")
 heat_df = (
-    filtered_alerts
+    year_alerts
     .groupby(["alert_cause", "alert_effect"])
     .size()
     .reset_index(name="count")

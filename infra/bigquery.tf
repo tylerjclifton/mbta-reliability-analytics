@@ -1,7 +1,7 @@
-# Staging dataset - raw API dumps from Cloud Run jobs
-resource "google_bigquery_dataset" "staging" {
-  dataset_id    = "staging"
-  friendly_name = "Staging Dataset"
+# Stage dataset - raw API dumps from Cloud Run jobs
+resource "google_bigquery_dataset" "stage" {
+  dataset_id    = "stage"
+  friendly_name = "Stage Dataset"
   description   = "Raw data from API ingestion jobs (all sources)"
   location      = var.location
 }

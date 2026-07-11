@@ -4,7 +4,7 @@
     'sources': {
       'weather': {
         'staging': {
-          'dataset': 'staging',
+          'dataset': 'stage',
           'table': 'nws_weather',
         },
         'grain_keys': ['observation_timestamp', 'station_id'],

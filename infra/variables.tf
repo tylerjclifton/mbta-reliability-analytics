@@ -26,6 +26,11 @@ variable "ingestion_schedule" {
   default     = "0 7,19 * * *"
 }
 
+variable "nws_ingestion_schedule" {
+  description = "Cron for NWS weather ingestion. Runs 4x daily to capture weather across the full day."
+  default     = "0 6,12,18,23 * * *"
+}
+
 variable "transform_schedule" {
   description = "Cron for transform job. Format: minute hour day-of-month month day-of-week"
   default     = "30 7,19 * * *"

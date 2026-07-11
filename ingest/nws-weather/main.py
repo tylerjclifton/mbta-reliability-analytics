@@ -123,7 +123,7 @@ if response.status_code == 200:
         # Record ingestion metadata
         current_datetime = datetime.datetime.now(datetime.timezone.utc)
         ingestion_timestamp = current_datetime
-        ingestion_source = 'nws-ingestion-weather'
+        ingestion_source = 'ingest-nws-weather'
 
         # Append standardized observation
         standardized_observations.append({
@@ -159,7 +159,7 @@ output = pandas.DataFrame(standardized_observations)
 
 # Define BigQuery project, dataset, and table using environment variables
 project_id = os.getenv('BQ_PROJECT_ID', 'mbta-reliability-analytics')
-dataset_id = os.getenv('BQ_DATASET_ID', 'staging')
+dataset_id = os.getenv('BQ_DATASET_ID', 'stage')
 table_id = os.getenv('BQ_TABLE_ID', 'nws_weather')
 
 # Define the schema for the table

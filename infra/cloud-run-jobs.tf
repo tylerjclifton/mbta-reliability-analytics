@@ -18,7 +18,7 @@ resource "google_cloud_run_v2_job" "ingest_mbta_alerts" {
         }
         env {
           name  = "BQ_DATASET_ID"
-          value = "staging"
+          value = "stage"
         }
         env {
           name  = "BQ_TABLE_ID"
@@ -55,7 +55,7 @@ resource "google_cloud_run_v2_job" "ingest_mbta_routes" {
         }
         env {
           name  = "BQ_DATASET_ID"
-          value = "staging"
+          value = "stage"
         }
         env {
           name  = "BQ_TABLE_ID"
@@ -92,7 +92,7 @@ resource "google_cloud_run_v2_job" "ingest_nws_weather" {
         }
         env {
           name  = "BQ_DATASET_ID"
-          value = "staging"
+          value = "stage"
         }
         env {
           name  = "BQ_TABLE_ID"
@@ -129,7 +129,7 @@ resource "google_cloud_run_v2_job" "ingest_mbta_ridership" {
         }
         env {
           name  = "BQ_DATASET_ID"
-          value = "staging"
+          value = "stage"
         }
         env {
           name  = "BQ_TABLE_ID"

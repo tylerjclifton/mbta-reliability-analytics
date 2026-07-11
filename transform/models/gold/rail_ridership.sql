@@ -1,7 +1,7 @@
 {{-
     config(
         schema='gold',
-        alias='weather_ridership_impact',
+        alias='rail_ridership',
         materialized='view'
     )
  -}}
@@ -11,7 +11,7 @@ SELECT
     r.route_name,
     r.ridership,
     w.avg_temperature_f,
-    w.avg_precipitation_mm,
+    w.total_precipitation_mm,
     w.avg_wind_speed_mph,
     w.avg_humidity_percent
 FROM {{ ref('mbta_silver_ridership') }} r

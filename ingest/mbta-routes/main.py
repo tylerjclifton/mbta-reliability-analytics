@@ -60,7 +60,7 @@ if response.status_code == 200:
             # Record ingestion metadata
             current_datetime = datetime.datetime.now(datetime.timezone.utc)
             ingestion_timestamp = current_datetime
-            ingestion_source = 'mbta-ingestion-routes'
+            ingestion_source = 'ingest-mbta-routes'
             
             # Append updated routes to list
             standardized_routes.append({
@@ -87,7 +87,7 @@ output = pandas.DataFrame(standardized_routes)
 
 # Define BigQuery project, dataset, and table using environment variables
 project_id = os.getenv('BQ_PROJECT_ID', 'mbta-reliability-analytics')
-dataset_id = os.getenv('BQ_DATASET_ID', 'staging')
+dataset_id = os.getenv('BQ_DATASET_ID', 'stage')
 table_id = os.getenv('BQ_TABLE_ID', 'mbta_routes')
 
 # Define the schema for the table

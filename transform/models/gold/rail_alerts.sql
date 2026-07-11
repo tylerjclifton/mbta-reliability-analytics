@@ -1,7 +1,7 @@
 {{-
     config(
         schema='gold',
-        alias='subway_route_alerts',
+        alias='rail_alerts',
         materialized='view'
     )
  -}}

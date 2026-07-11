@@ -42,7 +42,7 @@ resource "google_cloud_scheduler_job" "ingest_routes" {
 
 resource "google_cloud_scheduler_job" "ingest_weather" {
   name             = "ingest-nws-weather"
-  schedule         = var.ingestion_schedule
+  schedule         = var.nws_ingestion_schedule
   time_zone        = var.scheduler_time_zone
   attempt_deadline = "180s"
   paused           = false

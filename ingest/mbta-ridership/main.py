@@ -138,12 +138,12 @@ df_aggregated = (
 
 # Record ingestion metadata
 ingestion_timestamp = datetime.datetime.now(datetime.timezone.utc)
-df_aggregated['ingestion_source'] = 'mbta-ingestion-ridership'
+df_aggregated['ingestion_source'] = 'ingest-mbta-ridership'
 df_aggregated['ingestion_timestamp'] = ingestion_timestamp
 
 # Define BigQuery project, dataset, and table using environment variables
 project_id = os.getenv('BQ_PROJECT_ID', 'mbta-reliability-analytics')
-dataset_id = os.getenv('BQ_DATASET_ID', 'staging')
+dataset_id = os.getenv('BQ_DATASET_ID', 'stage')
 table_id = os.getenv('BQ_TABLE_ID', 'mbta_ridership')
 
 # Define the schema for the BigQuery table

@@ -4,7 +4,7 @@
     'sources': {
       'alerts': {
         'staging': {
-          'dataset': 'staging',
+          'dataset': 'stage',
           'table': 'mbta_alerts',
         },
         'grain_keys': ['alert_id', 'route'],

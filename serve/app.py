@@ -167,18 +167,7 @@ st.divider()
 
 st.markdown("## 🚨 Alerts")
 
-col_f1, col_f2 = st.columns(2)
-with col_f1:
-    routes = sorted(df_alerts["route_id"].dropna().unique())
-    selected_routes = st.multiselect("Routes", routes, default=routes, key="alert_routes")
-with col_f2:
-    effects = sorted(df_alerts["alert_effect"].dropna().unique())
-    selected_effects = st.multiselect("Alert Effect", effects, default=effects)
-
-filtered_alerts = df_alerts[
-    df_alerts["route_id"].isin(selected_routes) &
-    df_alerts["alert_effect"].isin(selected_effects)
-]
+filtered_alerts = df_alerts.copy()
 
 # Active alerts table
 st.subheader("Active Alerts")
@@ -362,8 +351,8 @@ else:
             yaxis="y2",
         ))
 
+    fig.update_layout(**DARK_LAYOUT)
     fig.update_layout(
-        **DARK_LAYOUT,
         barmode="group",
         yaxis=dict(title="Daily Ridership", gridcolor="#30363d", rangemode="tozero"),
         yaxis2=dict(

@@ -183,6 +183,7 @@ st.divider()
 # ═══════════════════════════════════════════════════════════════════════════════
 
 st.markdown("<h2 style='text-align:center'>🚨 Alerts</h2>", unsafe_allow_html=True)
+st.divider()
 
 # Active alerts table
 st.subheader("Active Alerts")
@@ -249,7 +250,7 @@ with al_c1:
     st.plotly_chart(fig, use_container_width=True)
 
 with al_c2:
-    st.subheader("Alerts By Month")
+    st.subheader("Alerts By Month (Last 12 Months)")
     monthly_df = filtered_alerts.copy()
     monthly_df["month"] = monthly_df["alert_start_date"].dt.to_period("M").dt.to_timestamp()
     monthly = monthly_df.groupby(["month", "route_id"]).size().reset_index(name="alert_count")

@@ -193,12 +193,14 @@ if active_filtered.empty:
     st.info("No active alerts right now.")
 else:
     display = active_filtered[[
-        "route_id", "alert_header", "alert_description",
-        "alert_cause", "alert_effect", "alert_start_date", "alert_end_date"
+        "route_id", "alert_effect", "alert_cause",
+        "alert_start_date", "alert_end_date", "alert_duration_days",
+        "alert_header", "alert_description",
     ]].rename(columns={
-        "route_id": "Route", "alert_header": "Header",
-        "alert_description": "Description", "alert_cause": "Cause",
-        "alert_effect": "Effect", "alert_start_date": "Start", "alert_end_date": "End",
+        "route_id": "Route", "alert_effect": "Effect", "alert_cause": "Cause",
+        "alert_start_date": "Start", "alert_end_date": "End",
+        "alert_duration_days": "Duration (days)",
+        "alert_header": "Header", "alert_description": "Description",
     }).copy()
     display["Start"] = display["Start"].dt.date
     display["End"]   = display["End"].apply(lambda x: x.date() if pd.notna(x) else "Ongoing")
@@ -210,13 +212,14 @@ st.divider()
 st.subheader("Past Alerts")
 
 hist_display = filtered_alerts[[
-    "route_id", "alert_header", "alert_description", "alert_cause",
-    "alert_effect", "alert_start_date", "alert_end_date", "alert_duration_days"
+    "route_id", "alert_effect", "alert_cause",
+    "alert_start_date", "alert_end_date", "alert_duration_days",
+    "alert_header", "alert_description",
 ]].rename(columns={
-    "route_id": "Route", "alert_header": "Header", "alert_description": "Description",
-    "alert_cause": "Cause", "alert_effect": "Effect",
+    "route_id": "Route", "alert_effect": "Effect", "alert_cause": "Cause",
     "alert_start_date": "Start", "alert_end_date": "End",
     "alert_duration_days": "Duration (days)",
+    "alert_header": "Header", "alert_description": "Description",
 }).copy()
 hist_display["Start"] = hist_display["Start"].dt.date
 hist_display["End"]   = hist_display["End"].apply(lambda x: x.date() if pd.notna(x) else "Ongoing")
@@ -379,7 +382,7 @@ else:
     st.divider()
 
     # Day of week ridership
-    st.subheader("Average Ridership By Day of Week")
+    st.subheader("Average Ridership By Day Of Week")
     dow_order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
     dow_df = filtered_ridership.copy()
     dow_df["day_of_week"] = dow_df["service_date"].dt.day_name()

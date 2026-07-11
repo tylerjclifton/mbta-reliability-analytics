@@ -33,6 +33,7 @@ WITH
             FROM {{ this }}
         )
         {% endif %}
+        QUALIFY ROW_NUMBER() OVER (PARTITION BY alert_id, route ORDER BY ingestion_timestamp DESC) = 1
     )
 
 SELECT

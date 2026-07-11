@@ -515,4 +515,5 @@ else:
 
 # ── Footer ────────────────────────────────────────────────────────────────────
 
-st.divider()st.caption("Sources: MBTA Alerts API · NWS Weather API · MBTA ArcGIS Open Data")
+st.divider()
+st.caption("Sources: MBTA Alerts API · NWS Weather API · MBTA ArcGIS Open Data")

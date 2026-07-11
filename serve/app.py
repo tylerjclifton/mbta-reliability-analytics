@@ -54,6 +54,14 @@ LINE_COLORS = {
     "Green Line":  "#00843D",
 }
 
+# Maps line-level display names to their underlying alert route_id values
+LINE_TO_ROUTES = {
+    "Red Line":    ["Red"],
+    "Orange Line": ["Orange"],
+    "Blue Line":   ["Blue"],
+    "Green Line":  ["Green-B", "Green-C", "Green-D", "Green-E"],
+}
+
 DARK_LAYOUT = dict(
     paper_bgcolor="#0e1117",
     plot_bgcolor="#0e1117",
@@ -145,12 +153,21 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+# ── Global line filter ───────────────────────────────────────────────────────
+
+all_lines     = ["Red Line", "Orange Line", "Blue Line", "Green Line"]
+selected_lines = st.multiselect("Filter by Line", all_lines, default=all_lines)
+
+selected_route_ids = [r for line in selected_lines for r in LINE_TO_ROUTES[line]]
+filtered_alerts    = df_alerts[df_alerts["route_id"].isin(selected_route_ids)]
+filtered_ridership = df_ridership[df_ridership["route_name"].isin(selected_lines)]
+
 # ── KPI row ───────────────────────────────────────────────────────────────────
 
-active_alerts = df_alerts[
-    df_alerts["alert_end_date"].isna() | (df_alerts["alert_end_date"] >= today)
+active_alerts = filtered_alerts[
+    filtered_alerts["alert_end_date"].isna() | (filtered_alerts["alert_end_date"] >= today)
 ]
-month_alerts = df_alerts[df_alerts["alert_start_date"] >= month_start]
+month_alerts = filtered_alerts[filtered_alerts["alert_start_date"] >= month_start]
 
 st.divider()
 k1, k2, k3, k4 = st.columns(4)
@@ -167,8 +184,6 @@ st.divider()
 
 st.markdown("<h2 style='text-align:center'>🚨 Alerts</h2>", unsafe_allow_html=True)
 
-filtered_alerts = df_alerts.copy()
-
 # Active alerts table
 st.subheader("Active Alerts")
 active_filtered = filtered_alerts[
@@ -184,40 +199,17 @@ else:
         "route_id": "Route", "alert_header": "Header",
         "alert_description": "Description", "alert_cause": "Cause",
         "alert_effect": "Effect", "alert_start_date": "Start", "alert_end_date": "End",
-    })
+    }).copy()
+    display["Start"] = display["Start"].dt.date
+    display["End"]   = display["End"].apply(lambda x: x.date() if pd.notna(x) else "Ongoing")
     st.dataframe(display, use_container_width=True, hide_index=True)
 
 st.divider()
 
 # Past Alerts
 st.subheader("Past Alerts")
-hist_c1, hist_c2 = st.columns(2)
-with hist_c1:
-    hist_min = df_alerts["alert_start_date"].min().date()
-    hist_max = df_alerts["alert_start_date"].max().date()
-    hist_dates = st.date_input(
-        "Date Range", value=(hist_min, hist_max),
-        min_value=hist_min, max_value=hist_max, key="hist_dates",
-    )
-with hist_c2:
-    search_text = st.text_input("Search Header / Description")
 
-if len(hist_dates) == 2:
-    history = filtered_alerts[
-        (filtered_alerts["alert_start_date"] >= pd.Timestamp(hist_dates[0])) &
-        (filtered_alerts["alert_start_date"] <= pd.Timestamp(hist_dates[1]))
-    ].copy()
-else:
-    history = filtered_alerts.copy()
-
-if search_text:
-    mask = (
-        history["alert_header"].str.contains(search_text, case=False, na=False) |
-        history["alert_description"].str.contains(search_text, case=False, na=False)
-    )
-    history = history[mask]
-
-hist_display = history[[
+hist_display = filtered_alerts[[
     "route_id", "alert_header", "alert_description", "alert_cause",
     "alert_effect", "alert_start_date", "alert_end_date", "alert_duration_days"
 ]].rename(columns={
@@ -225,16 +217,12 @@ hist_display = history[[
     "alert_cause": "Cause", "alert_effect": "Effect",
     "alert_start_date": "Start", "alert_end_date": "End",
     "alert_duration_days": "Duration (days)",
-})
+}).copy()
+hist_display["Start"] = hist_display["Start"].dt.date
+hist_display["End"]   = hist_display["End"].apply(lambda x: x.date() if pd.notna(x) else "Ongoing")
 
-def color_hist_row(row):
-    return [f"color: {route_color(row['Route'])}"] * len(row)
-
-st.caption(f"{len(history):,} alerts")
-st.dataframe(
-    hist_display.style.apply(color_hist_row, axis=1),
-    use_container_width=True, hide_index=True, height=400,
-)
+st.caption(f"{len(hist_display):,} alerts")
+st.dataframe(hist_display, use_container_width=True, hide_index=True, height=400)
 
 st.divider()
 
@@ -344,25 +332,19 @@ st.markdown("<h2 style='text-align:center'>🚃 Ridership</h2>", unsafe_allow_ht
 if df_ridership.empty:
     st.info("No ridership data available yet.")
 else:
-    lines = sorted(df_ridership["route_name"].dropna().unique())
-    selected_lines = st.multiselect("Lines", lines, default=lines, key="ridership_lines")
-    filtered_ridership = df_ridership[df_ridership["route_name"].isin(selected_lines)]
-
     st.divider()
 
-    # Ridership over time with alert count overlay — default to last 30 days
+    # Ridership over time with alert count overlay
     st.subheader("Daily Ridership & Active Alerts")
     st.caption(
         "Bars show daily gated entries per line (left axis). "
         "Dotted lines show active alert count for that line (right axis). "
-        "Showing last 30 days."
+        "Ridership updated quarterly with ~1–2 month delay."
     )
-    cutoff_30d = today - pd.DateOffset(days=30)
-    ridership_30d = filtered_ridership[filtered_ridership["service_date"] >= cutoff_30d]
 
     fig = go.Figure()
     for line in selected_lines:
-        line_data = ridership_30d[ridership_30d["route_name"] == line].sort_values("service_date")
+        line_data = filtered_ridership[filtered_ridership["route_name"] == line].sort_values("service_date")
         color = LINE_COLORS.get(line, "#888888")
         fig.add_trace(go.Bar(
             name=line,
@@ -388,6 +370,7 @@ else:
         yaxis2=dict(
             title="Active Alerts", overlaying="y", side="right",
             rangemode="tozero", gridcolor="rgba(0,0,0,0)",
+            dtick=1, tickformat="d",
         ),
         legend=dict(bgcolor="#161b22", bordercolor="#30363d", borderwidth=1),
     )

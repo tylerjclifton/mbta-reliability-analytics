@@ -12,10 +12,10 @@ Ingests data from four sources on an automated schedule, transforms it through a
 
 | Source | Data | Schedule |
 |---|---|---|
-| MBTA Alerts API | Service alerts (delays, suspensions, closures) | 4× daily — midnight, 6AM, noon, 6PM ET |
-| MBTA Routes API | Route metadata (names, types, colors) | Quarterly — Jan/Apr/Jul/Oct 1 at midnight ET |
-| NWS Weather API | Observations at Boston Logan Airport | 4× daily — midnight, 6AM, noon, 6PM ET |
-| MBTA ArcGIS Open Data | Gated station entries by route | Quarterly — Jan/Apr/Jul/Oct 1 at midnight ET |
+| MBTA Alerts API | Service alerts (delays, suspensions, closures) | 4× daily — 12AM, 6AM, 12PM, 6PM ET |
+| MBTA Routes API | Route metadata (names, types, colors) | Quarterly — Jan/Apr/Jul/Oct 1 at 12AM ET |
+| NWS Weather API | Observations at Boston Logan Airport | 4× daily — 12AM, 6AM, 12PM, 6PM ET |
+| MBTA ArcGIS Open Data | Gated station entries by route | Quarterly — Jan/Apr/Jul/Oct 1 at 12AM ET |
 
 ---
 

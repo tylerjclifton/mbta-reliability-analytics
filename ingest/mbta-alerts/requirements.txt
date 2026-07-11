@@ -1,4 +1,5 @@
 google-cloud-bigquery
 pandas
 pyarrow
-requestsdb-dtypes
+requests
+db-dtypes

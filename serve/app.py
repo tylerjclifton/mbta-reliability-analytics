@@ -166,7 +166,7 @@ st.markdown(
 # ── Global line filter ───────────────────────────────────────────────────────
 
 all_lines     = ["Red Line", "Orange Line", "Blue Line", "Green Line"]
-selected_lines = st.multiselect("Filter By Route", all_lines, default=all_lines)
+selected_lines = st.multiselect("Filter by Route", all_lines, default=all_lines)
 
 selected_route_ids = [r for line in selected_lines for r in LINE_TO_ROUTES[line]]
 filtered_alerts    = df_alerts[df_alerts["route_id"].isin(selected_route_ids)]
@@ -264,7 +264,7 @@ st.divider()
 # Alerts by route + by month
 al_c1, al_c2 = st.columns(2)
 with al_c1:
-    st.subheader("Alerts By Route")
+    st.subheader("Alerts by Route")
     route_counts = (
         year_alerts
         .groupby("route_id").size().reset_index(name="alert_count")
@@ -279,7 +279,7 @@ with al_c1:
     st.plotly_chart(fig, use_container_width=True)
 
 with al_c2:
-    st.subheader("Alerts By Month")
+    st.subheader("Alerts by Month")
     monthly_df = year_alerts.copy()
     monthly_df["month"] = monthly_df["alert_start_date"].dt.to_period("M").dt.to_timestamp()
     monthly = monthly_df.groupby("month").size().reset_index(name="alert_count")
@@ -334,7 +334,7 @@ with cs_c2:
 # Cause breakdown by route — normalized to % so routes with fewer alerts are still comparable
 cr_c1, cr_c2 = st.columns(2)
 with cr_c1:
-    st.subheader("Alert Causes By Route")
+    st.subheader("Alert Causes by Route")
     cause_route_grp = year_alerts.groupby(["route_id", "alert_cause"]).size().reset_index(name="count")
     if not cause_route_grp.empty:
         totals = cause_route_grp.groupby("route_id")["count"].transform("sum")
@@ -355,7 +355,7 @@ with cr_c1:
         st.info("No data.")
 
 with cr_c2:
-    st.subheader("Alert Effects By Route")
+    st.subheader("Alert Effects by Route")
     effect_route_grp = year_alerts.groupby(["route_id", "alert_effect"]).size().reset_index(name="count")
     if not effect_route_grp.empty:
         totals = effect_route_grp.groupby("route_id")["count"].transform("sum")
@@ -459,7 +459,7 @@ else:
     st.divider()
 
     # Day of week ridership
-    st.subheader("Average Ridership By Day")
+    st.subheader("Average Ridership by Day")
     dow_order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
     dow_df = filtered_ridership.copy()
     dow_df["day_of_week"] = dow_df["service_date"].dt.day_name()

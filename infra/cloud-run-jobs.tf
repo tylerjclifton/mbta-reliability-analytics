@@ -11,7 +11,7 @@ resource "google_cloud_run_v2_job" "ingest_mbta_alerts" {
       service_account = var.default_sa_compute_engine
       containers {
         name  = "ingest-mbta-alerts"
-        image = "us-east1-docker.pkg.dev/mbta-reliability-analytics/backend/ingest-mbta-alerts:v1.0.2"
+        image = "us-east1-docker.pkg.dev/mbta-reliability-analytics/backend/ingest-mbta-alerts:v1.0.3"
         env {
           name  = "BQ_PROJECT_ID"
           value = var.project_id
@@ -48,7 +48,7 @@ resource "google_cloud_run_v2_job" "ingest_mbta_routes" {
       service_account = var.default_sa_compute_engine
       containers {
         name  = "ingest-mbta-routes"
-        image = "us-east1-docker.pkg.dev/mbta-reliability-analytics/backend/ingest-mbta-routes:v1.0.2"
+        image = "us-east1-docker.pkg.dev/mbta-reliability-analytics/backend/ingest-mbta-routes:v1.0.3"
         env {
           name  = "BQ_PROJECT_ID"
           value = var.project_id
@@ -122,7 +122,7 @@ resource "google_cloud_run_v2_job" "ingest_mbta_ridership" {
       service_account = var.default_sa_compute_engine
       containers {
         name  = "ingest-mbta-ridership"
-        image = "us-east1-docker.pkg.dev/mbta-reliability-analytics/backend/ingest-mbta-ridership:v1.0.2"
+        image = "us-east1-docker.pkg.dev/mbta-reliability-analytics/backend/ingest-mbta-ridership:v1.0.3"
         env {
           name  = "BQ_PROJECT_ID"
           value = var.project_id
@@ -160,7 +160,7 @@ resource "google_cloud_run_v2_job" "transform" {
       service_account = google_service_account.dbt_bigquery.email
       containers {
         name  = "transform"
-        image = "us-east1-docker.pkg.dev/mbta-reliability-analytics/backend/transform:v1.0.2"
+        image = "us-east1-docker.pkg.dev/mbta-reliability-analytics/backend/transform:v1.0.3"
         env {
           name  = "DBT_PROJECT_ID"
           value = var.project_id

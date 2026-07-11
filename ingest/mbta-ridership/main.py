@@ -20,17 +20,31 @@ ARCGIS_URL = 'https://services1.arcgis.com/ceiitspzDAHrdGO1/arcgis/rest/services
 # Target lines — Silver Line and Mattapan excluded intentionally
 TARGET_ROUTES = ['Red Line', 'Orange Line', 'Blue Line', 'Green Line']
 
-# Calculate start date: first day of the month 3 months ago
-# This keeps each quarterly run small — historical data already in BQ is not re-loaded
-today = datetime.date.today()
-month = today.month - 3
-year = today.year
-if month <= 0:
-    month += 12
-    year -= 1
-start_date = datetime.date(year, month, 1)
+# Determine start date dynamically based on existing data in BigQuery.
+# - If bronze data exists: go back 2 months from max(service_date) to catch
+#   any months that ArcGIS hadn't fully published on the previous run.
+# - If no data (first run or empty table): pull full 12 months to backfill.
+project_id = os.getenv('BQ_PROJECT_ID', 'mbta-reliability-analytics')
+try:
+    result = client.query(
+        f"SELECT MAX(service_date) FROM `{project_id}.mbta.bronze_ridership`"
+    ).result()
+    max_existing = list(result)[0][0]
+except Exception:
+    max_existing = None
 
-logging.info(f"Pulling ridership data from {start_date} onwards")
+if max_existing:
+    max_date = max_existing if isinstance(max_existing, datetime.date) else max_existing.date()
+    overlap_month = max_date.month - 2
+    overlap_year  = max_date.year
+    while overlap_month <= 0:
+        overlap_month += 12
+        overlap_year  -= 1
+    start_date = datetime.date(overlap_year, overlap_month, 1)
+    logging.info(f"Existing data found (max: {max_date}). Pulling from {start_date} (2-month overlap)")
+else:
+    start_date = datetime.date(datetime.date.today().year, 1, 1)
+    logging.info(f"No existing data found. Pulling YTD from {start_date}")
 
 # Build WHERE clause — filter to target routes and date window
 # ArcGIS date fields use timestamp string format in WHERE clauses
@@ -141,8 +155,7 @@ ingestion_timestamp = datetime.datetime.now(datetime.timezone.utc)
 df_aggregated['ingestion_source'] = 'ingest-mbta-ridership'
 df_aggregated['ingestion_timestamp'] = ingestion_timestamp
 
-# Define BigQuery project, dataset, and table using environment variables
-project_id = os.getenv('BQ_PROJECT_ID', 'mbta-reliability-analytics')
+# Define BigQuery dataset and table using environment variables (project_id defined above)
 dataset_id = os.getenv('BQ_DATASET_ID', 'stage')
 table_id = os.getenv('BQ_TABLE_ID', 'mbta_ridership')
 

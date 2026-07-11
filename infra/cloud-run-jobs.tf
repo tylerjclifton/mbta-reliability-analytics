@@ -122,7 +122,7 @@ resource "google_cloud_run_v2_job" "ingest_mbta_ridership" {
       service_account = var.default_sa_compute_engine
       containers {
         name  = "ingest-mbta-ridership"
-        image = "us-east1-docker.pkg.dev/mbta-reliability-analytics/backend/ingest-mbta-ridership:v1.0.3"
+        image = "us-east1-docker.pkg.dev/mbta-reliability-analytics/backend/ingest-mbta-ridership:v1.0.4"
         env {
           name  = "BQ_PROJECT_ID"
           value = var.project_id

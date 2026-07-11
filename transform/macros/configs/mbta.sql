@@ -83,7 +83,7 @@
       },
       'ridership': {
         'staging': {
-          'dataset': 'staging',
+          'dataset': 'stage',
           'table': 'mbta_ridership',
         },
         'grain_keys': ['service_date', 'route_or_line'],
@@ -117,7 +117,7 @@
       },
       'routes': {
         'staging': {
-          'dataset': 'staging',
+          'dataset': 'stage',
           'table': 'mbta_routes',
         },
         'grain_keys': ['route_id'],
@@ -140,7 +140,7 @@
           {
             'raw': 'route_type',
             'alias': 'route_type',
-            'type': 'string'
+            'type': 'int64'
           },
           {
             'raw': 'color',
@@ -244,7 +244,7 @@
       },
       'ridership': {
         'staging': {
-          'dataset': 'staging',
+          'dataset': 'stage',
           'table': 'mbta_ridership',
         },
         'grain_keys': ['service_date', 'route_or_line'],
@@ -280,7 +280,7 @@
       },
       'routes': {
         'staging': {
-          'dataset': 'staging',
+          'dataset': 'stage',
           'table': 'mbta_routes',
         },
         'grain_keys': ['route_id'],

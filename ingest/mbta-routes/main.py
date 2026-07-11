@@ -94,7 +94,7 @@ table_id = os.getenv('BQ_TABLE_ID', 'mbta_routes')
 schema = [
     bigquery.SchemaField("route_id", "STRING"),
     bigquery.SchemaField("long_name", "STRING"),
-    bigquery.SchemaField("route_type", "STRING"),
+    bigquery.SchemaField("route_type", "INTEGER"),
     bigquery.SchemaField("color", "STRING"),
     bigquery.SchemaField("description", "STRING"),
     bigquery.SchemaField("direction_destinations", "STRING"),

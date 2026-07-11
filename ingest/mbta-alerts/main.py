@@ -163,7 +163,7 @@ schema = [
     bigquery.SchemaField("description", "STRING"),
     bigquery.SchemaField("cause", "STRING"),
     bigquery.SchemaField("effect", "STRING"),
-    bigquery.SchemaField("severity", "STRING"),
+    bigquery.SchemaField("severity", "INTEGER"),
     bigquery.SchemaField("created_at", "TIMESTAMP"),
     bigquery.SchemaField("updated_at", "TIMESTAMP"),
     bigquery.SchemaField("ingestion_source", "STRING"),

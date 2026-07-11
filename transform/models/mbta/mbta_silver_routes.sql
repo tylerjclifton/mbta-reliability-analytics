@@ -12,9 +12,9 @@ SELECT
     CAST(route_id AS STRING)                AS route_id,
     CAST(long_name AS STRING)               AS route_name,
     CAST(description AS STRING)             AS route_description,
-    CASE CAST(route_type AS STRING)
-        WHEN '0' THEN 'Light Rail'
-        WHEN '1' THEN 'Heavy Rail'
+    CASE route_type
+        WHEN 0 THEN 'Light Rail'
+        WHEN 1 THEN 'Heavy Rail'
         ELSE CAST(route_type AS STRING)
     END                                     AS route_type,
     CAST(color AS STRING)                   AS route_color,

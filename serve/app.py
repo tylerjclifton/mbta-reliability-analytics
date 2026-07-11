@@ -41,10 +41,10 @@ ROUTE_COLORS = {
     "Red":     "#DA291C",
     "Blue":    "#003DA5",
     "Orange":  "#ED8B00",
-    "Green-B": "#005A28",
+    "Green-B": "#00843D",
     "Green-C": "#00843D",
-    "Green-D": "#4DBD74",
-    "Green-E": "#93D6A8",
+    "Green-D": "#00843D",
+    "Green-E": "#00843D",
 }
 
 LINE_COLORS = {
@@ -60,6 +60,16 @@ LINE_TO_ROUTES = {
     "Orange Line": ["Orange"],
     "Blue Line":   ["Blue"],
     "Green Line":  ["Green-B", "Green-C", "Green-D", "Green-E"],
+}
+
+ROUTE_TO_LINE = {
+    "Red":     "Red Line",
+    "Orange":  "Orange Line",
+    "Blue":    "Blue Line",
+    "Green-B": "Green Line",
+    "Green-C": "Green Line",
+    "Green-D": "Green Line",
+    "Green-E": "Green Line",
 }
 
 DARK_LAYOUT = dict(
@@ -238,8 +248,12 @@ st.divider()
 # Alerts by route + by month
 al_c1, al_c2 = st.columns(2)
 with al_c1:
-    st.subheader("Alerts By Route")
-    route_counts = filtered_alerts.groupby("route_id").size().reset_index(name="alert_count")
+    st.subheader("Alerts By Route (Last 12 Months)")
+    year_start = today - pd.DateOffset(months=12)
+    route_counts = (
+        filtered_alerts[filtered_alerts["alert_start_date"] >= year_start]
+        .groupby("route_id").size().reset_index(name="alert_count")
+    )
     fig = px.bar(
         route_counts, x="route_id", y="alert_count",
         color="route_id", color_discrete_map=ROUTE_COLORS,
@@ -253,12 +267,11 @@ with al_c2:
     st.subheader("Alerts By Month (Last 12 Months)")
     monthly_df = filtered_alerts.copy()
     monthly_df["month"] = monthly_df["alert_start_date"].dt.to_period("M").dt.to_timestamp()
-    monthly = monthly_df.groupby(["month", "route_id"]).size().reset_index(name="alert_count")
+    monthly = monthly_df.groupby("month").size().reset_index(name="alert_count")
     fig = px.bar(
         monthly, x="month", y="alert_count",
-        color="route_id", barmode="stack",
-        color_discrete_map=ROUTE_COLORS,
-        labels={"month": "Month", "alert_count": "Alerts", "route_id": "Route"},
+        color_discrete_sequence=["#4e9af1"],
+        labels={"month": "Month", "alert_count": "Alerts"},
     )
     fig.update_layout(**DARK_LAYOUT)
     fig.update_yaxes(tickformat="d", rangemode="tozero")
@@ -270,36 +283,42 @@ with al_c2:
 
 st.divider()
 
-# Cause share + by cause
-ca_c1, ca_c2 = st.columns(2)
-with ca_c1:
-    st.subheader("Alert Cause Share")
-    causes = (
-        filtered_alerts.groupby("alert_cause").size()
-        .reset_index(name="count").sort_values("count", ascending=False).head(10)
-    )
-    fig = px.pie(
-        causes, names="alert_cause", values="count", hole=0.4,
-        color_discrete_sequence=px.colors.qualitative.Set2,
-    )
-    fig.update_traces(textfont_color="white")
-    fig.update_layout(**{**DARK_LAYOUT, "showlegend": True})
-    st.plotly_chart(fig, use_container_width=True)
+# Cause share — full width
+st.subheader("Alert Cause Share")
+causes = (
+    filtered_alerts.groupby("alert_cause").size()
+    .reset_index(name="count").sort_values("count", ascending=False).head(10)
+)
+fig = px.pie(
+    causes, names="alert_cause", values="count", hole=0.4,
+    color_discrete_sequence=px.colors.qualitative.Set2,
+)
+fig.update_traces(textfont_color="white")
+fig.update_layout(**{**DARK_LAYOUT, "showlegend": True})
+st.plotly_chart(fig, use_container_width=True)
 
-with ca_c2:
-    st.subheader("Alerts By Cause")
-    cause_route = filtered_alerts.groupby(["alert_cause", "route_id"]).size().reset_index(name="count")
-    if not cause_route.empty:
-        fig = px.bar(
-            cause_route, x="alert_cause", y="count",
-            color="route_id", barmode="stack",
-            color_discrete_map=ROUTE_COLORS,
-            labels={"alert_cause": "Cause", "count": "Alerts", "route_id": "Route"},
-        )
-        fig.update_layout(**{**DARK_LAYOUT, "xaxis_tickangle": -30})
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.info("No data.")
+# Cause breakdown by line — normalized to % so lines with fewer total alerts are comparable
+st.subheader("Alert Causes By Line")
+st.caption("Normalized to 100% per line — shows which cause types each line is most prone to.")
+cause_line = filtered_alerts.copy()
+cause_line["line"] = cause_line["route_id"].map(ROUTE_TO_LINE)
+cause_line_grp = cause_line.groupby(["line", "alert_cause"]).size().reset_index(name="count")
+if not cause_line_grp.empty:
+    totals = cause_line_grp.groupby("line")["count"].transform("sum")
+    cause_line_grp["pct"] = (cause_line_grp["count"] / totals * 100).round(1)
+    fig = px.bar(
+        cause_line_grp, x="line", y="pct",
+        color="alert_cause", barmode="stack",
+        color_discrete_sequence=px.colors.qualitative.Set2,
+        labels={"line": "Line", "pct": "% of Alerts", "alert_cause": "Cause"},
+        text="pct",
+    )
+    fig.update_traces(texttemplate="%{text:.0f}%", textposition="inside")
+    fig.update_layout(**DARK_LAYOUT)
+    fig.update_yaxes(range=[0, 100], ticksuffix="%")
+    st.plotly_chart(fig, use_container_width=True)
+else:
+    st.info("No data.")
 
 st.divider()
 

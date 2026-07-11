@@ -284,7 +284,7 @@ with al_c2:
     fig.update_layout(**DARK_LAYOUT)
     fig.update_yaxes(tickformat="d", rangemode="tozero")
     fig.update_xaxes(
-        range=[today - pd.DateOffset(months=12), today + pd.DateOffset(months=1)],
+        range=[today - pd.DateOffset(months=12), today.replace(day=1) + pd.DateOffset(months=1) - pd.Timedelta(days=1)],
         dtick="M1", tickformat="%b %Y", tickangle=-30,
     )
     st.plotly_chart(fig, use_container_width=True)
@@ -370,12 +370,8 @@ else:
     st.divider()
 
     # Ridership over time with alert count overlay
-    st.subheader("Daily Ridership & Active Alerts")
-    st.caption(
-        "Bars show daily gated entries per line (left axis). "
-        "Dotted lines show active alert count for that line (right axis). "
-        "Ridership updated quarterly with ~1–2 month delay."
-    )
+    st.subheader("Daily Ridership vs Active Alerts")
+    st.caption("Ridership updated quarterly with ~1–2 month delay.")
 
     fig = go.Figure()
     for line in selected_lines:
@@ -414,7 +410,7 @@ else:
     st.divider()
 
     # Day of week ridership
-    st.subheader("Average Ridership By Day Of Week")
+    st.subheader("Average Ridership By Day")
     dow_order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
     dow_df = filtered_ridership.copy()
     dow_df["day_of_week"] = dow_df["service_date"].dt.day_name()

@@ -155,7 +155,7 @@ month_alerts = df_alerts[df_alerts["alert_start_date"] >= month_start]
 st.divider()
 k1, k2, k3, k4 = st.columns(4)
 k1.metric("Active Alerts",             f"{len(active_alerts):,}")
-k2.metric("Routes Currently Affected", f"{active_alerts['route_id'].nunique()}")
+k2.metric("Routes Currently Impacted", f"{active_alerts['route_id'].nunique()}")
 k3.metric("Alerts This Month",         f"{len(month_alerts):,}")
 avg_dur = df_alerts["alert_duration_days"].mean()
 k4.metric("Avg Alert Duration",        f"{avg_dur:.1f} days" if pd.notna(avg_dur) else "N/A")
@@ -165,7 +165,7 @@ st.divider()
 # ALERTS SECTION
 # ═══════════════════════════════════════════════════════════════════════════════
 
-st.markdown("## 🚨 Alerts")
+st.markdown("<h2 style='text-align:center'>🚨 Alerts</h2>", unsafe_allow_html=True)
 
 filtered_alerts = df_alerts.copy()
 
@@ -185,14 +185,12 @@ else:
         "alert_description": "Description", "alert_cause": "Cause",
         "alert_effect": "Effect", "alert_start_date": "Start", "alert_end_date": "End",
     })
-    def color_row(row):
-        return [f"color: {route_color(row['Route'])}"] * len(row)
-    st.dataframe(display.style.apply(color_row, axis=1), use_container_width=True, hide_index=True)
+    st.dataframe(display, use_container_width=True, hide_index=True)
 
 st.divider()
 
-# Alert history
-st.subheader("Alert History")
+# Past Alerts
+st.subheader("Past Alerts")
 hist_c1, hist_c2 = st.columns(2)
 with hist_c1:
     hist_min = df_alerts["alert_start_date"].min().date()
@@ -326,7 +324,6 @@ if not heat_df.empty:
         aspect="auto",
         labels={"x": "Effect", "y": "Cause", "color": "Alerts"},
     )
-    fig.update_traces(textfont=dict(color="white"))
     fig.update_layout(
         **DARK_LAYOUT,
         coloraxis_colorbar=dict(title="Alerts", tickfont=dict(color="#ffffff")),
@@ -342,7 +339,7 @@ st.divider()
 # RIDERSHIP SECTION
 # ═══════════════════════════════════════════════════════════════════════════════
 
-st.markdown("## 🚃 Ridership")
+st.markdown("<h2 style='text-align:center'>🚃 Ridership</h2>", unsafe_allow_html=True)
 
 if df_ridership.empty:
     st.info("No ridership data available yet.")
@@ -353,16 +350,19 @@ else:
 
     st.divider()
 
-    # Ridership over time with alert count overlay
+    # Ridership over time with alert count overlay — default to last 30 days
     st.subheader("Daily Ridership & Active Alerts")
     st.caption(
         "Bars show daily gated entries per line (left axis). "
-        "Dotted lines show active alert count for that line (right axis)."
+        "Dotted lines show active alert count for that line (right axis). "
+        "Showing last 30 days."
     )
+    cutoff_30d = today - pd.DateOffset(days=30)
+    ridership_30d = filtered_ridership[filtered_ridership["service_date"] >= cutoff_30d]
 
     fig = go.Figure()
     for line in selected_lines:
-        line_data = filtered_ridership[filtered_ridership["route_name"] == line].sort_values("service_date")
+        line_data = ridership_30d[ridership_30d["route_name"] == line].sort_values("service_date")
         color = LINE_COLORS.get(line, "#888888")
         fig.add_trace(go.Bar(
             name=line,

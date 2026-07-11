@@ -170,16 +170,23 @@ selected_lines = st.multiselect("Filter By Route", all_lines, default=all_lines)
 
 selected_route_ids = [r for line in selected_lines for r in LINE_TO_ROUTES[line]]
 filtered_alerts    = df_alerts[df_alerts["route_id"].isin(selected_route_ids)]
-filtered_ridership = df_ridership[df_ridership["route_name"].isin(selected_lines)]
 
-# 12-month window applied to all alert analysis charts
+# 12-month window — applied to all charts (Past Alerts table shows full history)
 year_start  = today - pd.DateOffset(months=12)
 year_alerts = filtered_alerts[filtered_alerts["alert_start_date"] >= year_start]
+
+# Ridership: most recent 12 months of available data (anchored to latest date, not today)
+_max_ridership_date = df_ridership["service_date"].max() if not df_ridership.empty else today
+_ridership_12mo_start = _max_ridership_date - pd.DateOffset(months=12)
+filtered_ridership = df_ridership[
+    df_ridership["route_name"].isin(selected_lines) &
+    (df_ridership["service_date"] >= _ridership_12mo_start)
+]
 
 # Stable cause color order — computed once so both cause charts use matching colors
 cause_order = sorted(filtered_alerts["alert_cause"].dropna().unique().tolist())
 
-st.caption("Alert analysis charts show the last 12 months · Ridership updated quarterly with ~1–2 month delay")
+st.caption("Alert charts: last 12 months · Ridership: most recent 12 months available · Past Alerts table shows full history")
 
 # ── KPI row ───────────────────────────────────────────────────────────────────
 
@@ -291,41 +298,83 @@ with al_c2:
 
 st.divider()
 
-# Cause share — full width
-st.subheader("Alert Cause Share")
-causes = (
-    year_alerts.groupby("alert_cause").size()
-    .reset_index(name="count").sort_values("count", ascending=False).head(10)
-)
-fig = px.pie(
-    causes, names="alert_cause", values="count", hole=0.4,
-    color_discrete_sequence=px.colors.qualitative.Set2,
-    category_orders={"alert_cause": cause_order},
-)
-fig.update_traces(textfont_color="white")
-fig.update_layout(**{**DARK_LAYOUT, "showlegend": True})
-st.plotly_chart(fig, use_container_width=True)
-
-# Cause breakdown by route — normalized to % so routes with fewer alerts are still comparable
-st.subheader("Alert Causes By Route")
-cause_route_grp = year_alerts.groupby(["route_id", "alert_cause"]).size().reset_index(name="count")
-if not cause_route_grp.empty:
-    totals = cause_route_grp.groupby("route_id")["count"].transform("sum")
-    cause_route_grp["pct"] = (cause_route_grp["count"] / totals * 100).round(1)
-    fig = px.bar(
-        cause_route_grp, x="route_id", y="pct",
-        color="alert_cause", barmode="stack",
+# Cause share + Effect share side by side
+cs_c1, cs_c2 = st.columns(2)
+with cs_c1:
+    st.subheader("Alert Cause Share")
+    causes = (
+        year_alerts.groupby("alert_cause").size()
+        .reset_index(name="count").sort_values("count", ascending=False).head(10)
+    )
+    fig = px.pie(
+        causes, names="alert_cause", values="count", hole=0.4,
         color_discrete_sequence=px.colors.qualitative.Set2,
         category_orders={"alert_cause": cause_order},
-        labels={"route_id": "Route", "pct": "% of Alerts", "alert_cause": "Cause"},
-        text="pct",
     )
-    fig.update_traces(texttemplate="%{text:.0f}%", textposition="inside")
-    fig.update_layout(**DARK_LAYOUT)
-    fig.update_yaxes(range=[0, 100], ticksuffix="%")
+    fig.update_traces(textfont_color="white")
+    fig.update_layout(**{**DARK_LAYOUT, "showlegend": True})
     st.plotly_chart(fig, use_container_width=True)
-else:
-    st.info("No data.")
+
+with cs_c2:
+    st.subheader("Alert Effect Share")
+    effects = (
+        year_alerts.groupby("alert_effect").size()
+        .reset_index(name="count").sort_values("count", ascending=False).head(10)
+    )
+    effect_order = sorted(year_alerts["alert_effect"].dropna().unique().tolist())
+    fig = px.pie(
+        effects, names="alert_effect", values="count", hole=0.4,
+        color_discrete_sequence=px.colors.qualitative.Pastel,
+        category_orders={"alert_effect": effect_order},
+    )
+    fig.update_traces(textfont_color="white")
+    fig.update_layout(**{**DARK_LAYOUT, "showlegend": True})
+    st.plotly_chart(fig, use_container_width=True)
+
+# Cause breakdown by route — normalized to % so routes with fewer alerts are still comparable
+cr_c1, cr_c2 = st.columns(2)
+with cr_c1:
+    st.subheader("Alert Causes By Route")
+    cause_route_grp = year_alerts.groupby(["route_id", "alert_cause"]).size().reset_index(name="count")
+    if not cause_route_grp.empty:
+        totals = cause_route_grp.groupby("route_id")["count"].transform("sum")
+        cause_route_grp["pct"] = (cause_route_grp["count"] / totals * 100).round(1)
+        fig = px.bar(
+            cause_route_grp, x="route_id", y="pct",
+            color="alert_cause", barmode="stack",
+            color_discrete_sequence=px.colors.qualitative.Set2,
+            category_orders={"alert_cause": cause_order},
+            labels={"route_id": "Route", "pct": "% of Alerts", "alert_cause": "Cause"},
+            text="pct",
+        )
+        fig.update_traces(texttemplate="%{text:.0f}%", textposition="inside")
+        fig.update_layout(**DARK_LAYOUT)
+        fig.update_yaxes(range=[0, 100], ticksuffix="%")
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("No data.")
+
+with cr_c2:
+    st.subheader("Alert Effects By Route")
+    effect_route_grp = year_alerts.groupby(["route_id", "alert_effect"]).size().reset_index(name="count")
+    if not effect_route_grp.empty:
+        totals = effect_route_grp.groupby("route_id")["count"].transform("sum")
+        effect_route_grp["pct"] = (effect_route_grp["count"] / totals * 100).round(1)
+        effect_order = sorted(year_alerts["alert_effect"].dropna().unique().tolist())
+        fig = px.bar(
+            effect_route_grp, x="route_id", y="pct",
+            color="alert_effect", barmode="stack",
+            color_discrete_sequence=px.colors.qualitative.Pastel,
+            category_orders={"alert_effect": effect_order},
+            labels={"route_id": "Route", "pct": "% of Alerts", "alert_effect": "Effect"},
+            text="pct",
+        )
+        fig.update_traces(texttemplate="%{text:.0f}%", textposition="inside")
+        fig.update_layout(**DARK_LAYOUT)
+        fig.update_yaxes(range=[0, 100], ticksuffix="%")
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("No data.")
 
 st.divider()
 
@@ -466,11 +515,4 @@ else:
 
 # ── Footer ────────────────────────────────────────────────────────────────────
 
-st.divider()
-st.caption(
-    f"Alerts refreshed twice daily (7 AM & 7 PM EST) · "
-    f"Weather refreshed 4x daily · "
-    f"Ridership updated quarterly from MBTA open data. "
-    f"{len(df_alerts):,} alerts · {len(df_ridership):,} ridership records. "
-    "Sources: MBTA Alerts API · NWS Weather API · MBTA ArcGIS Open Data"
-)
+st.divider()st.caption("Sources: MBTA Alerts API · NWS Weather API · MBTA ArcGIS Open Data")

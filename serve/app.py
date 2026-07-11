@@ -308,6 +308,36 @@ with ca_c2:
 
 st.divider()
 
+# Cause → Effect heatmap
+st.subheader("What Causes Lead to What Effects")
+st.caption("Cell value = number of alerts with that cause/effect combination.")
+heat_df = (
+    filtered_alerts
+    .groupby(["alert_cause", "alert_effect"])
+    .size()
+    .reset_index(name="count")
+)
+if not heat_df.empty:
+    heat_pivot = heat_df.pivot(index="alert_cause", columns="alert_effect", values="count").fillna(0)
+    fig = px.imshow(
+        heat_pivot,
+        color_continuous_scale="Blues",
+        text_auto=True,
+        aspect="auto",
+        labels={"x": "Effect", "y": "Cause", "color": "Alerts"},
+    )
+    fig.update_traces(textfont=dict(color="white"))
+    fig.update_layout(
+        **DARK_LAYOUT,
+        coloraxis_colorbar=dict(title="Alerts", tickfont=dict(color="#ffffff")),
+        xaxis_tickangle=-30,
+    )
+    st.plotly_chart(fig, use_container_width=True)
+else:
+    st.info("No data.")
+
+st.divider()
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # RIDERSHIP SECTION
 # ═══════════════════════════════════════════════════════════════════════════════

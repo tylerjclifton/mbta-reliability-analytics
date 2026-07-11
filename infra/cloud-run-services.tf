@@ -10,7 +10,7 @@ resource "google_cloud_run_v2_service" "serve" {
 
     containers {
       name  = "serve"
-      image = "us-east1-docker.pkg.dev/mbta-reliability-analytics/frontend/serve:v1.0.5"
+      image = "us-east1-docker.pkg.dev/mbta-reliability-analytics/frontend/serve:v1.0.6"
 
       ports {
         container_port = 8080

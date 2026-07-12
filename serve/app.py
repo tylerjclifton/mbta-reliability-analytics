@@ -131,9 +131,11 @@ def load_ridership():
             ridership,
             line_alert_count,
             avg_temperature_f,
+            max_temperature_f,
             total_precipitation_mm,
             avg_wind_speed_mph,
-            avg_humidity_percent
+            avg_humidity_percent,
+            min_visibility_miles
         FROM `{PROJECT_ID}.gold.rail_ridership`
         ORDER BY service_date DESC
     """
@@ -186,7 +188,7 @@ filtered_ridership = df_ridership[
 # Stable cause color order — computed once so both cause charts use matching colors
 cause_order = sorted(filtered_alerts["alert_cause"].dropna().unique().tolist())
 
-st.caption("Alerts & weather refresh 4× daily (12AM, 6AM, 12PM, 6PM ET) · Ridership & routes update quarterly · Alert charts: last 12 months · Ridership charts: most recent 12 months available")
+st.caption("Alerts refresh 4× daily (12AM, 6AM, 12PM, 6PM ET) · Weather refreshes daily at 6AM ET · Ridership & routes update quarterly · Alert charts: last 12 months · Ridership charts: most recent 12 months available")
 
 # ── KPI row ───────────────────────────────────────────────────────────────────
 

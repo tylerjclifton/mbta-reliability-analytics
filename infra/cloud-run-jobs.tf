@@ -85,7 +85,7 @@ resource "google_cloud_run_v2_job" "ingest_nws_weather" {
       service_account = var.default_sa_compute_engine
       containers {
         name  = "ingest-nws-weather"
-        image = "us-east1-docker.pkg.dev/mbta-reliability-analytics/backend/ingest-nws-weather:v1.0.2"
+        image = "us-east1-docker.pkg.dev/mbta-reliability-analytics/backend/ingest-nws-weather:v1.0.3"
         env {
           name  = "BQ_PROJECT_ID"
           value = var.project_id

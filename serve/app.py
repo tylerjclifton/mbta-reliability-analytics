@@ -284,13 +284,13 @@ with al_c1:
     st.plotly_chart(fig, use_container_width=True)
 
 with al_c2:
-    st.subheader("Alerts by Month")
+    st.subheader("Alerts by Month (TTM)")
     monthly_df = year_alerts.copy()
     monthly_df["month"] = monthly_df["alert_start_date"].dt.to_period("M").dt.to_timestamp()
     monthly = monthly_df.groupby("month").size().reset_index(name="alert_count")
     fig = px.bar(
         monthly, x="month", y="alert_count",
-        color_discrete_sequence=["#4e9af1"],
+        color_discrete_sequence=["#80276C"],
         labels={"month": "Month", "alert_count": "Alerts"},
     )
     fig.update_layout(**DARK_LAYOUT)
@@ -438,7 +438,7 @@ else:
             x=line_data["month"],
             y=line_data["ridership"],
             marker_color=color,
-            opacity=0.8,
+            opacity=1.0,
             yaxis="y1",
         ))
         fig.add_trace(go.Scatter(

@@ -32,9 +32,11 @@ SELECT
     r.ridership,
     COUNT(DISTINCT a.alert_id)  AS line_alert_count,
     w.avg_temperature_f,
+    w.max_temperature_f,
     w.total_precipitation_mm,
     w.avg_wind_speed_mph,
-    w.avg_humidity_percent
+    w.avg_humidity_percent,
+    w.min_visibility_miles
 FROM {{ ref('mbta_silver_ridership') }} r
 LEFT JOIN alert_counts a
     ON  r.route_name = a.route_name
@@ -47,6 +49,8 @@ GROUP BY
     r.route_name,
     r.ridership,
     w.avg_temperature_f,
+    w.max_temperature_f,
     w.total_precipitation_mm,
     w.avg_wind_speed_mph,
-    w.avg_humidity_percent
+    w.avg_humidity_percent,
+    w.min_visibility_miles

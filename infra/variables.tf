@@ -27,8 +27,8 @@ variable "ingestion_schedule" {
 }
 
 variable "nws_ingestion_schedule" {
-  description = "Cron for NWS weather ingestion. Runs 4x daily at midnight, 6AM, noon, and 6PM ET."
-  default     = "0 0,6,12,18 * * *"
+  description = "Cron for NWS weather ingestion. Runs daily at 6AM ET to pull previous day's full observations."
+  default     = "0 6 * * *"
 }
 
 variable "transform_schedule" {

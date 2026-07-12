@@ -14,193 +14,157 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # Initialize BigQuery client
 client = bigquery.Client()
 
-# National Weather Service API endpoint for Boston Logan Airport
+# NWS station and historical observations endpoint
 STATION_ID = 'KBOS'
-NWS_API_URL = f'https://api.weather.gov/stations/{STATION_ID}/observations/latest'
+NWS_OBSERVATIONS_URL = f'https://api.weather.gov/stations/{STATION_ID}/observations'
+NWS_HEADERS = {
+    'User-Agent': '(MBTA Reliability Analytics, tyler@example.com)',
+    'Accept': 'application/json'
+}
 
-# Attempt to request response from NWS API endpoint
-try:
-    # Make a GET request to the NWS observations API
-    # Set request to timeout after 30 seconds
-    # NWS requires a User-Agent header
-    headers = {
-        'User-Agent': '(MBTA Reliability Analytics, tyler@example.com)',
-        'Accept': 'application/json'
-    }
-    response = requests.get(NWS_API_URL, headers=headers, timeout=30)
+# Pull all observations for yesterday (complete day)
+yesterday   = datetime.date.today() - datetime.timedelta(days=1)
+start_utc   = f"{yesterday}T00:00:00Z"
+end_utc     = f"{yesterday}T23:59:59Z"
 
-# If request times out
-except requests.exceptions.Timeout:
-    # Log that the request timed out
-    logging.error("Request timed out")
-    # Terminate Python script
-    exit(1)
+logging.info(f"Fetching NWS observations for {yesterday}")
 
-# Check if the request was successful (HTTP status 200)
-if response.status_code == 200:
+# Fetch all observations for the day with pagination support
+all_observations = []
+url    = NWS_OBSERVATIONS_URL
+params = {'start': start_utc, 'end': end_utc, 'limit': 500}
 
-    # Convert the response JSON into a Python dictionary
-    data = response.json()
+while url:
+    try:
+        response = requests.get(url, params=params, headers=NWS_HEADERS, timeout=30)
+    except requests.exceptions.Timeout:
+        logging.error("Request timed out")
+        exit(1)
 
-    # Extract observation properties
-    properties = data.get('properties', {})
+    if response.status_code != 200:
+        logging.error(f"API request failed with status code: {response.status_code}")
+        exit(1)
 
-    # Create a list to store standardized weather observations
-    standardized_observations = []
+    data     = response.json()
+    features = data.get('features', [])
+    all_observations.extend(features)
 
-    # Proceed only if properties exist
-    if properties:
+    # NWS paginates via a next link in the response
+    next_url = data.get('pagination', {}).get('next')
+    # Stop paginating if the last feature's date is before yesterday
+    if features and next_url:
+        last_ts = features[-1].get('properties', {}).get('timestamp', '')
+        if last_ts and last_ts[:10] < str(yesterday):
+            next_url = None
+    url    = next_url
+    params = {}  # Params are embedded in the next URL
 
-        # Extract observation timestamp
-        try:
-            observation_timestamp = datetime.datetime.fromisoformat(properties.get('timestamp')) if properties.get('timestamp') else None
-        except (ValueError, TypeError):
-            observation_timestamp = None
+logging.info(f"Fetched {len(all_observations)} raw observations")
 
-        # Extract temperature (convert from Celsius to Fahrenheit for easier interpretation)
-        temp_data = properties.get('temperature', {})
-        temp_celsius = temp_data.get('value')
-        temp_fahrenheit = (temp_celsius * 9/5) + 32 if temp_celsius is not None else None
+if not all_observations:
+    logging.info(f"No observations available for {yesterday} yet")
+    exit(0)
 
-        # Extract dewpoint
-        dewpoint_data = properties.get('dewpoint', {})
-        dewpoint_celsius = dewpoint_data.get('value')
-        dewpoint_fahrenheit = (dewpoint_celsius * 9/5) + 32 if dewpoint_celsius is not None else None
+# Extract fields from each observation
+records = []
+for feature in all_observations:
+    props = feature.get('properties', {})
 
-        # Extract wind speed (m/s to mph)
-        wind_data = properties.get('windSpeed', {})
-        wind_ms = wind_data.get('value')
-        wind_mph = wind_ms * 2.237 if wind_ms is not None else None
+    ts_raw = props.get('timestamp')
+    if not ts_raw:
+        continue
+    ts = datetime.datetime.fromisoformat(ts_raw.replace('Z', '+00:00'))
 
-        # Extract wind direction
-        wind_direction = properties.get('windDirection', {}).get('value')
+    # Guard: skip any observations outside yesterday's date (can occur if
+    # pagination follows next URLs that don't preserve the date bounds)
+    if ts.date() != yesterday:
+        continue
 
-        # Extract precipitation (last hour, in mm)
-        precip_data = properties.get('precipitationLastHour', {})
-        precipitation_mm = precip_data.get('value')
+    def get_value(key):
+        return props.get(key, {}).get('value') if isinstance(props.get(key), dict) else None
 
-        # Extract relative humidity
-        humidity_data = properties.get('relativeHumidity', {})
-        humidity = humidity_data.get('value')
+    temp_c  = get_value('temperature')
+    temp_f  = (temp_c * 9 / 5) + 32 if temp_c is not None else None
+    wind_ms = get_value('windSpeed')
+    wind_mph = wind_ms * 0.621371 if wind_ms is not None else None  # km/h → mph
+    precip_mm   = get_value('precipitationLastHour')
+    humidity    = get_value('relativeHumidity')
+    vis_m       = get_value('visibility')
+    vis_miles   = vis_m * 0.000621371 if vis_m is not None else None
 
-        # Extract barometric pressure
-        pressure_data = properties.get('barometricPressure', {})
-        pressure_pa = pressure_data.get('value')
+    records.append({
+        'timestamp':        ts,
+        'hour':             ts.hour,
+        'temperature_f':    temp_f,
+        'wind_speed_mph':   wind_mph,
+        'precipitation_mm': precip_mm,
+        'humidity_percent': humidity,
+        'visibility_miles': vis_miles,
+    })
 
-        # Extract visibility (meters to miles)
-        visibility_data = properties.get('visibility', {})
-        visibility_m = visibility_data.get('value')
-        visibility_miles = visibility_m * 0.000621371 if visibility_m is not None else None
+df = pandas.DataFrame(records)
 
-        # Extract text description
-        text_description = properties.get('textDescription')
+if df.empty:
+    logging.info("No usable observations after extraction")
+    exit(0)
 
-        # Extract cloud layers (get lowest layer for ceiling info)
-        cloud_layers = properties.get('cloudLayers', [])
-        lowest_cloud_base_m = None
-        lowest_cloud_amount = None
-        
-        if cloud_layers and len(cloud_layers) > 0:
-            # Find the lowest cloud layer with actual cloud coverage (not CLR)
-            for layer in cloud_layers:
-                base_data = layer.get('base', {})
-                base_value = base_data.get('value')
-                amount = layer.get('amount')
-                
-                # Skip clear layers
-                if amount != 'CLR' and base_value is not None:
-                    if lowest_cloud_base_m is None or base_value < lowest_cloud_base_m:
-                        lowest_cloud_base_m = base_value
-                        lowest_cloud_amount = amount
-                    break  # Take first non-clear layer as it's typically the lowest
-            
-            # If all layers are clear, take the first one anyway
-            if lowest_cloud_base_m is None and cloud_layers:
-                first_layer = cloud_layers[0]
-                lowest_cloud_base_m = first_layer.get('base', {}).get('value')
-                lowest_cloud_amount = first_layer.get('amount')
+# Deduplicate to one observation per hour — this ensures each hour contributes
+# equally to daily averages, preventing stormy hours (many SPECI reports) from
+# being over-represented vs clear hours (one METAR per hour)
+df_hourly = (
+    df.sort_values('timestamp')
+    .drop_duplicates(subset=['hour'], keep='first')
+)
 
-        # Record ingestion metadata
-        current_datetime = datetime.datetime.now(datetime.timezone.utc)
-        ingestion_timestamp = current_datetime
-        ingestion_source = 'ingest-nws-weather'
+# Aggregate to single daily row using hourly-deduplicated observations
+ingestion_timestamp = datetime.datetime.now(datetime.timezone.utc)
+daily = {
+    'observation_date':      yesterday,
+    'station_id':            STATION_ID,
+    'avg_temperature_f':     round(float(df_hourly['temperature_f'].dropna().mean()), 2)   if df_hourly['temperature_f'].notna().any() else None,
+    'max_temperature_f':     round(float(df_hourly['temperature_f'].dropna().max()), 2)    if df_hourly['temperature_f'].notna().any() else None,
+    'total_precipitation_mm':round(float(df_hourly['precipitation_mm'].fillna(0).sum()), 2),
+    'avg_wind_speed_mph':    round(float(df_hourly['wind_speed_mph'].dropna().mean()), 2)  if df_hourly['wind_speed_mph'].notna().any() else None,
+    'avg_humidity_percent':  round(float(df_hourly['humidity_percent'].dropna().mean()), 2) if df_hourly['humidity_percent'].notna().any() else None,
+    'min_visibility_miles':  round(float(df_hourly['visibility_miles'].dropna().min()), 2) if df_hourly['visibility_miles'].notna().any() else None,
+    'ingestion_source':      'ingest-nws-weather',
+    'ingestion_timestamp':   ingestion_timestamp,
+}
 
-        # Append standardized observation
-        standardized_observations.append({
-            'observation_timestamp': observation_timestamp,
-            'station_id': STATION_ID,
-            'temperature_fahrenheit': temp_fahrenheit,
-            'temperature_celsius': temp_celsius,
-            'dewpoint_fahrenheit': dewpoint_fahrenheit,
-            'dewpoint_celsius': dewpoint_celsius,
-            'wind_speed_mph': wind_mph,
-            'wind_direction_degrees': wind_direction,
-            'precipitation_last_hour_mm': precipitation_mm,
-            'relative_humidity_percent': humidity,
-            'barometric_pressure_pa': pressure_pa,
-            'visibility_miles': visibility_miles,
-            'cloud_base_meters': lowest_cloud_base_m,
-            'cloud_coverage': lowest_cloud_amount,
-            'conditions': text_description,
-            'ingestion_source': ingestion_source,
-            'ingestion_timestamp': ingestion_timestamp
-        })
-
-    else:
-        # Log that no observation data exists in current response
-        logging.info("No observation data in response")
-else:
-    # The API request failed; log the HTTP status code
-    logging.error(f"API request failed with status code: {response.status_code}")
-    exit(1)
-
-# Convert the list of observation dictionaries into a pandas DataFrame
-output = pandas.DataFrame(standardized_observations)
+output = pandas.DataFrame([daily])
 
 # Define BigQuery project, dataset, and table using environment variables
 project_id = os.getenv('BQ_PROJECT_ID', 'mbta-reliability-analytics')
 dataset_id = os.getenv('BQ_DATASET_ID', 'stage')
-table_id = os.getenv('BQ_TABLE_ID', 'nws_weather')
+table_id   = os.getenv('BQ_TABLE_ID', 'nws_weather')
 
-# Define the schema for the table
+# Schema for the daily aggregated weather table
 schema = [
-    bigquery.SchemaField("observation_timestamp", "TIMESTAMP"),
-    bigquery.SchemaField("station_id", "STRING"),
-    bigquery.SchemaField("temperature_fahrenheit", "FLOAT"),
-    bigquery.SchemaField("temperature_celsius", "FLOAT"),
-    bigquery.SchemaField("dewpoint_fahrenheit", "FLOAT"),
-    bigquery.SchemaField("dewpoint_celsius", "FLOAT"),
-    bigquery.SchemaField("wind_speed_mph", "FLOAT"),
-    bigquery.SchemaField("wind_direction_degrees", "FLOAT"),
-    bigquery.SchemaField("precipitation_last_hour_mm", "FLOAT"),
-    bigquery.SchemaField("relative_humidity_percent", "FLOAT"),
-    bigquery.SchemaField("barometric_pressure_pa", "FLOAT"),
-    bigquery.SchemaField("visibility_miles", "FLOAT"),
-    bigquery.SchemaField("cloud_base_meters", "FLOAT"),
-    bigquery.SchemaField("cloud_coverage", "STRING"),
-    bigquery.SchemaField("conditions", "STRING"),
-    bigquery.SchemaField("ingestion_source", "STRING"),
-    bigquery.SchemaField("ingestion_timestamp", "TIMESTAMP"),
+    bigquery.SchemaField("observation_date",       "DATE"),
+    bigquery.SchemaField("station_id",             "STRING"),
+    bigquery.SchemaField("avg_temperature_f",      "FLOAT"),
+    bigquery.SchemaField("max_temperature_f",      "FLOAT"),
+    bigquery.SchemaField("total_precipitation_mm", "FLOAT"),
+    bigquery.SchemaField("avg_wind_speed_mph",     "FLOAT"),
+    bigquery.SchemaField("avg_humidity_percent",   "FLOAT"),
+    bigquery.SchemaField("min_visibility_miles",   "FLOAT"),
+    bigquery.SchemaField("ingestion_source",       "STRING"),
+    bigquery.SchemaField("ingestion_timestamp",    "TIMESTAMP"),
 ]
 
-# Deduplicate based on unique combination of observation_timestamp and station_id
-output_deduped = output.drop_duplicates(subset=['observation_timestamp', 'station_id'], keep='first')
-
-# Write deduplicated data to BigQuery
-# WRITE_TRUNCATE replaces the table atomically and enforces the explicit schema,
-# preventing pandas type inference from creating mismatched column types
+# Write to BigQuery — WRITE_TRUNCATE replaces staging with today's single daily row
 try:
     job_config = bigquery.LoadJobConfig(
         schema=schema,
         write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
     )
     load_job = client.load_table_from_dataframe(
-        output_deduped,
+        output,
         f"{project_id}.{dataset_id}.{table_id}",
         job_config=job_config
     )
     load_job.result()
-    logging.info(f"{len(output_deduped)} rows uploaded to BigQuery")
+    logging.info(f"Uploaded daily weather record for {yesterday} to BigQuery")
 except Exception as e:
     logging.error(f"BigQuery upload failed: {e}")
     exit(1)

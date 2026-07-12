@@ -188,7 +188,7 @@ filtered_ridership = df_ridership[
 # Stable cause color order — computed once so both cause charts use matching colors
 cause_order = sorted(filtered_alerts["alert_cause"].dropna().unique().tolist())
 
-st.caption("Alerts refresh 4× daily (12AM, 6AM, 12PM, 6PM ET) · Weather refreshes daily at 6AM ET · Ridership & routes update quarterly · Alert charts: last 12 months · Ridership charts: most recent 12 months available")
+st.caption("Alerts refresh hourly · Weather refreshes daily at 6AM ET · Ridership & routes update quarterly (~1–2 month delay) · Alert charts: last 12 months · Ridership charts: most recent 12 months available")
 
 # ── KPI row ───────────────────────────────────────────────────────────────────
 
@@ -200,7 +200,7 @@ month_alerts = filtered_alerts[filtered_alerts["alert_start_date"] >= month_star
 st.divider()
 k1, k2, k3, k4 = st.columns(4)
 k1.metric("Active Alerts",             f"{len(active_alerts):,}")
-k2.metric("Routes Currently Impacted", f"{active_alerts['route_id'].nunique()}")
+k2.metric("Currently Impacted Routes", f"{active_alerts['route_id'].nunique()}")
 k3.metric("Alerts This Month",         f"{len(month_alerts):,}")
 avg_dur = df_alerts["alert_duration_days"].mean()
 k4.metric("Avg Alert Duration",        f"{avg_dur:.1f} days" if pd.notna(avg_dur) else "N/A")
@@ -292,10 +292,7 @@ with al_c2:
     )
     fig.update_layout(**DARK_LAYOUT)
     fig.update_yaxes(tickformat="d", rangemode="tozero")
-    fig.update_xaxes(
-        range=[today - pd.DateOffset(months=12), today.replace(day=1) + pd.DateOffset(months=1) - pd.Timedelta(days=1)],
-        dtick="M1", tickformat="%b %Y", tickangle=-30,
-    )
+    fig.update_xaxes(dtick="M1", tickformat="%b %Y", tickangle=-45)
     st.plotly_chart(fig, use_container_width=True)
 
 st.divider()
@@ -381,8 +378,7 @@ with cr_c2:
 st.divider()
 
 # Cause → Effect heatmap
-st.subheader("What Causes Lead to What Effects")
-st.caption("Cell value = number of alerts with that cause/effect combination.")
+st.subheader("Cause & Effect Matrix")
 heat_df = (
     year_alerts
     .groupby(["alert_cause", "alert_effect"])
@@ -401,7 +397,7 @@ if not heat_df.empty:
     fig.update_layout(
         **DARK_LAYOUT,
         coloraxis_colorbar=dict(title="Alerts", tickfont=dict(color="#ffffff")),
-        xaxis_tickangle=-30,
+        xaxis_tickangle=-45,
     )
     st.plotly_chart(fig, use_container_width=True)
 else:
@@ -420,17 +416,23 @@ if df_ridership.empty:
 else:
     st.divider()
 
-    # Ridership over time with alert count overlay
-    st.subheader("Daily Ridership vs Active Alerts")
-    st.caption("Ridership updated quarterly with ~1–2 month delay.")
+    # Ridership over time with alert count overlay — aggregated to monthly
+    st.subheader("Monthly Ridership vs Active Alerts")
+
+    monthly_r = filtered_ridership.copy()
+    monthly_r["month"] = monthly_r["service_date"].dt.to_period("M").dt.to_timestamp()
+    monthly_r = monthly_r.groupby(["month", "route_name"]).agg(
+        ridership=("ridership", "sum"),
+        line_alert_count=("line_alert_count", "mean"),
+    ).reset_index()
 
     fig = go.Figure()
     for line in selected_lines:
-        line_data = filtered_ridership[filtered_ridership["route_name"] == line].sort_values("service_date")
+        line_data = monthly_r[monthly_r["route_name"] == line].sort_values("month")
         color = LINE_COLORS.get(line, "#888888")
         fig.add_trace(go.Bar(
             name=line,
-            x=line_data["service_date"],
+            x=line_data["month"],
             y=line_data["ridership"],
             marker_color=color,
             opacity=0.8,
@@ -438,7 +440,7 @@ else:
         ))
         fig.add_trace(go.Scatter(
             name=f"{line} Alerts",
-            x=line_data["service_date"],
+            x=line_data["month"],
             y=line_data["line_alert_count"],
             mode="lines",
             line=dict(color=color, dash="dot", width=2),
@@ -448,7 +450,7 @@ else:
     fig.update_layout(**DARK_LAYOUT)
     fig.update_layout(
         barmode="group",
-        yaxis=dict(title="Daily Ridership", gridcolor="#30363d", rangemode="tozero"),
+        yaxis=dict(title="Ridership", gridcolor="#30363d", rangemode="tozero"),
         yaxis2=dict(
             title="Active Alerts", overlaying="y", side="right",
             rangemode="tozero", gridcolor="rgba(0,0,0,0)",
@@ -456,6 +458,7 @@ else:
         ),
         legend=dict(bgcolor="#161b22", bordercolor="#30363d", borderwidth=1),
     )
+    fig.update_xaxes(dtick="M1", tickformat="%b %Y", tickangle=-45)
     st.plotly_chart(fig, use_container_width=True)
 
     st.divider()
@@ -472,7 +475,7 @@ else:
         dow, x="day_of_week", y="ridership",
         color="route_name", barmode="group",
         color_discrete_map=LINE_COLORS,
-        labels={"day_of_week": "Day", "ridership": "Avg Ridership", "route_name": "Line"},
+        labels={"day_of_week": "Day", "ridership": "Ridership", "route_name": "Line"},
     )
     fig.update_layout(**DARK_LAYOUT)
     st.plotly_chart(fig, use_container_width=True)

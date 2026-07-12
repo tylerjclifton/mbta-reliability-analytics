@@ -11,7 +11,7 @@ resource "google_cloud_run_v2_job" "ingest_mbta_alerts" {
       service_account = var.default_sa_compute_engine
       containers {
         name  = "ingest-mbta-alerts"
-        image = "us-east1-docker.pkg.dev/mbta-reliability-analytics/backend/ingest-mbta-alerts:v1.0.3"
+        image = "us-east1-docker.pkg.dev/mbta-reliability-analytics/backend/ingest-mbta-alerts:v1.0.4"
         env {
           name  = "BQ_PROJECT_ID"
           value = var.project_id
@@ -23,6 +23,15 @@ resource "google_cloud_run_v2_job" "ingest_mbta_alerts" {
         env {
           name  = "BQ_TABLE_ID"
           value = "mbta_alerts"
+        }
+        env {
+          name = "MBTA_API_KEY"
+          value_source {
+            secret_key_ref {
+              secret  = "mbta-api-key"
+              version = "latest"
+            }
+          }
         }
         resources {
           limits = {
@@ -48,7 +57,7 @@ resource "google_cloud_run_v2_job" "ingest_mbta_routes" {
       service_account = var.default_sa_compute_engine
       containers {
         name  = "ingest-mbta-routes"
-        image = "us-east1-docker.pkg.dev/mbta-reliability-analytics/backend/ingest-mbta-routes:v1.0.3"
+        image = "us-east1-docker.pkg.dev/mbta-reliability-analytics/backend/ingest-mbta-routes:v1.0.4"
         env {
           name  = "BQ_PROJECT_ID"
           value = var.project_id
@@ -60,6 +69,15 @@ resource "google_cloud_run_v2_job" "ingest_mbta_routes" {
         env {
           name  = "BQ_TABLE_ID"
           value = "mbta_routes"
+        }
+        env {
+          name = "MBTA_API_KEY"
+          value_source {
+            secret_key_ref {
+              secret  = "mbta-api-key"
+              version = "latest"
+            }
+          }
         }
         resources {
           limits = {

@@ -29,7 +29,8 @@ locals {
     "roles/cloudscheduler.serviceAgent",
     "roles/editor",
     "roles/iam.serviceAccountTokenCreator",
-    "roles/iam.serviceAccountUser"
+    "roles/iam.serviceAccountUser",
+    "roles/secretmanager.secretAccessor"
   ]
 }
 

@@ -14,12 +14,18 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # Initialize BigQuery client
 client = bigquery.Client()
 
+# Read MBTA API key from environment (optional but removes anonymous rate limit)
+MBTA_API_KEY = os.getenv('MBTA_API_KEY')
+mbta_params = {'filter[route]': 'Red,Blue,Orange,Green-B,Green-C,Green-D,Green-E'}
+if MBTA_API_KEY:
+    mbta_params['api_key'] = MBTA_API_KEY
+
 # Attempt to request response from MBTA alerts API endpoint
 try:
     # Make a GET request to the MBTA alerts API
     # Filter to Red, Blue, Orange, and Green routes
     # Set request to timeout after 30 seconds
-    response = requests.get('https://api-v3.mbta.com/alerts?filter[route]=Red,Blue,Orange,Green-B,Green-C,Green-D,Green-E', timeout=30)
+    response = requests.get('https://api-v3.mbta.com/alerts', params=mbta_params, timeout=30)
 
 # If request times out
 except requests.exceptions.Timeout:

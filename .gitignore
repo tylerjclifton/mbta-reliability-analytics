@@ -1,8 +1,9 @@
 # Node.js
 node_modules/
 
-# Keys
+# Keys & secrets
 keys/
+.env
 
 # Terraform
 .terraform/

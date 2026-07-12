@@ -185,10 +185,13 @@ filtered_ridership = df_ridership[
     (df_ridership["service_date"] >= _ridership_12mo_start)
 ]
 
+# All-time ridership — used for pattern/correlation charts where more data = better
+all_time_ridership = df_ridership[df_ridership["route_name"].isin(selected_lines)]
+
 # Stable cause color order — computed once so both cause charts use matching colors
 cause_order = sorted(filtered_alerts["alert_cause"].dropna().unique().tolist())
 
-st.caption("Alerts refresh hourly · Weather refreshes daily at 6AM ET · Ridership & routes update quarterly (~1–2 month delay) · Alert charts: last 12 months · Ridership charts: most recent 12 months available")
+st.caption("Alerts refresh hourly · Weather refreshes daily at 6AM ET · Ridership & routes update quarterly (~1–2 month delay)")
 
 # ── KPI row ───────────────────────────────────────────────────────────────────
 
@@ -266,7 +269,7 @@ st.divider()
 # Alerts by route + by month
 al_c1, al_c2 = st.columns(2)
 with al_c1:
-    st.subheader("Alerts by Route")
+    st.subheader("Alerts by Route (TTM)")
     route_counts = (
         year_alerts
         .groupby("route_id").size().reset_index(name="alert_count")
@@ -300,7 +303,7 @@ st.divider()
 # Cause share + Effect share side by side
 cs_c1, cs_c2 = st.columns(2)
 with cs_c1:
-    st.subheader("Alert Cause Share")
+    st.subheader("Alerts by Cause (TTM)")
     causes = (
         year_alerts.groupby("alert_cause").size()
         .reset_index(name="count").sort_values("count", ascending=False).head(10)
@@ -315,7 +318,7 @@ with cs_c1:
     st.plotly_chart(fig, use_container_width=True)
 
 with cs_c2:
-    st.subheader("Alert Effect Share")
+    st.subheader("Alerts by Effect (TTM)")
     effects = (
         year_alerts.groupby("alert_effect").size()
         .reset_index(name="count").sort_values("count", ascending=False).head(10)
@@ -333,7 +336,7 @@ with cs_c2:
 # Cause breakdown by route — normalized to % so routes with fewer alerts are still comparable
 cr_c1, cr_c2 = st.columns(2)
 with cr_c1:
-    st.subheader("Alert Causes by Route")
+    st.subheader("Cause Distribution by Route (TTM)")
     cause_route_grp = year_alerts.groupby(["route_id", "alert_cause"]).size().reset_index(name="count")
     if not cause_route_grp.empty:
         totals = cause_route_grp.groupby("route_id")["count"].transform("sum")
@@ -354,7 +357,7 @@ with cr_c1:
         st.info("No data.")
 
 with cr_c2:
-    st.subheader("Alert Effects by Route")
+    st.subheader("Effect Distribution by Route (TTM)")
     effect_route_grp = year_alerts.groupby(["route_id", "alert_effect"]).size().reset_index(name="count")
     if not effect_route_grp.empty:
         totals = effect_route_grp.groupby("route_id")["count"].transform("sum")
@@ -378,7 +381,7 @@ with cr_c2:
 st.divider()
 
 # Cause → Effect heatmap
-st.subheader("Cause & Effect Matrix")
+st.subheader("Cause & Effect Matrix (TTM)")
 heat_df = (
     year_alerts
     .groupby(["alert_cause", "alert_effect"])
@@ -466,7 +469,7 @@ else:
     # Day of week ridership
     st.subheader("Average Ridership by Day")
     dow_order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-    dow_df = filtered_ridership.copy()
+    dow_df = all_time_ridership.copy()
     dow_df["day_of_week"] = dow_df["service_date"].dt.day_name()
     dow = dow_df.groupby(["day_of_week", "route_name"])["ridership"].mean().reset_index()
     dow["day_of_week"] = pd.Categorical(dow["day_of_week"], categories=dow_order, ordered=True)
@@ -486,7 +489,7 @@ else:
     wx_c1, wx_c2 = st.columns(2)
     with wx_c1:
         st.subheader("Temperature vs Ridership")
-        temp_df = filtered_ridership.dropna(subset=["avg_temperature_f"])
+        temp_df = all_time_ridership.dropna(subset=["avg_temperature_f"])
         if not temp_df.empty:
             fig = px.scatter(
                 temp_df, x="avg_temperature_f", y="ridership",
@@ -503,7 +506,7 @@ else:
 
     with wx_c2:
         st.subheader("Precipitation vs Ridership")
-        prec_df = filtered_ridership.dropna(subset=["total_precipitation_mm"])
+        prec_df = all_time_ridership.dropna(subset=["total_precipitation_mm"])
         if not prec_df.empty:
             fig = px.scatter(
                 prec_df, x="total_precipitation_mm", y="ridership",

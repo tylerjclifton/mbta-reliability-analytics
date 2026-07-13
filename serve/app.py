@@ -368,7 +368,7 @@ with dur_c1:
         )
         fig.update_traces(textposition="outside")
         fig.update_layout(**DARK_LAYOUT)
-        fig.update_layout(margin=dict(r=90))
+        fig.update_layout(margin=dict(r=50))
         fig.update_xaxes(visible=False, range=[0, dur_cause["avg_minutes"].max() * 1.4])
         st.plotly_chart(fig, use_container_width=True)
     else:
@@ -394,7 +394,7 @@ with dur_c2:
         )
         fig.update_traces(textposition="outside")
         fig.update_layout(**DARK_LAYOUT)
-        fig.update_layout(margin=dict(r=90))
+        fig.update_layout(margin=dict(r=50))
         fig.update_xaxes(visible=False, range=[0, dur_effect["avg_minutes"].max() * 1.4])
         st.plotly_chart(fig, use_container_width=True)
     else:
@@ -594,4 +594,4 @@ else:
 
 st.divider()
 st.caption("Sources: MBTA Alerts API · NWS Weather API · MBTA ArcGIS Open Data")
-st.caption("Alerts refresh hourly · Weather refreshes daily at 6AM ET · Ridership & routes update quarterly (~1–2 month delay)")
+st.caption("Cadence: Alerts refresh hourly · Weather refreshes daily at 6AM ET · Ridership & routes update quarterly (~1–2 month delay)")

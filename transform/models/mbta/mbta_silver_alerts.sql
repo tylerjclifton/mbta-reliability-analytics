@@ -22,8 +22,8 @@ WITH
             CAST(effect AS STRING)                 AS alert_effect,
             CAST(severity AS INT64)                AS alert_severity,
             CAST(duration_certainty AS STRING)     AS alert_duration_certainty,
-            {{ cast_as_date('created_at') }}         AS alert_created_at,
-            {{ cast_as_date('updated_at') }}         AS alert_updated_at,
+            DATE(DATETIME(CAST(created_at AS TIMESTAMP), 'America/New_York')) AS alert_created_at,
+            DATE(DATETIME(CAST(updated_at AS TIMESTAMP), 'America/New_York')) AS alert_updated_at,
             CAST(ingestion_timestamp AS TIMESTAMP) AS ingestion_timestamp,
             CAST(ingestion_source AS STRING)       AS ingestion_source
         FROM {{ ref('mbta_bronze_alerts') }}

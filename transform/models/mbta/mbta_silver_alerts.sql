@@ -61,9 +61,13 @@ WITH
 SELECT
     alert_id,
     route_id,
-    -- Epoch guard: replace 1970-01-01 with created_at date as fallback
-    CASE WHEN alert_start_date_et = DATE('1970-01-01') THEN alert_created_at ELSE alert_start_date_et END AS alert_start_date,
-    CASE WHEN alert_end_date_et   = DATE('1970-01-01') THEN alert_created_at ELSE alert_end_date_et   END AS alert_end_date,
+    -- Null/epoch guard: replace NULL or epoch (1969-12-31 ET) with alert_created_at as fallback
+    COALESCE(
+        NULLIF(alert_start_date_et, DATE('1969-12-31')),
+        alert_created_at
+    )                                                    AS alert_start_date,
+    -- Null/epoch guard: epoch or NULL = ongoing (keep as NULL)
+    NULLIF(alert_end_date_et, DATE('1969-12-31'))        AS alert_end_date,
     alert_header,
     alert_description,
     INITCAP(REPLACE(alert_cause, '_', ' '))              AS alert_cause,

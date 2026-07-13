@@ -123,9 +123,9 @@ def load_alerts():
             alert_description,
             alert_cause,
             alert_effect,
-            alert_severity
+            alert_severity,
+            ingestion_timestamp
         FROM `{PROJECT_ID}.gold.rail_alerts`
-        WHERE alert_start_date IS NOT NULL
         ORDER BY alert_start_date DESC
     """
     return client.query(query).to_dataframe()
@@ -200,7 +200,7 @@ all_time_ridership = df_ridership[df_ridership["route_name"].isin(selected_lines
 # Stable cause color order — computed once so both cause charts use matching colors
 cause_order = sorted(filtered_alerts["alert_cause"].dropna().unique().tolist())
 
-_data_start = df_alerts["alert_start_date"].min()
+_data_start = pd.to_datetime(df_alerts["ingestion_timestamp"]).min()
 st.caption(f"Trailing 12 months · Data since {_data_start.strftime('%b %d, %Y')} · Weather and day-of-week charts use all available history.")
 
 # ── KPI row ───────────────────────────────────────────────────────────────────
@@ -369,7 +369,7 @@ with dur_c1:
         fig.update_traces(textposition="outside")
         fig.update_layout(**DARK_LAYOUT)
         fig.update_layout(margin=dict(r=90))
-        fig.update_xaxes(visible=False)
+        fig.update_xaxes(visible=False, range=[0, dur_cause["avg_minutes"].max() * 1.4])
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("No data.")
@@ -388,14 +388,14 @@ with dur_c2:
         fig = px.bar(
             dur_effect, x="avg_minutes", y="alert_effect",
             orientation="h",
-            color_discrete_sequence=["#a855b5"],
+            color_discrete_sequence=["#0e7c7b"],
             labels={"avg_minutes": "Avg Duration", "alert_effect": ""},
             text="avg_display",
         )
         fig.update_traces(textposition="outside")
         fig.update_layout(**DARK_LAYOUT)
         fig.update_layout(margin=dict(r=90))
-        fig.update_xaxes(visible=False)
+        fig.update_xaxes(visible=False, range=[0, dur_effect["avg_minutes"].max() * 1.4])
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("No data.")
@@ -536,7 +536,7 @@ else:
     st.divider()
 
     # Day of week ridership
-    st.subheader("Average Ridership by Day")
+    st.subheader("Average Ridership by Day (Historical)")
     dow_order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
     dow_df = all_time_ridership.copy()
     dow_df["day_of_week"] = dow_df["service_date"].dt.day_name()

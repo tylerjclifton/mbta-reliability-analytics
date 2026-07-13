@@ -345,6 +345,60 @@ with cs_c2:
     fig.update_layout(**{**DARK_LAYOUT, "showlegend": True})
     st.plotly_chart(fig, use_container_width=True)
 
+# Average duration by cause + effect — side by side horizontal bars
+dur_c1, dur_c2 = st.columns(2)
+with dur_c1:
+    st.subheader("Average Alert Duration by Cause (TTM)")
+    dur_cause = (
+        year_alerts.dropna(subset=["alert_duration_minutes", "alert_cause"])
+        .groupby("alert_cause")["alert_duration_minutes"]
+        .mean()
+        .reset_index(name="avg_minutes")
+        .sort_values("avg_minutes", ascending=True)
+    )
+    if not dur_cause.empty:
+        dur_cause["avg_display"] = dur_cause["avg_minutes"].apply(format_duration)
+        fig = px.bar(
+            dur_cause, x="avg_minutes", y="alert_cause",
+            orientation="h",
+            color_discrete_sequence=["#80276C"],
+            labels={"avg_minutes": "Avg Duration", "alert_cause": ""},
+            text="avg_display",
+        )
+        fig.update_traces(textposition="outside")
+        fig.update_layout(**DARK_LAYOUT)
+        fig.update_xaxes(visible=False)
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("No data.")
+
+with dur_c2:
+    st.subheader("Average Alert Duration by Effect (TTM)")
+    dur_effect = (
+        year_alerts.dropna(subset=["alert_duration_minutes", "alert_effect"])
+        .groupby("alert_effect")["alert_duration_minutes"]
+        .mean()
+        .reset_index(name="avg_minutes")
+        .sort_values("avg_minutes", ascending=True)
+    )
+    if not dur_effect.empty:
+        dur_effect["avg_display"] = dur_effect["avg_minutes"].apply(format_duration)
+        fig = px.bar(
+            dur_effect, x="avg_minutes", y="alert_effect",
+            orientation="h",
+            color_discrete_sequence=["#a855b5"],
+            labels={"avg_minutes": "Avg Duration", "alert_effect": ""},
+            text="avg_display",
+        )
+        fig.update_traces(textposition="outside")
+        fig.update_layout(**DARK_LAYOUT)
+        fig.update_xaxes(visible=False)
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("No data.")
+
+st.divider()
+
 # Cause breakdown by route — normalized to % so routes with fewer alerts are still comparable
 cr_c1, cr_c2 = st.columns(2)
 with cr_c1:

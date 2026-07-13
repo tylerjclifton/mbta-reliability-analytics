@@ -19,7 +19,7 @@ SELECT
     a.alert_duration_certainty,
     a.alert_created_at,
     a.alert_updated_at,
-    a.alert_duration_days,
+    a.alert_duration_minutes,
     r.route_name,
     r.route_description,
     r.route_type,

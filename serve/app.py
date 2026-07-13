@@ -85,6 +85,16 @@ DARK_LAYOUT = dict(
 def route_color(route_id):
     return ROUTE_COLORS.get(route_id, "#00843D")
 
+def format_duration(minutes):
+    """Format duration minutes as human-readable string."""
+    if pd.isna(minutes) or minutes < 0:
+        return "N/A"
+    if minutes < 60:
+        return f"{int(minutes)} min"
+    if minutes < 1440:
+        return f"{minutes/60:.1f} hrs"
+    return f"{minutes/1440:.1f} days"
+
 # ── BigQuery client ───────────────────────────────────────────────────────────
 
 PROJECT_ID = os.getenv("GCP_PROJECT_ID", "mbta-reliability-analytics")
@@ -109,7 +119,7 @@ def load_alerts():
             route_name,
             alert_start_date,
             alert_end_date,
-            alert_duration_days,
+            alert_duration_minutes,
             alert_header,
             alert_description,
             alert_cause,
@@ -205,8 +215,8 @@ k1, k2, k3, k4 = st.columns(4)
 k1.metric("Active Alerts",             f"{len(active_alerts):,}")
 k2.metric("Currently Impacted Routes", f"{active_alerts['route_id'].nunique()}")
 k3.metric("Alerts This Month",         f"{len(month_alerts):,}")
-avg_dur = df_alerts["alert_duration_days"].mean()
-k4.metric("Avg Alert Duration",        f"{avg_dur:.1f} days" if pd.notna(avg_dur) else "N/A")
+avg_dur = df_alerts["alert_duration_minutes"].mean()
+k4.metric("Average Alert Duration", format_duration(avg_dur))
 st.divider()
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -226,16 +236,17 @@ if active_filtered.empty:
 else:
     display = active_filtered[[
         "route_id", "alert_effect", "alert_cause",
-        "alert_start_date", "alert_end_date", "alert_duration_days",
+        "alert_start_date", "alert_end_date", "alert_duration_minutes",
         "alert_header", "alert_description",
     ]].rename(columns={
         "route_id": "Route", "alert_effect": "Effect", "alert_cause": "Cause",
         "alert_start_date": "Start", "alert_end_date": "End",
-        "alert_duration_days": "Duration (days)",
+        "alert_duration_minutes": "Duration",
         "alert_header": "Header", "alert_description": "Description",
     }).copy()
     display["Start"] = display["Start"].dt.date
     display["End"]   = display["End"].apply(lambda x: x.date() if pd.notna(x) else "Ongoing")
+    display["Duration"] = display["Duration"].apply(format_duration)
     st.dataframe(display, use_container_width=True, hide_index=True)
 
 st.divider()
@@ -250,16 +261,17 @@ past_alerts = filtered_alerts[
 
 hist_display = past_alerts[[
     "route_id", "alert_effect", "alert_cause",
-    "alert_start_date", "alert_end_date", "alert_duration_days",
+    "alert_start_date", "alert_end_date", "alert_duration_minutes",
     "alert_header", "alert_description",
 ]].rename(columns={
     "route_id": "Route", "alert_effect": "Effect", "alert_cause": "Cause",
     "alert_start_date": "Start", "alert_end_date": "End",
-    "alert_duration_days": "Duration (days)",
+    "alert_duration_minutes": "Duration",
     "alert_header": "Header", "alert_description": "Description",
 }).copy()
 hist_display["Start"] = hist_display["Start"].dt.date
 hist_display["End"]   = hist_display["End"].apply(lambda x: x.date() if pd.notna(x) else "Ongoing")
+hist_display["Duration"] = hist_display["Duration"].apply(format_duration)
 
 st.caption(f"{len(past_alerts):,} alerts")
 st.dataframe(hist_display, use_container_width=True, hide_index=True, height=400)
@@ -420,7 +432,7 @@ else:
     st.divider()
 
     # Ridership over time with alert count overlay — aggregated to monthly
-    st.subheader("Monthly Ridership vs Active Alerts")
+    st.subheader("Alerts vs Ridership (TTM)")
 
     monthly_r = filtered_ridership.copy()
     monthly_r["month"] = monthly_r["service_date"].dt.to_period("M").dt.to_timestamp()

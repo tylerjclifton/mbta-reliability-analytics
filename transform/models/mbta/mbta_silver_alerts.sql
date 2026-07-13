@@ -12,20 +12,20 @@ WITH
 
     base AS (
         SELECT
-            CAST(alert_id AS STRING)                AS alert_id,
-            CAST(route AS STRING)                   AS route_id,
-            {{ cast_as_date('active_period_start') }} AS alert_start_date,
-            {{ cast_as_date('active_period_end') }}   AS alert_end_date,
-            CAST(header AS STRING)                  AS alert_header,
-            CAST(description AS STRING)             AS alert_description,
-            CAST(cause AS STRING)                   AS alert_cause,
-            CAST(effect AS STRING)                  AS alert_effect,
-            CAST(severity AS INT64)                 AS alert_severity,
-            CAST(duration_certainty AS STRING)      AS alert_duration_certainty,
-            {{ cast_as_date('created_at') }}          AS alert_created_at,
-            {{ cast_as_date('updated_at') }}          AS alert_updated_at,
-            CAST(ingestion_timestamp AS TIMESTAMP)  AS ingestion_timestamp,
-            CAST(ingestion_source AS STRING)        AS ingestion_source
+            CAST(alert_id AS STRING)               AS alert_id,
+            CAST(route AS STRING)                  AS route_id,
+            CAST(active_period_start AS TIMESTAMP) AS alert_start_ts,
+            CAST(active_period_end AS TIMESTAMP)   AS alert_end_ts,
+            CAST(header AS STRING)                 AS alert_header,
+            CAST(description AS STRING)            AS alert_description,
+            CAST(cause AS STRING)                  AS alert_cause,
+            CAST(effect AS STRING)                 AS alert_effect,
+            CAST(severity AS INT64)                AS alert_severity,
+            CAST(duration_certainty AS STRING)     AS alert_duration_certainty,
+            {{ cast_as_date('created_at') }}         AS alert_created_at,
+            {{ cast_as_date('updated_at') }}         AS alert_updated_at,
+            CAST(ingestion_timestamp AS TIMESTAMP) AS ingestion_timestamp,
+            CAST(ingestion_source AS STRING)       AS ingestion_source
         FROM {{ ref('mbta_bronze_alerts') }}
         {% if is_incremental() %}
         WHERE ingestion_timestamp >= (
@@ -34,14 +34,36 @@ WITH
         )
         {% endif %}
         QUALIFY ROW_NUMBER() OVER (PARTITION BY alert_id, route ORDER BY ingestion_timestamp DESC) = 1
+    ),
+
+    converted AS (
+        SELECT
+            alert_id,
+            route_id,
+            alert_start_ts,
+            alert_end_ts,
+            -- Convert UTC timestamps to ET dates (fixes cross-midnight UTC artifacts)
+            DATE(DATETIME(alert_start_ts, 'America/New_York')) AS alert_start_date_et,
+            DATE(DATETIME(alert_end_ts,   'America/New_York')) AS alert_end_date_et,
+            alert_header,
+            alert_description,
+            alert_cause,
+            alert_effect,
+            alert_severity,
+            alert_duration_certainty,
+            alert_created_at,
+            alert_updated_at,
+            ingestion_timestamp,
+            ingestion_source
+        FROM base
     )
 
 SELECT
     alert_id,
     route_id,
-    -- Replace 1970-01-01 epoch dates with alert_created_at as fallback
-    CASE WHEN alert_start_date = DATE('1970-01-01') THEN alert_created_at ELSE alert_start_date END AS alert_start_date,
-    CASE WHEN alert_end_date   = DATE('1970-01-01') THEN alert_created_at ELSE alert_end_date   END AS alert_end_date,
+    -- Epoch guard: replace 1970-01-01 with created_at date as fallback
+    CASE WHEN alert_start_date_et = DATE('1970-01-01') THEN alert_created_at ELSE alert_start_date_et END AS alert_start_date,
+    CASE WHEN alert_end_date_et   = DATE('1970-01-01') THEN alert_created_at ELSE alert_end_date_et   END AS alert_end_date,
     alert_header,
     alert_description,
     INITCAP(REPLACE(alert_cause, '_', ' '))              AS alert_cause,
@@ -50,13 +72,13 @@ SELECT
     INITCAP(REPLACE(alert_duration_certainty, '_', ' ')) AS alert_duration_certainty,
     alert_created_at,
     alert_updated_at,
-    -- Duration in days, minimum 1. Epoch start (1970-01-01) falls back to created date.
-    -- Null end date defaults to today for ongoing alerts.
-    GREATEST(1, DATE_DIFF(
-        COALESCE(alert_end_date, CURRENT_DATE()),
-        CASE WHEN alert_start_date = DATE('1970-01-01') THEN alert_created_at ELSE alert_start_date END,
-        DAY
-    ) + 1) AS alert_duration_days,
+    -- Duration in minutes from raw timestamps (accurate, timezone-independent)
+    -- Null end timestamp = ongoing; defaults to current time
+    TIMESTAMP_DIFF(
+        COALESCE(alert_end_ts, CURRENT_TIMESTAMP()),
+        alert_start_ts,
+        MINUTE
+    ) AS alert_duration_minutes,
     ingestion_timestamp,
     ingestion_source
-FROM base
+FROM converted

@@ -174,24 +174,24 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# ── Global line filter ───────────────────────────────────────────────────────
+# ── Global filters ──────────────────────────────────────────────────────────
 
-all_lines     = ["Red Line", "Orange Line", "Blue Line", "Green Line"]
+all_lines      = ["Red Line", "Orange Line", "Blue Line", "Green Line"]
 selected_lines = st.multiselect("Filter by Route", all_lines, default=all_lines)
 
 selected_route_ids = [r for line in selected_lines for r in LINE_TO_ROUTES[line]]
 filtered_alerts    = df_alerts[df_alerts["route_id"].isin(selected_route_ids)]
 
-# 12-month window — applied to all charts (Past Alerts table shows full history)
+# TTM window — applied to all charts
 year_start  = today - pd.DateOffset(months=12)
 year_alerts = filtered_alerts[filtered_alerts["alert_start_date"] >= year_start]
 
-# Ridership: most recent 12 months of available data (anchored to latest date, not today)
-_max_ridership_date = df_ridership["service_date"].max() if not df_ridership.empty else today
-_ridership_12mo_start = _max_ridership_date - pd.DateOffset(months=12)
+# Ridership: TTM anchored to latest available date
+_max_ridership_date    = df_ridership["service_date"].max() if not df_ridership.empty else today
+_ridership_window_start = _max_ridership_date - pd.DateOffset(months=12)
 filtered_ridership = df_ridership[
     df_ridership["route_name"].isin(selected_lines) &
-    (df_ridership["service_date"] >= _ridership_12mo_start)
+    (df_ridership["service_date"] >= _ridership_window_start)
 ]
 
 # All-time ridership — used for pattern/correlation charts where more data = better
@@ -200,7 +200,8 @@ all_time_ridership = df_ridership[df_ridership["route_name"].isin(selected_lines
 # Stable cause color order — computed once so both cause charts use matching colors
 cause_order = sorted(filtered_alerts["alert_cause"].dropna().unique().tolist())
 
-st.caption("Alerts refresh hourly · Weather refreshes daily at 6AM ET · Ridership & routes update quarterly (~1–2 month delay)")
+_data_start = df_alerts["alert_start_date"].min()
+st.caption(f"Trailing 12 months · Data since {_data_start.strftime('%b %d, %Y')} · Weather and day-of-week charts use all available history.")
 
 # ── KPI row ───────────────────────────────────────────────────────────────────
 
@@ -250,12 +251,13 @@ else:
 
 st.divider()
 
-# Past Alerts — completed only (have a real end date in the past)
+# Past Alerts — completed only (have a real end date in the past), TTM
 st.subheader("Past Alerts")
 
 past_alerts = filtered_alerts[
     filtered_alerts["alert_end_date"].notna() &
-    (filtered_alerts["alert_end_date"] < today)
+    (filtered_alerts["alert_end_date"] < today) &
+    (filtered_alerts["alert_start_date"] >= year_start)
 ]
 
 hist_display = past_alerts[[
@@ -280,7 +282,7 @@ st.divider()
 # Alerts by route + by month
 al_c1, al_c2 = st.columns(2)
 with al_c1:
-    st.subheader("Alerts by Route (TTM)")
+    st.subheader("Alerts by Route")
     route_counts = (
         year_alerts
         .groupby("route_id").size().reset_index(name="alert_count")
@@ -295,7 +297,7 @@ with al_c1:
     st.plotly_chart(fig, use_container_width=True)
 
 with al_c2:
-    st.subheader("Alerts by Month (TTM)")
+    st.subheader("Alerts by Month")
     monthly_df = year_alerts.copy()
     monthly_df["month"] = monthly_df["alert_start_date"].dt.to_period("M").dt.to_timestamp()
     monthly = monthly_df.groupby("month").size().reset_index(name="alert_count")
@@ -314,7 +316,7 @@ st.divider()
 # Cause share + Effect share side by side
 cs_c1, cs_c2 = st.columns(2)
 with cs_c1:
-    st.subheader("Alerts by Cause (TTM)")
+    st.subheader("Alerts by Cause")
     causes = (
         year_alerts.groupby("alert_cause").size()
         .reset_index(name="count").sort_values("count", ascending=False).head(10)
@@ -329,7 +331,7 @@ with cs_c1:
     st.plotly_chart(fig, use_container_width=True)
 
 with cs_c2:
-    st.subheader("Alerts by Effect (TTM)")
+    st.subheader("Alerts by Effect")
     effects = (
         year_alerts.groupby("alert_effect").size()
         .reset_index(name="count").sort_values("count", ascending=False).head(10)
@@ -347,7 +349,7 @@ with cs_c2:
 # Average duration by cause + effect — side by side horizontal bars
 dur_c1, dur_c2 = st.columns(2)
 with dur_c1:
-    st.subheader("Average Alert Duration by Cause (TTM)")
+    st.subheader("Average Alert Duration by Cause")
     dur_cause = (
         year_alerts.dropna(subset=["alert_duration_minutes", "alert_cause"])
         .groupby("alert_cause")["alert_duration_minutes"]
@@ -366,13 +368,14 @@ with dur_c1:
         )
         fig.update_traces(textposition="outside")
         fig.update_layout(**DARK_LAYOUT)
+        fig.update_layout(margin=dict(r=90))
         fig.update_xaxes(visible=False)
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("No data.")
 
 with dur_c2:
-    st.subheader("Average Alert Duration by Effect (TTM)")
+    st.subheader("Average Alert Duration by Effect")
     dur_effect = (
         year_alerts.dropna(subset=["alert_duration_minutes", "alert_effect"])
         .groupby("alert_effect")["alert_duration_minutes"]
@@ -391,6 +394,7 @@ with dur_c2:
         )
         fig.update_traces(textposition="outside")
         fig.update_layout(**DARK_LAYOUT)
+        fig.update_layout(margin=dict(r=90))
         fig.update_xaxes(visible=False)
         st.plotly_chart(fig, use_container_width=True)
     else:
@@ -401,7 +405,7 @@ st.divider()
 # Cause breakdown by route — normalized to % so routes with fewer alerts are still comparable
 cr_c1, cr_c2 = st.columns(2)
 with cr_c1:
-    st.subheader("Cause Distribution by Route (TTM)")
+    st.subheader("Cause Distribution by Route")
     cause_route_grp = year_alerts.groupby(["route_id", "alert_cause"]).size().reset_index(name="count")
     if not cause_route_grp.empty:
         totals = cause_route_grp.groupby("route_id")["count"].transform("sum")
@@ -422,7 +426,7 @@ with cr_c1:
         st.info("No data.")
 
 with cr_c2:
-    st.subheader("Effect Distribution by Route (TTM)")
+    st.subheader("Effect Distribution by Route")
     effect_route_grp = year_alerts.groupby(["route_id", "alert_effect"]).size().reset_index(name="count")
     if not effect_route_grp.empty:
         totals = effect_route_grp.groupby("route_id")["count"].transform("sum")
@@ -446,7 +450,7 @@ with cr_c2:
 st.divider()
 
 # Cause → Effect heatmap
-st.subheader("Cause & Effect Matrix (TTM)")
+st.subheader("Cause & Effect Matrix")
 heat_df = (
     year_alerts
     .groupby(["alert_cause", "alert_effect"])
@@ -457,7 +461,7 @@ if not heat_df.empty:
     heat_pivot = heat_df.pivot(index="alert_cause", columns="alert_effect", values="count").fillna(0)
     fig = px.imshow(
         heat_pivot,
-        color_continuous_scale="Blues",
+        color_continuous_scale=[[0, "#f5e8f5"], [0.5, "#80276C"], [1.0, "#2d0a2d"]],
         text_auto=True,
         aspect="auto",
         labels={"x": "Effect", "y": "Cause", "color": "Alerts"},
@@ -485,7 +489,7 @@ else:
     st.divider()
 
     # Ridership over time with alert count overlay — aggregated to monthly
-    st.subheader("Alert Impact on Ridership (TTM)")
+    st.subheader("Alert Impact on Ridership")
 
     monthly_r = filtered_ridership.copy()
     monthly_r["month"] = monthly_r["service_date"].dt.to_period("M").dt.to_timestamp()
@@ -553,7 +557,7 @@ else:
     # Weather correlations
     wx_c1, wx_c2 = st.columns(2)
     with wx_c1:
-        st.subheader("Temperature vs Ridership")
+        st.subheader("Temperature vs Ridership (Historical)")
         temp_df = all_time_ridership.dropna(subset=["avg_temperature_f"])
         if not temp_df.empty:
             fig = px.scatter(
@@ -570,7 +574,7 @@ else:
             st.info("Temperature data not yet available.")
 
     with wx_c2:
-        st.subheader("Precipitation vs Ridership")
+        st.subheader("Precipitation vs Ridership (Historical)")
         prec_df = all_time_ridership.dropna(subset=["total_precipitation_mm"])
         if not prec_df.empty:
             fig = px.scatter(
@@ -590,3 +594,4 @@ else:
 
 st.divider()
 st.caption("Sources: MBTA Alerts API · NWS Weather API · MBTA ArcGIS Open Data")
+st.caption("Alerts refresh hourly · Weather refreshes daily at 6AM ET · Ridership & routes update quarterly (~1–2 month delay)")

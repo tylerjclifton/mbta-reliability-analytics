@@ -1,5 +1,4 @@
 import os
-
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -486,7 +485,7 @@ else:
     st.divider()
 
     # Ridership over time with alert count overlay — aggregated to monthly
-    st.subheader("Alerts vs Ridership (TTM)")
+    st.subheader("Alert Impact on Ridership (TTM)")
 
     monthly_r = filtered_ridership.copy()
     monthly_r["month"] = monthly_r["service_date"].dt.to_period("M").dt.to_timestamp()

@@ -72,9 +72,18 @@ WITH
     resolved AS (
         SELECT
             c.*,
+            -- Epoch (1970-01-01 UTC) on start means no real start was set; fall back to created_at
+            CASE
+                WHEN c.alert_start_ts IS NULL
+                     OR DATE(DATETIME(c.alert_start_ts, 'America/New_York')) = DATE('1969-12-31')
+                    THEN TIMESTAMP(c.alert_created_at, 'America/New_York')
+                ELSE c.alert_start_ts
+            END AS resolved_start_ts,
             CASE
                 -- Explicit end timestamp provided by the API → use it as-is
+                -- Epoch (1970-01-01 UTC) is treated as NULL — it means no real end was set
                 WHEN c.alert_end_ts IS NOT NULL
+                     AND DATE(DATETIME(c.alert_end_ts, 'America/New_York')) != DATE('1969-12-31')
                     THEN c.alert_end_ts
                 -- Alert is still present in staging → genuinely ongoing
                 WHEN sa.alert_id IS NOT NULL
@@ -110,10 +119,10 @@ SELECT
     INITCAP(REPLACE(alert_duration_certainty, '_', ' ')) AS alert_duration_certainty,
     alert_created_at,
     alert_updated_at,
-    -- Duration uses resolved end; ongoing alerts fall back to current time
+    -- Duration uses resolved start/end; ongoing alerts fall back to current time
     TIMESTAMP_DIFF(
         COALESCE(resolved_end_ts, CURRENT_TIMESTAMP()),
-        alert_start_ts,
+        resolved_start_ts,
         MINUTE
     ) AS alert_duration_minutes,
     ingestion_timestamp,

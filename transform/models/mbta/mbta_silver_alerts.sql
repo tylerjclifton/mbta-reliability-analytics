@@ -10,6 +10,13 @@
 
 WITH
 
+    -- Current live snapshot of alerts from the MBTA API (WRITE_TRUNCATE each ingest run).
+    -- Used to determine whether an open alert is still active or has silently ended.
+    staging_active AS (
+        SELECT DISTINCT alert_id, route
+        FROM `{{ target.project }}.stage.mbta_alerts`
+    ),
+
     base AS (
         SELECT
             CAST(alert_id AS STRING)               AS alert_id,
@@ -32,6 +39,11 @@ WITH
             SELECT COALESCE(MAX(ingestion_timestamp), TIMESTAMP('1970-01-01'))
             FROM {{ this }}
         )
+        -- Also reprocess any currently open alerts so they can be re-evaluated
+        -- against staging on every run (catches alerts that silently ended).
+        OR alert_id IN (
+            SELECT alert_id FROM {{ this }} WHERE alert_end_date IS NULL
+        )
         {% endif %}
         QUALIFY ROW_NUMBER() OVER (PARTITION BY alert_id, route ORDER BY ingestion_timestamp DESC) = 1
     ),
@@ -44,7 +56,6 @@ WITH
             alert_end_ts,
             -- Convert UTC timestamps to ET dates (fixes cross-midnight UTC artifacts)
             DATE(DATETIME(alert_start_ts, 'America/New_York')) AS alert_start_date_et,
-            DATE(DATETIME(alert_end_ts,   'America/New_York')) AS alert_end_date_et,
             alert_header,
             alert_description,
             alert_cause,
@@ -56,6 +67,26 @@ WITH
             ingestion_timestamp,
             ingestion_source
         FROM base
+    ),
+
+    resolved AS (
+        SELECT
+            c.*,
+            CASE
+                -- Explicit end timestamp provided by the API → use it as-is
+                WHEN c.alert_end_ts IS NOT NULL
+                    THEN c.alert_end_ts
+                -- Alert is still present in staging → genuinely ongoing
+                WHEN sa.alert_id IS NOT NULL
+                    THEN NULL
+                -- Alert has disappeared from staging with no explicit end →
+                -- infer end as last ingestion timestamp + 30 minutes
+                ELSE TIMESTAMP_ADD(c.ingestion_timestamp, INTERVAL 30 MINUTE)
+            END AS resolved_end_ts
+        FROM converted c
+        LEFT JOIN staging_active sa
+            ON  c.alert_id  = sa.alert_id
+            AND c.route_id  = sa.route
     )
 
 SELECT
@@ -66,8 +97,11 @@ SELECT
         NULLIF(alert_start_date_et, DATE('1969-12-31')),
         alert_created_at
     )                                                    AS alert_start_date,
-    -- Null/epoch guard: epoch or NULL = ongoing (keep as NULL)
-    NULLIF(alert_end_date_et, DATE('1969-12-31'))        AS alert_end_date,
+    -- Ongoing alerts stay NULL; resolved alerts use the resolved end timestamp
+    CASE
+        WHEN resolved_end_ts IS NULL THEN NULL
+        ELSE NULLIF(DATE(DATETIME(resolved_end_ts, 'America/New_York')), DATE('1969-12-31'))
+    END                                                  AS alert_end_date,
     alert_header,
     alert_description,
     INITCAP(REPLACE(alert_cause, '_', ' '))              AS alert_cause,
@@ -76,13 +110,12 @@ SELECT
     INITCAP(REPLACE(alert_duration_certainty, '_', ' ')) AS alert_duration_certainty,
     alert_created_at,
     alert_updated_at,
-    -- Duration in minutes from raw timestamps (accurate, timezone-independent)
-    -- Null end timestamp = ongoing; defaults to current time
+    -- Duration uses resolved end; ongoing alerts fall back to current time
     TIMESTAMP_DIFF(
-        COALESCE(alert_end_ts, CURRENT_TIMESTAMP()),
+        COALESCE(resolved_end_ts, CURRENT_TIMESTAMP()),
         alert_start_ts,
         MINUTE
     ) AS alert_duration_minutes,
     ingestion_timestamp,
     ingestion_source
-FROM converted
+FROM resolved

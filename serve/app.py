@@ -368,8 +368,7 @@ with dur_c1:
         )
         fig.update_traces(textposition="outside")
         fig.update_layout(**DARK_LAYOUT)
-        fig.update_layout(margin=dict(r=50))
-        fig.update_xaxes(visible=False, range=[0, dur_cause["avg_minutes"].max() * 1.4])
+        fig.update_xaxes(visible=False, range=[0, dur_cause["avg_minutes"].max() * 1.2])
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("No data.")
@@ -394,8 +393,7 @@ with dur_c2:
         )
         fig.update_traces(textposition="outside")
         fig.update_layout(**DARK_LAYOUT)
-        fig.update_layout(margin=dict(r=50))
-        fig.update_xaxes(visible=False, range=[0, dur_effect["avg_minutes"].max() * 1.4])
+        fig.update_xaxes(visible=False, range=[0, dur_effect["avg_minutes"].max() * 1.2])
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("No data.")

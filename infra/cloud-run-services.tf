@@ -3,7 +3,7 @@ resource "google_cloud_run_v2_service" "serve" {
   name     = "serve"
   location = var.location
 
-  deletion_protection = false
+  deletion_protection = true
 
   template {
     service_account = google_service_account.serve_bigquery.email
@@ -58,6 +58,10 @@ resource "google_cloud_run_domain_mapping" "serve_domain" {
   spec {
     route_name = google_cloud_run_v2_service.serve.name
   }
+
+  lifecycle {
+    ignore_changes = [metadata]
+  }
 }
 
 # www.tylerclifton.com also mapped — Cloud Run will redirect to canonical
@@ -71,5 +75,9 @@ resource "google_cloud_run_domain_mapping" "serve_domain_www" {
 
   spec {
     route_name = google_cloud_run_v2_service.serve.name
+  }
+
+  lifecycle {
+    ignore_changes = [metadata]
   }
 }

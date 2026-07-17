@@ -2,7 +2,7 @@ resource "google_cloud_run_v2_job" "ingest_mbta_alerts" {
   name     = "ingest-mbta-alerts"
   location = var.location
 
-  deletion_protection = false
+  deletion_protection = true
 
   template {
     task_count  = 1 # Total number of tasks to run
@@ -48,7 +48,7 @@ resource "google_cloud_run_v2_job" "ingest_mbta_routes" {
   name     = "ingest-mbta-routes"
   location = var.location
 
-  deletion_protection = false
+  deletion_protection = true
 
   template {
     task_count  = 1 # Total number of tasks to run
@@ -94,7 +94,7 @@ resource "google_cloud_run_v2_job" "ingest_nws_weather" {
   name     = "ingest-nws-weather"
   location = var.location
 
-  deletion_protection = false
+  deletion_protection = true
 
   template {
     task_count  = 1 # Total number of tasks to run
@@ -131,7 +131,7 @@ resource "google_cloud_run_v2_job" "ingest_mbta_ridership" {
   name     = "ingest-mbta-ridership"
   location = var.location
 
-  deletion_protection = false
+  deletion_protection = true
 
   template {
     task_count  = 1 # Total number of tasks to run
@@ -169,7 +169,7 @@ resource "google_cloud_run_v2_job" "transform" {
   name     = "transform"
   location = var.location
 
-  deletion_protection = false
+  deletion_protection = true
 
   template {
     task_count  = 1 # Total number of tasks to run

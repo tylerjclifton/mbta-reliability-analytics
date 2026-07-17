@@ -4,7 +4,6 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 from google.cloud import bigquery
-from google.oauth2 import service_account
 
 # ── Page config ───────────────────────────────────────────────────────────────
 
@@ -94,16 +93,21 @@ def format_duration(minutes):
         return f"{minutes/60:.1f} hrs"
     return f"{minutes/1440:.1f} days"
 
+def format_last_updated(ts, include_time=False):
+    """Format a UTC ingestion timestamp as an ET date (optionally with time)."""
+    if pd.isna(ts):
+        return "N/A"
+    if ts.tzinfo is None:
+        ts = ts.tz_localize("UTC")
+    ts_et = ts.tz_convert("America/New_York")
+    return ts_et.strftime("%b %d, %Y %I:%M %p ET") if include_time else ts_et.strftime("%b %d, %Y")
+
 # ── BigQuery client ───────────────────────────────────────────────────────────
 
 PROJECT_ID = os.getenv("GCP_PROJECT_ID", "mbta-reliability-analytics")
-KEYFILE    = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
 
 @st.cache_resource
 def get_client():
-    if KEYFILE:
-        creds = service_account.Credentials.from_service_account_file(KEYFILE)
-        return bigquery.Client(project=PROJECT_ID, credentials=creds)
     return bigquery.Client(project=PROJECT_ID)
 
 # ── Data loading ──────────────────────────────────────────────────────────────
@@ -144,7 +148,9 @@ def load_ridership():
             total_precipitation_mm,
             avg_wind_speed_mph,
             avg_humidity_percent,
-            min_visibility_miles
+            min_visibility_miles,
+            ridership_ingestion_timestamp,
+            weather_ingestion_timestamp
         FROM `{PROJECT_ID}.gold.rail_ridership`
         ORDER BY service_date DESC
     """
@@ -194,21 +200,32 @@ filtered_ridership = df_ridership[
     (df_ridership["service_date"] >= _ridership_window_start)
 ]
 
-# All-time ridership — used for pattern/correlation charts where more data = better
-all_time_ridership = df_ridership[df_ridership["route_name"].isin(selected_lines)]
-
 # Stable cause color order — computed once so both cause charts use matching colors
 cause_order = sorted(filtered_alerts["alert_cause"].dropna().unique().tolist())
 
-_data_start = pd.to_datetime(df_alerts["ingestion_timestamp"]).min()
-st.caption(f"Trailing 12 months · Data since {_data_start.strftime('%b %d, %Y')} · Weather and day-of-week charts use all available history.")
+_alerts_updated  = pd.to_datetime(df_alerts["ingestion_timestamp"]).max()
+_weather_updated = (
+    pd.to_datetime(df_ridership["weather_ingestion_timestamp"]).max() if not df_ridership.empty else pd.NaT
+)
+_ridership_updated = (
+    pd.to_datetime(df_ridership["ridership_ingestion_timestamp"]).max() if not df_ridership.empty else pd.NaT
+)
+
+st.caption("All data and charts reflect the trailing 12 months")
+st.caption(
+    f"Alerts updated {format_last_updated(_alerts_updated, include_time=True)} · "
+    f"Weather updated {format_last_updated(_weather_updated)} · "
+    f"Ridership updated {format_last_updated(_ridership_updated)}"
+)
 
 # ── KPI row ───────────────────────────────────────────────────────────────────
 
 active_alerts = filtered_alerts[
-    filtered_alerts["alert_end_date"].isna() | (filtered_alerts["alert_end_date"] >= today)
+    (filtered_alerts["alert_start_date"] <= today) &
+    (filtered_alerts["alert_end_date"].isna() | (filtered_alerts["alert_end_date"] >= today))
 ]
-month_alerts = filtered_alerts[filtered_alerts["alert_start_date"] >= month_start]
+upcoming_alerts = filtered_alerts[filtered_alerts["alert_start_date"] > today]
+month_alerts    = filtered_alerts[filtered_alerts["alert_start_date"] >= month_start]
 
 st.divider()
 k1, k2, k3, k4 = st.columns(4)
@@ -226,15 +243,8 @@ st.divider()
 st.markdown("<h2 style='text-align:center'>🚨 Alerts</h2>", unsafe_allow_html=True)
 st.divider()
 
-# Active alerts table
-st.subheader("Active Alerts")
-active_filtered = filtered_alerts[
-    filtered_alerts["alert_end_date"].isna() | (filtered_alerts["alert_end_date"] >= today)
-]
-if active_filtered.empty:
-    st.info("No active alerts right now.")
-else:
-    display = active_filtered[[
+def _alert_table(df):
+    display = df[[
         "route_id", "alert_effect", "alert_cause",
         "alert_start_date", "alert_end_date", "alert_duration_minutes",
         "alert_header", "alert_description",
@@ -247,35 +257,23 @@ else:
     display["Start"] = display["Start"].dt.date
     display["End"]   = display["End"].apply(lambda x: x.date() if pd.notna(x) else "Ongoing")
     display["Duration"] = display["Duration"].apply(format_duration)
-    st.dataframe(display, use_container_width=True, hide_index=True)
+    return display
+
+# Active alerts table
+st.subheader("Active Alerts")
+if active_alerts.empty:
+    st.info("No active alerts right now.")
+else:
+    st.dataframe(_alert_table(active_alerts), use_container_width=True, hide_index=True)
 
 st.divider()
 
-# Past Alerts — completed only (have a real end date in the past), TTM
-st.subheader("Past Alerts")
-
-past_alerts = filtered_alerts[
-    filtered_alerts["alert_end_date"].notna() &
-    (filtered_alerts["alert_end_date"] < today) &
-    (filtered_alerts["alert_start_date"] >= year_start)
-]
-
-hist_display = past_alerts[[
-    "route_id", "alert_effect", "alert_cause",
-    "alert_start_date", "alert_end_date", "alert_duration_minutes",
-    "alert_header", "alert_description",
-]].rename(columns={
-    "route_id": "Route", "alert_effect": "Effect", "alert_cause": "Cause",
-    "alert_start_date": "Start", "alert_end_date": "End",
-    "alert_duration_minutes": "Duration",
-    "alert_header": "Header", "alert_description": "Description",
-}).copy()
-hist_display["Start"] = hist_display["Start"].dt.date
-hist_display["End"]   = hist_display["End"].apply(lambda x: x.date() if pd.notna(x) else "Ongoing")
-hist_display["Duration"] = hist_display["Duration"].apply(format_duration)
-
-st.caption(f"{len(past_alerts):,} alerts")
-st.dataframe(hist_display, use_container_width=True, hide_index=True, height=400)
+# Upcoming alerts table — scheduled to start in the future
+st.subheader("Upcoming Alerts")
+if upcoming_alerts.empty:
+    st.info("No upcoming alerts scheduled.")
+else:
+    st.dataframe(_alert_table(upcoming_alerts), use_container_width=True, hide_index=True)
 
 st.divider()
 
@@ -534,9 +532,9 @@ else:
     st.divider()
 
     # Day of week ridership
-    st.subheader("Average Ridership by Day (Historical)")
+    st.subheader("Average Ridership by Day")
     dow_order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-    dow_df = all_time_ridership.copy()
+    dow_df = filtered_ridership.copy()
     dow_df["day_of_week"] = dow_df["service_date"].dt.day_name()
     dow = dow_df.groupby(["day_of_week", "route_name"])["ridership"].mean().reset_index()
     dow["day_of_week"] = pd.Categorical(dow["day_of_week"], categories=dow_order, ordered=True)
@@ -555,8 +553,8 @@ else:
     # Weather correlations
     wx_c1, wx_c2 = st.columns(2)
     with wx_c1:
-        st.subheader("Temperature vs Ridership (Historical)")
-        temp_df = all_time_ridership.dropna(subset=["avg_temperature_f"])
+        st.subheader("Temperature vs Ridership")
+        temp_df = filtered_ridership.dropna(subset=["avg_temperature_f"])
         if not temp_df.empty:
             fig = px.scatter(
                 temp_df, x="avg_temperature_f", y="ridership",
@@ -572,8 +570,8 @@ else:
             st.info("Temperature data not yet available.")
 
     with wx_c2:
-        st.subheader("Precipitation vs Ridership (Historical)")
-        prec_df = all_time_ridership.dropna(subset=["total_precipitation_mm"])
+        st.subheader("Precipitation vs Ridership")
+        prec_df = filtered_ridership.dropna(subset=["total_precipitation_mm"])
         if not prec_df.empty:
             fig = px.scatter(
                 prec_df, x="total_precipitation_mm", y="ridership",

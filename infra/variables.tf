@@ -1,9 +1,3 @@
-# Credentials
-variable "credentials" {
-  description = "Path to GCP service account key file"
-  default     = "../keys/gcp-terraform-sa.json"
-}
-
 # Project Details
 variable "project_id" {
   description = "Project ID"

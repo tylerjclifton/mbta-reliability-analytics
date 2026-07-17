@@ -4,14 +4,11 @@
 # Allow specific files and directories
 !Dockerfile
 !requirements.txt
-!keys/
 !transform/
 !infra/
 !ingest/
 
 # Ignore unnecessary files within allowed directories
-keys/*.backup
-keys/*.tmp
 transform/logs/
 transform/target/
 transform/dbt_packages/

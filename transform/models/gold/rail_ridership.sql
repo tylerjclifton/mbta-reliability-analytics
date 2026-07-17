@@ -36,7 +36,9 @@ SELECT
     w.total_precipitation_mm,
     w.avg_wind_speed_mph,
     w.avg_humidity_percent,
-    w.min_visibility_miles
+    w.min_visibility_miles,
+    r.ingestion_timestamp       AS ridership_ingestion_timestamp,
+    w.ingestion_timestamp       AS weather_ingestion_timestamp
 FROM {{ ref('mbta_silver_ridership') }} r
 LEFT JOIN alert_counts a
     ON  r.route_name = a.route_name
@@ -53,4 +55,6 @@ GROUP BY
     w.total_precipitation_mm,
     w.avg_wind_speed_mph,
     w.avg_humidity_percent,
-    w.min_visibility_miles
+    w.min_visibility_miles,
+    r.ingestion_timestamp,
+    w.ingestion_timestamp

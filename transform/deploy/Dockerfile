@@ -12,7 +12,6 @@ WORKDIR /app
 # Copy only necessary files from the repository root
 COPY requirements.txt /app/requirements.txt
 COPY transform/ /app/transform/
-COPY keys/gcp-dbt-sa.json /app/keys/gcp-dbt-sa.json
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r /app/requirements.txt

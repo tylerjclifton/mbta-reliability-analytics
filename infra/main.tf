@@ -5,6 +5,11 @@ terraform {
       version = "7.16.0"
     }
   }
+
+  backend "gcs" {
+    bucket = "mbta-reliability-analytics-tfstate"
+    prefix = "terraform/state"
+  }
 }
 
 provider "google" {

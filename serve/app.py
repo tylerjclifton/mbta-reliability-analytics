@@ -576,4 +576,4 @@ else:
 
 st.divider()
 st.caption("Sources: MBTA Alerts API · NWS Weather API · MBTA ArcGIS Open Data")
-st.caption("Cadence: Alerts refresh hourly · Weather refreshes daily at 6AM ET · Ridership & routes update quarterly (~1–2 month delay)")
+st.caption("Cadence: Alerts refresh hourly · Weather refreshes daily at 6AM ET · Ridership refreshes quarterly (~1–2 month delay)")

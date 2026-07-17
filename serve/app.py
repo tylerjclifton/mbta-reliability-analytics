@@ -148,9 +148,7 @@ def load_ridership():
             total_precipitation_mm,
             avg_wind_speed_mph,
             avg_humidity_percent,
-            min_visibility_miles,
-            ridership_ingestion_timestamp,
-            weather_ingestion_timestamp
+            min_visibility_miles
         FROM `{PROJECT_ID}.gold.rail_ridership`
         ORDER BY service_date DESC
     """
@@ -170,8 +168,7 @@ df_alerts["alert_start_date"] = pd.to_datetime(df_alerts["alert_start_date"])
 df_alerts["alert_end_date"]   = pd.to_datetime(df_alerts["alert_end_date"])
 df_ridership["service_date"]  = pd.to_datetime(df_ridership["service_date"])
 
-today       = pd.Timestamp.now(tz="UTC").normalize().tz_localize(None)
-month_start = today.replace(day=1)
+today = pd.Timestamp.now(tz="UTC").normalize().tz_localize(None)
 
 # ── Header ────────────────────────────────────────────────────────────────────
 
@@ -203,20 +200,10 @@ filtered_ridership = df_ridership[
 # Stable cause color order — computed once so both cause charts use matching colors
 cause_order = sorted(filtered_alerts["alert_cause"].dropna().unique().tolist())
 
-_alerts_updated  = pd.to_datetime(df_alerts["ingestion_timestamp"]).max()
-_weather_updated = (
-    pd.to_datetime(df_ridership["weather_ingestion_timestamp"]).max() if not df_ridership.empty else pd.NaT
-)
-_ridership_updated = (
-    pd.to_datetime(df_ridership["ridership_ingestion_timestamp"]).max() if not df_ridership.empty else pd.NaT
-)
+_alerts_updated = pd.to_datetime(df_alerts["ingestion_timestamp"]).max()
 
 st.caption("All data and charts reflect the trailing 12 months")
-st.caption(
-    f"Alerts updated {format_last_updated(_alerts_updated, include_time=True)} · "
-    f"Weather updated {format_last_updated(_weather_updated)} · "
-    f"Ridership updated {format_last_updated(_ridership_updated)}"
-)
+st.caption(f"Alerts updated {format_last_updated(_alerts_updated, include_time=True)}")
 
 # ── KPI row ───────────────────────────────────────────────────────────────────
 
@@ -225,13 +212,12 @@ active_alerts = filtered_alerts[
     (filtered_alerts["alert_end_date"].isna() | (filtered_alerts["alert_end_date"] >= today))
 ]
 upcoming_alerts = filtered_alerts[filtered_alerts["alert_start_date"] > today]
-month_alerts    = filtered_alerts[filtered_alerts["alert_start_date"] >= month_start]
 
 st.divider()
 k1, k2, k3, k4 = st.columns(4)
-k1.metric("Active Alerts",             f"{len(active_alerts):,}")
-k2.metric("Currently Impacted Routes", f"{active_alerts['route_id'].nunique()}")
-k3.metric("Alerts This Month",         f"{len(month_alerts):,}")
+k1.metric("Active Alerts",   f"{len(active_alerts):,}")
+k2.metric("Upcoming Alerts", f"{len(upcoming_alerts):,}")
+k3.metric("Impacted Routes", f"{active_alerts['route_id'].nunique()}")
 avg_dur = df_alerts["alert_duration_minutes"].mean()
 k4.metric("Average Alert Duration", format_duration(avg_dur))
 st.divider()

@@ -35,9 +35,9 @@ hr { border-color: #30363d; }
    the title, and tables stay readable once columns stack to full width. */
 @media (max-width: 640px) {
     .block-container { padding: 1rem 0.75rem !important; }
-    h1 { font-size: 1.5rem !important; }
-    h2 { font-size: 1.2rem !important; }
-    h3 { font-size: 1rem !important; }
+    h1 { font-size: 1.6rem !important; }
+    h2 { font-size: 1.35rem !important; }
+    h3 { font-size: 1.15rem !important; }
     [data-testid="stMetric"] { padding: 10px; }
     [data-testid="stMetricValue"] { font-size: 1.3rem !important; }
     [data-testid="stMetricLabel"] { font-size: 0.7rem !important; }
@@ -88,8 +88,11 @@ DARK_LAYOUT = dict(
     font_color="#ffffff",
     xaxis=dict(gridcolor="#30363d", zerolinecolor="#30363d"),
     yaxis=dict(gridcolor="#30363d", zerolinecolor="#30363d"),
-    legend=dict(bgcolor="#161b22", bordercolor="#30363d", borderwidth=1),
-    margin=dict(t=30, b=30, l=10, r=10),
+    legend=dict(
+        bgcolor="#161b22", bordercolor="#30363d", borderwidth=1,
+        orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5,
+    ),
+    margin=dict(t=90, b=30, l=10, r=10),
 )
 
 def route_color(route_id):
@@ -527,7 +530,6 @@ else:
             rangemode="tozero", gridcolor="rgba(0,0,0,0)",
             dtick=1, tickformat="d",
         ),
-        legend=dict(bgcolor="#161b22", bordercolor="#30363d", borderwidth=1),
     )
     fig.update_xaxes(dtick="M1", tickformat="%b %Y", tickangle=-45)
     st.plotly_chart(fig, use_container_width=True)

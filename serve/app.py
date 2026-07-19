@@ -35,9 +35,9 @@ hr { border-color: #30363d; }
    the title, and tables stay readable once columns stack to full width. */
 @media (max-width: 640px) {
     .block-container { padding: 1rem 0.75rem !important; }
-    h1 { font-size: 1.6rem !important; }
-    h2 { font-size: 1.35rem !important; }
-    h3 { font-size: 1.15rem !important; }
+    h1 { font-size: 1.75rem !important; }
+    h2 { font-size: 1.45rem !important; }
+    h3 { font-size: 1.3rem !important; }
     [data-testid="stMetric"] { padding: 10px; }
     [data-testid="stMetricValue"] { font-size: 1.3rem !important; }
     [data-testid="stMetricLabel"] { font-size: 0.7rem !important; }
@@ -92,13 +92,19 @@ DARK_LAYOUT = dict(
         bgcolor="#161b22", bordercolor="#30363d", borderwidth=1,
         orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5,
     ),
-    margin=dict(t=90, b=30, l=10, r=10),
+    margin=dict(t=30, b=30, l=10, r=10),
 )
 
 # Disables zoom/pan/toolbar on every chart — pinch-zoom and drag-to-pan
 # fight with normal page scrolling on mobile, and add no value here since
 # hover tooltips already surface exact values.
 CHART_CONFIG = {"displayModeBar": False, "scrollZoom": False, "doubleClick": False}
+
+def with_legend_margin(fig, top=100):
+    """Extra top margin for charts with a horizontal legend above the plot —
+    charts with no legend should keep DARK_LAYOUT's default margin instead,
+    or they're left with an empty gap under the header."""
+    fig.update_layout(margin=dict(t=top, b=30, l=10, r=10))
 
 def route_color(route_id):
     return ROUTE_COLORS.get(route_id, "#00843D")
@@ -302,6 +308,7 @@ with al_c1:
         labels={"route_id": "Route", "alert_count": "Alerts"},
     )
     fig.update_layout(**DARK_LAYOUT)
+    with_legend_margin(fig)
     fig.update_yaxes(tickformat="d", rangemode="tozero")
     st.plotly_chart(fig, use_container_width=True, config=CHART_CONFIG)
 
@@ -337,6 +344,7 @@ with cs_c1:
     )
     fig.update_traces(textfont_color="white")
     fig.update_layout(**{**DARK_LAYOUT, "showlegend": True})
+    with_legend_margin(fig, top=130)
     st.plotly_chart(fig, use_container_width=True, config=CHART_CONFIG)
 
 with cs_c2:
@@ -353,58 +361,61 @@ with cs_c2:
     )
     fig.update_traces(textfont_color="white")
     fig.update_layout(**{**DARK_LAYOUT, "showlegend": True})
+    with_legend_margin(fig, top=130)
     st.plotly_chart(fig, use_container_width=True, config=CHART_CONFIG)
 
-# Median duration by cause + effect — side by side horizontal bars.
-# Median (not mean) because a handful of multi-year construction alerts
-# would otherwise dominate the average and misrepresent typical duration.
+# Average duration by cause + effect — side by side horizontal bars.
+# Deliberately mean here (unlike the headline KPI, which uses median): a
+# cause/effect bucket with a high average is itself useful signal (e.g.
+# "construction-caused alerts tend to run long"), even when driven by a
+# rare multi-year outlier within that bucket.
 dur_c1, dur_c2 = st.columns(2)
 with dur_c1:
-    st.subheader("Median Alert Duration by Cause")
+    st.subheader("Average Alert Duration by Cause")
     dur_cause = (
         year_alerts.dropna(subset=["alert_duration_minutes", "alert_cause"])
         .groupby("alert_cause")["alert_duration_minutes"]
-        .median()
-        .reset_index(name="median_minutes")
-        .sort_values("median_minutes", ascending=True)
+        .mean()
+        .reset_index(name="avg_minutes")
+        .sort_values("avg_minutes", ascending=True)
     )
     if not dur_cause.empty:
-        dur_cause["median_display"] = dur_cause["median_minutes"].apply(format_duration)
+        dur_cause["avg_display"] = dur_cause["avg_minutes"].apply(format_duration)
         fig = px.bar(
-            dur_cause, x="median_minutes", y="alert_cause",
+            dur_cause, x="avg_minutes", y="alert_cause",
             orientation="h",
             color_discrete_sequence=["#80276C"],
-            labels={"median_minutes": "Median Duration", "alert_cause": ""},
-            text="median_display",
+            labels={"avg_minutes": "Avg Duration", "alert_cause": ""},
+            text="avg_display",
         )
         fig.update_traces(textposition="outside")
         fig.update_layout(**DARK_LAYOUT)
-        fig.update_xaxes(visible=False, range=[0, dur_cause["median_minutes"].max() * 1.2])
+        fig.update_xaxes(visible=False, range=[0, dur_cause["avg_minutes"].max() * 1.2])
         st.plotly_chart(fig, use_container_width=True, config=CHART_CONFIG)
     else:
         st.info("No data.")
 
 with dur_c2:
-    st.subheader("Median Alert Duration by Effect")
+    st.subheader("Average Alert Duration by Effect")
     dur_effect = (
         year_alerts.dropna(subset=["alert_duration_minutes", "alert_effect"])
         .groupby("alert_effect")["alert_duration_minutes"]
-        .median()
-        .reset_index(name="median_minutes")
-        .sort_values("median_minutes", ascending=True)
+        .mean()
+        .reset_index(name="avg_minutes")
+        .sort_values("avg_minutes", ascending=True)
     )
     if not dur_effect.empty:
-        dur_effect["median_display"] = dur_effect["median_minutes"].apply(format_duration)
+        dur_effect["avg_display"] = dur_effect["avg_minutes"].apply(format_duration)
         fig = px.bar(
-            dur_effect, x="median_minutes", y="alert_effect",
+            dur_effect, x="avg_minutes", y="alert_effect",
             orientation="h",
             color_discrete_sequence=["#0e7c7b"],
-            labels={"median_minutes": "Median Duration", "alert_effect": ""},
-            text="median_display",
+            labels={"avg_minutes": "Avg Duration", "alert_effect": ""},
+            text="avg_display",
         )
         fig.update_traces(textposition="outside")
         fig.update_layout(**DARK_LAYOUT)
-        fig.update_xaxes(visible=False, range=[0, dur_effect["median_minutes"].max() * 1.2])
+        fig.update_xaxes(visible=False, range=[0, dur_effect["avg_minutes"].max() * 1.2])
         st.plotly_chart(fig, use_container_width=True, config=CHART_CONFIG)
     else:
         st.info("No data.")
@@ -429,6 +440,7 @@ with cr_c1:
         )
         fig.update_traces(texttemplate="%{text:.0f}%", textposition="inside")
         fig.update_layout(**DARK_LAYOUT)
+        with_legend_margin(fig)
         fig.update_yaxes(range=[0, 100], ticksuffix="%")
         st.plotly_chart(fig, use_container_width=True, config=CHART_CONFIG)
     else:
@@ -451,6 +463,7 @@ with cr_c2:
         )
         fig.update_traces(texttemplate="%{text:.0f}%", textposition="inside")
         fig.update_layout(**DARK_LAYOUT)
+        with_legend_margin(fig)
         fig.update_yaxes(range=[0, 100], ticksuffix="%")
         st.plotly_chart(fig, use_container_width=True, config=CHART_CONFIG)
     else:
@@ -538,6 +551,7 @@ else:
             dtick=1, tickformat="d",
         ),
     )
+    with_legend_margin(fig, top=120)
     fig.update_xaxes(dtick="M1", tickformat="%b %Y", tickangle=-45)
     st.plotly_chart(fig, use_container_width=True, config=CHART_CONFIG)
 
@@ -558,6 +572,7 @@ else:
         labels={"day_of_week": "Day", "ridership": "Ridership", "route_name": "Line"},
     )
     fig.update_layout(**DARK_LAYOUT)
+    with_legend_margin(fig)
     st.plotly_chart(fig, use_container_width=True, config=CHART_CONFIG)
 
     st.divider()
@@ -577,6 +592,7 @@ else:
                         "ridership": "Daily Ridership", "route_name": "Line"},
             )
             fig.update_layout(**DARK_LAYOUT)
+            with_legend_margin(fig)
             st.plotly_chart(fig, use_container_width=True, config=CHART_CONFIG)
         else:
             st.info("Temperature data not yet available.")
@@ -594,6 +610,7 @@ else:
                         "ridership": "Daily Ridership", "route_name": "Line"},
             )
             fig.update_layout(**DARK_LAYOUT)
+            with_legend_margin(fig)
             st.plotly_chart(fig, use_container_width=True, config=CHART_CONFIG)
         else:
             st.info("Precipitation data not yet available.")

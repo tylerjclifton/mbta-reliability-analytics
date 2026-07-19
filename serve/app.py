@@ -30,6 +30,18 @@ section[data-testid="stMain"] { background-color: #0e1117; }
 [data-testid="stMetricLabel"] { color: #8b949e !important; font-size: 0.8rem; }
 [data-testid="stMetricValue"] { color: #ffffff !important; }
 hr { border-color: #30363d; }
+
+/* Mobile / small-tablet: tighten padding and scale down text so KPI cards,
+   the title, and tables stay readable once columns stack to full width. */
+@media (max-width: 640px) {
+    .block-container { padding: 1rem 0.75rem !important; }
+    h1 { font-size: 1.5rem !important; }
+    h2 { font-size: 1.2rem !important; }
+    h3 { font-size: 1rem !important; }
+    [data-testid="stMetric"] { padding: 10px; }
+    [data-testid="stMetricValue"] { font-size: 1.3rem !important; }
+    [data-testid="stMetricLabel"] { font-size: 0.7rem !important; }
+}
 </style>
 """, unsafe_allow_html=True)
 

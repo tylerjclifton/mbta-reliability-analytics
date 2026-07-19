@@ -344,7 +344,7 @@ with cs_c1:
     )
     fig.update_traces(textfont_color="white")
     fig.update_layout(**{**DARK_LAYOUT, "showlegend": True})
-    with_legend_margin(fig, top=130)
+    with_legend_margin(fig, top=170)
     st.plotly_chart(fig, use_container_width=True, config=CHART_CONFIG)
 
 with cs_c2:
@@ -361,7 +361,7 @@ with cs_c2:
     )
     fig.update_traces(textfont_color="white")
     fig.update_layout(**{**DARK_LAYOUT, "showlegend": True})
-    with_legend_margin(fig, top=130)
+    with_legend_margin(fig, top=170)
     st.plotly_chart(fig, use_container_width=True, config=CHART_CONFIG)
 
 # Average duration by cause + effect — side by side horizontal bars.
@@ -390,7 +390,7 @@ with dur_c1:
         )
         fig.update_traces(textposition="outside")
         fig.update_layout(**DARK_LAYOUT)
-        fig.update_xaxes(visible=False, range=[0, dur_cause["avg_minutes"].max() * 1.2])
+        fig.update_xaxes(visible=False, range=[0, dur_cause["avg_minutes"].max() * 1.4])
         st.plotly_chart(fig, use_container_width=True, config=CHART_CONFIG)
     else:
         st.info("No data.")
@@ -415,7 +415,7 @@ with dur_c2:
         )
         fig.update_traces(textposition="outside")
         fig.update_layout(**DARK_LAYOUT)
-        fig.update_xaxes(visible=False, range=[0, dur_effect["avg_minutes"].max() * 1.2])
+        fig.update_xaxes(visible=False, range=[0, dur_effect["avg_minutes"].max() * 1.4])
         st.plotly_chart(fig, use_container_width=True, config=CHART_CONFIG)
     else:
         st.info("No data.")
@@ -490,9 +490,14 @@ if not heat_df.empty:
     )
     fig.update_layout(
         **DARK_LAYOUT,
-        coloraxis_colorbar=dict(title="Alerts", tickfont=dict(color="#ffffff")),
+        coloraxis_colorbar=dict(
+            title="Alerts", tickfont=dict(color="#ffffff"),
+            orientation="h", x=0.5, xanchor="center",
+            y=1.02, yanchor="bottom", len=0.6,
+        ),
         xaxis_tickangle=-45,
     )
+    with_legend_margin(fig, top=100)
     st.plotly_chart(fig, use_container_width=True, config=CHART_CONFIG)
 else:
     st.info("No data.")

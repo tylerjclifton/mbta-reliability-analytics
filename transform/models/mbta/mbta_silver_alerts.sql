@@ -111,6 +111,10 @@ SELECT
         WHEN resolved_end_ts IS NULL THEN NULL
         ELSE NULLIF(DATE(DATETIME(resolved_end_ts, 'America/New_York')), DATE('1969-12-31'))
     END                                                  AS alert_end_date,
+    -- Full-precision start/end instants, for callers that need to know exactly
+    -- when an alert is active rather than just which calendar date it spans.
+    resolved_start_ts                                   AS alert_start_ts,
+    resolved_end_ts                                     AS alert_end_ts,
     alert_header,
     alert_description,
     INITCAP(REPLACE(alert_cause, '_', ' '))              AS alert_cause,

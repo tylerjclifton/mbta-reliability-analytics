@@ -11,6 +11,8 @@ SELECT
     a.route_id,
     a.alert_start_date,
     a.alert_end_date,
+    a.alert_start_ts,
+    a.alert_end_ts,
     a.alert_header,
     a.alert_description,
     a.alert_cause,

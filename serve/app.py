@@ -122,6 +122,8 @@ def load_alerts():
             route_name,
             alert_start_date,
             alert_end_date,
+            alert_start_ts,
+            alert_end_ts,
             alert_duration_minutes,
             alert_header,
             alert_description,
@@ -166,9 +168,12 @@ if df_alerts.empty:
 
 df_alerts["alert_start_date"] = pd.to_datetime(df_alerts["alert_start_date"])
 df_alerts["alert_end_date"]   = pd.to_datetime(df_alerts["alert_end_date"])
+df_alerts["alert_start_ts"]   = pd.to_datetime(df_alerts["alert_start_ts"], utc=True)
+df_alerts["alert_end_ts"]     = pd.to_datetime(df_alerts["alert_end_ts"], utc=True)
 df_ridership["service_date"]  = pd.to_datetime(df_ridership["service_date"])
 
-today = pd.Timestamp.now(tz="UTC").normalize().tz_localize(None)
+today  = pd.Timestamp.now(tz="UTC").normalize().tz_localize(None)
+now_ts = pd.Timestamp.now(tz="UTC")
 
 # ── Header ────────────────────────────────────────────────────────────────────
 
@@ -208,10 +213,10 @@ st.caption(f"Alerts updated {format_last_updated(_alerts_updated, include_time=T
 # ── KPI row ───────────────────────────────────────────────────────────────────
 
 active_alerts = filtered_alerts[
-    (filtered_alerts["alert_start_date"] <= today) &
-    (filtered_alerts["alert_end_date"].isna() | (filtered_alerts["alert_end_date"] >= today))
+    (filtered_alerts["alert_start_ts"] <= now_ts) &
+    (filtered_alerts["alert_end_ts"].isna() | (filtered_alerts["alert_end_ts"] >= now_ts))
 ]
-upcoming_alerts = filtered_alerts[filtered_alerts["alert_start_date"] > today]
+upcoming_alerts = filtered_alerts[filtered_alerts["alert_start_ts"] > now_ts]
 
 st.divider()
 k1, k2, k3, k4 = st.columns(4)

@@ -88,10 +88,7 @@ DARK_LAYOUT = dict(
     font_color="#ffffff",
     xaxis=dict(gridcolor="#30363d", zerolinecolor="#30363d", fixedrange=True),
     yaxis=dict(gridcolor="#30363d", zerolinecolor="#30363d", fixedrange=True),
-    legend=dict(
-        bgcolor="#161b22", bordercolor="#30363d", borderwidth=1,
-        orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5,
-    ),
+    legend=dict(bgcolor="#161b22", bordercolor="#30363d", borderwidth=1),
     margin=dict(t=30, b=30, l=10, r=10),
 )
 
@@ -99,12 +96,6 @@ DARK_LAYOUT = dict(
 # fight with normal page scrolling on mobile, and add no value here since
 # hover tooltips already surface exact values.
 CHART_CONFIG = {"displayModeBar": False, "scrollZoom": False, "doubleClick": False}
-
-def with_legend_margin(fig, top=100):
-    """Extra top margin for charts with a horizontal legend above the plot —
-    charts with no legend should keep DARK_LAYOUT's default margin instead,
-    or they're left with an empty gap under the header."""
-    fig.update_layout(margin=dict(t=top, b=30, l=10, r=10))
 
 def route_color(route_id):
     return ROUTE_COLORS.get(route_id, "#00843D")
@@ -228,8 +219,16 @@ filtered_ridership = df_ridership[
     (df_ridership["service_date"] >= _ridership_window_start)
 ]
 
-# Stable cause color order — computed once so both cause charts use matching colors
+# Stable cause/effect color maps — built once as an explicit name→color dict
+# (not just a shared order + sequence) so the pie's top-10 cutoff can never
+# leave it and the "by route" bar chart assigning different colors to the
+# same cause/effect. Set2 alone only has 8 colors but there can be up to 10
+# distinct causes, so it's extended with Set3 to avoid two causes silently
+# sharing a color.
 cause_order = sorted(filtered_alerts["alert_cause"].dropna().unique().tolist())
+effect_order = sorted(filtered_alerts["alert_effect"].dropna().unique().tolist())
+CAUSE_COLORS = dict(zip(cause_order, px.colors.qualitative.Set2 + px.colors.qualitative.Set3))
+EFFECT_COLORS = dict(zip(effect_order, px.colors.qualitative.Pastel))
 
 _alerts_updated = pd.to_datetime(df_alerts["ingestion_timestamp"]).max()
 
@@ -307,8 +306,8 @@ with al_c1:
         color="route_id", color_discrete_map=ROUTE_COLORS,
         labels={"route_id": "Route", "alert_count": "Alerts"},
     )
+    fig.update_traces(showlegend=False)
     fig.update_layout(**DARK_LAYOUT)
-    with_legend_margin(fig)
     fig.update_yaxes(tickformat="d", rangemode="tozero")
     st.plotly_chart(fig, use_container_width=True, config=CHART_CONFIG)
 
@@ -339,12 +338,10 @@ with cs_c1:
     )
     fig = px.pie(
         causes, names="alert_cause", values="count", hole=0.4,
-        color_discrete_sequence=px.colors.qualitative.Set2,
-        category_orders={"alert_cause": cause_order},
+        color="alert_cause", color_discrete_map=CAUSE_COLORS,
     )
     fig.update_traces(textfont_color="white")
     fig.update_layout(**{**DARK_LAYOUT, "showlegend": True})
-    with_legend_margin(fig, top=170)
     st.plotly_chart(fig, use_container_width=True, config=CHART_CONFIG)
 
 with cs_c2:
@@ -353,15 +350,12 @@ with cs_c2:
         year_alerts.groupby("alert_effect").size()
         .reset_index(name="count").sort_values("count", ascending=False).head(10)
     )
-    effect_order = sorted(year_alerts["alert_effect"].dropna().unique().tolist())
     fig = px.pie(
         effects, names="alert_effect", values="count", hole=0.4,
-        color_discrete_sequence=px.colors.qualitative.Pastel,
-        category_orders={"alert_effect": effect_order},
+        color="alert_effect", color_discrete_map=EFFECT_COLORS,
     )
     fig.update_traces(textfont_color="white")
     fig.update_layout(**{**DARK_LAYOUT, "showlegend": True})
-    with_legend_margin(fig, top=170)
     st.plotly_chart(fig, use_container_width=True, config=CHART_CONFIG)
 
 # Average duration by cause + effect — side by side horizontal bars.
@@ -409,7 +403,7 @@ with dur_c2:
         fig = px.bar(
             dur_effect, x="avg_minutes", y="alert_effect",
             orientation="h",
-            color_discrete_sequence=["#0e7c7b"],
+            color_discrete_sequence=["#80276C"],
             labels={"avg_minutes": "Avg Duration", "alert_effect": ""},
             text="avg_display",
         )
@@ -433,14 +427,13 @@ with cr_c1:
         fig = px.bar(
             cause_route_grp, x="route_id", y="pct",
             color="alert_cause", barmode="stack",
-            color_discrete_sequence=px.colors.qualitative.Set2,
+            color_discrete_map=CAUSE_COLORS,
             category_orders={"alert_cause": cause_order},
             labels={"route_id": "Route", "pct": "% of Alerts", "alert_cause": "Cause"},
             text="pct",
         )
         fig.update_traces(texttemplate="%{text:.0f}%", textposition="inside")
         fig.update_layout(**DARK_LAYOUT)
-        with_legend_margin(fig)
         fig.update_yaxes(range=[0, 100], ticksuffix="%")
         st.plotly_chart(fig, use_container_width=True, config=CHART_CONFIG)
     else:
@@ -452,18 +445,16 @@ with cr_c2:
     if not effect_route_grp.empty:
         totals = effect_route_grp.groupby("route_id")["count"].transform("sum")
         effect_route_grp["pct"] = (effect_route_grp["count"] / totals * 100).round(1)
-        effect_order = sorted(year_alerts["alert_effect"].dropna().unique().tolist())
         fig = px.bar(
             effect_route_grp, x="route_id", y="pct",
             color="alert_effect", barmode="stack",
-            color_discrete_sequence=px.colors.qualitative.Pastel,
+            color_discrete_map=EFFECT_COLORS,
             category_orders={"alert_effect": effect_order},
             labels={"route_id": "Route", "pct": "% of Alerts", "alert_effect": "Effect"},
             text="pct",
         )
         fig.update_traces(texttemplate="%{text:.0f}%", textposition="inside")
         fig.update_layout(**DARK_LAYOUT)
-        with_legend_margin(fig)
         fig.update_yaxes(range=[0, 100], ticksuffix="%")
         st.plotly_chart(fig, use_container_width=True, config=CHART_CONFIG)
     else:
@@ -472,7 +463,7 @@ with cr_c2:
 st.divider()
 
 # Cause → Effect heatmap
-st.subheader("Cause & Effect Matrix")
+st.subheader("Cause & Effect Matrix (Alert Count)")
 heat_df = (
     year_alerts
     .groupby(["alert_cause", "alert_effect"])
@@ -490,14 +481,9 @@ if not heat_df.empty:
     )
     fig.update_layout(
         **DARK_LAYOUT,
-        coloraxis_colorbar=dict(
-            title="Alerts", tickfont=dict(color="#ffffff"),
-            orientation="h", x=0.5, xanchor="center",
-            y=1.02, yanchor="bottom", len=0.6,
-        ),
+        coloraxis_showscale=False,
         xaxis_tickangle=-45,
     )
-    with_legend_margin(fig, top=100)
     st.plotly_chart(fig, use_container_width=True, config=CHART_CONFIG)
 else:
     st.info("No data.")
@@ -556,7 +542,6 @@ else:
             dtick=1, tickformat="d",
         ),
     )
-    with_legend_margin(fig, top=120)
     fig.update_xaxes(dtick="M1", tickformat="%b %Y", tickangle=-45)
     st.plotly_chart(fig, use_container_width=True, config=CHART_CONFIG)
 
@@ -577,7 +562,6 @@ else:
         labels={"day_of_week": "Day", "ridership": "Ridership", "route_name": "Line"},
     )
     fig.update_layout(**DARK_LAYOUT)
-    with_legend_margin(fig)
     st.plotly_chart(fig, use_container_width=True, config=CHART_CONFIG)
 
     st.divider()
@@ -597,7 +581,6 @@ else:
                         "ridership": "Daily Ridership", "route_name": "Line"},
             )
             fig.update_layout(**DARK_LAYOUT)
-            with_legend_margin(fig)
             st.plotly_chart(fig, use_container_width=True, config=CHART_CONFIG)
         else:
             st.info("Temperature data not yet available.")
@@ -615,7 +598,6 @@ else:
                         "ridership": "Daily Ridership", "route_name": "Line"},
             )
             fig.update_layout(**DARK_LAYOUT)
-            with_legend_margin(fig)
             st.plotly_chart(fig, use_container_width=True, config=CHART_CONFIG)
         else:
             st.info("Precipitation data not yet available.")

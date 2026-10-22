@@ -130,11 +130,15 @@ Dark theme; official MBTA line colors for every line-level visual, a neutral vio
 
 **Incident patterns** — incidents per week, by line, by cause and effect, median duration by cause, cause mix by line (heatmap)
 
-**Ridership** — per-line weekday average with year-over-year change; monthly trend; ridership on disruption days vs calm days; day of week
+**Ridership** — per-line average entries per day with year-over-year change; 24-month trend; ridership on disruption days vs calm days; day of week
 
-**Weather** — weekday ridership on rainy, snowy, and unusually cold/warm days vs normal-weather days
+**Weather** — ridership on rainy, snowy, and unusually cold/warm days vs normal-weather days
 
-Ridership comparisons use **% vs typical**: a day's entries vs the median for the same line, weekday, and month (federal holidays excluded), so line size, weekends, and seasons don't skew them.
+Ridership figures are **average entries per day**, weekends included. Time windows: every section covers the trailing 12 months, except the ridership trend (24 months, for year-over-year) and weather (all history — storms are rare).
+
+Incident history counts from when alert coverage became continuous (detected as the first incident after the last 14-day gap — the pre-October pipeline missed June 8 – July 1, 2026), so missing data never reads as a quiet day.
+
+The disruption and weather charts use **% vs typical**: a day's entries vs the median for the same line, day of week, and month (federal holidays excluded), so line size, weekends, and seasons don't skew them.
 
 ---
 

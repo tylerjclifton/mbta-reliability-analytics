@@ -68,6 +68,9 @@ LINES = list(LINE_COLORS)
 TIMEZONE = "America/New_York"
 WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
+# Space between a mark and its value label (an em space), so labels never touch bars or dots
+LABEL_GAP = "\u2003"
+
 # Charts are read-only: no toolbar, zoom, or pan (they fight page scrolling on mobile)
 CHART_CONFIG = {"displayModeBar": False, "scrollZoom": False, "doubleClick": False}
 
@@ -287,7 +290,9 @@ def incident_list(df, when, empty_text, limit=5):
 
 def style(fig, height=300, legend=False):
     """Apply the shared chart style: transparent surface, hairline grid, muted axes."""
-    axis = dict(gridcolor=GRID, linecolor=AXIS, zeroline=False, fixedrange=True,
+    # automargin grows the margin to fit long tick labels ("Medical Emergency")
+    # instead of clipping them; standoff keeps labels off the axis line
+    axis = dict(gridcolor=GRID, linecolor=AXIS, zeroline=False, fixedrange=True, automargin=True,
                 tickfont=dict(color=MUTED, size=11), title=None, ticks="")
     fig.update_layout(
         height=height,
@@ -300,8 +305,8 @@ def style(fig, height=300, legend=False):
                     bgcolor="rgba(0,0,0,0)"),
         hoverlabel=dict(bgcolor="#1c2027", bordercolor=BORDER, font=dict(family=FONT, color=INK, size=12)),
         bargap=0.35,
-        xaxis=axis,
-        yaxis=axis,
+        xaxis=dict(axis, ticklabelstandoff=6),
+        yaxis=dict(axis, ticklabelstandoff=10),
     )
     return fig
 
@@ -315,12 +320,16 @@ def ranked_bars(labels, values, text, hover, colors=ACCENT, height=None):
     fig = go.Figure(go.Bar(
         x=values, y=labels, orientation="h",
         marker=dict(color=colors, cornerradius=4),
-        text=text, textposition="outside", textfont=dict(color=INK_2, size=11), cliponaxis=False,
+        text=[LABEL_GAP + t for t in text], textposition="outside",
+        textfont=dict(color=INK_2, size=11), cliponaxis=False,
         hovertext=hover, hoverinfo="text",
     ))
     style(fig, height=height or max(180, 34 * len(labels) + 30))
     fig.update_yaxes(autorange="reversed", gridcolor="rgba(0,0,0,0)", tickfont=dict(color=INK_2, size=12))
-    fig.update_xaxes(visible=False, range=[0, max(values) * 1.18 if len(values) else 1])
+    # Value labels render into a fixed right margin (not a share of the axis),
+    # so the longest label fits at every screen width
+    fig.update_layout(margin=dict(l=4, r=84, t=8, b=4))
+    fig.update_xaxes(visible=False, range=[0, max(values) * 1.02 if len(values) else 1])
     return fig
 
 
@@ -592,7 +601,7 @@ else:
             fig = go.Figure(go.Scatter(
                 x=dur.values, y=dur.index, mode="markers+text",
                 marker=dict(color=ACCENT, size=11, line=dict(color=CARD, width=2)),
-                text=[fmt_duration(v) for v in dur.values], textposition="middle right",
+                text=[LABEL_GAP + fmt_duration(v) for v in dur.values], textposition="middle right",
                 textfont=dict(color=INK_2, size=11), cliponaxis=False,
                 hovertext=[f"{c}: median {fmt_duration(v)}" for c, v in dur.items()], hoverinfo="text",
             ))
@@ -692,7 +701,7 @@ with st.container(key="card_monthly"):
         fig.add_trace(go.Scatter(
             x=[last["month_start"]], y=[last["gated_entries"]], mode="markers+text",
             marker=dict(color=LINE_COLORS[line], size=9, line=dict(color=CARD, width=2)),
-            text=[f"  {line.replace(' Line', '')} · {fmt_count(last['gated_entries'])}"],
+            text=[f"{LABEL_GAP}{line.replace(' Line', '')} · {fmt_count(last['gated_entries'])}"],
             textposition="middle right", textfont=dict(color=INK_2, size=11),
             showlegend=False, hoverinfo="skip", cliponaxis=False,
         ))

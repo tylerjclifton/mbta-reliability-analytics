@@ -13,6 +13,11 @@ Layout:
   5. Weather           — rain, snow, and temperature vs. typical ridership
   6. Footer            — sources, cadence, method notes
 
+Time windows: every section covers the trailing 12 months, stated in its
+subtitle. Two exceptions, also labeled: the monthly ridership trend shows 24
+months (to compare each month with a year earlier) and weather uses all
+available days (snowstorms are too rare for a single winter).
+
 Counting unit is the incident (gold.rail_incidents): one real-world event the
 MBTA may have posted as several alerts. An alert ends at its posted end time or
 when it leaves the MBTA feed, whichever comes first (silver.mbta_alerts).
@@ -452,12 +457,17 @@ with next_col:
 # 3. Incident patterns
 # ══════════════════════════════════════════════════════════════════════════════
 
-history = started[started["incident_start_at"] >= tracking_start]
+# Trailing 12 months — or since alert tracking began, while that's more recent
+year_ago = now - pd.DateOffset(months=12)
+window_start = max(tracking_start, year_ago)
+history = started[started["incident_start_at"] >= window_start]
+window_label = ("Last 12 months" if window_start == year_ago
+                else f"Since alert tracking began on {fmt_day(tracking_start)}, {tracking_start.year}"
+                     " (less than 12 months ago)")
 
 section(
     "Incident patterns",
-    f"Every incident since alert tracking began on {fmt_day(tracking_start)}, {tracking_start.year}. "
-    "Re-posted alerts for the same event count once.",
+    f"{window_label}. Re-posted alerts for the same event count once.",
 )
 
 if history.empty:
@@ -491,10 +501,12 @@ else:
         with st.container(key="card_by_line"):
             card_title("By line", "Incidents on any of the line's routes")
             by_line = history.groupby("line_name")["incident_id"].nunique().reindex(selected_lines).fillna(0)
+            line_share = by_line / max(by_line.sum(), 1) * 100
             show(ranked_bars(
                 labels=list(by_line.index), values=list(by_line.values),
-                text=[f"{v:.0f}" for v in by_line.values],
-                hover=[f"{line}: {v:.0f} incidents" for line, v in by_line.items()],
+                text=[f"{v:.0f}  ·  {s:.0f}%" for v, s in zip(by_line.values, line_share.values, strict=True)],
+                hover=[f"{line}: {v:.0f} incidents ({s:.0f}%)"
+                       for line, v, s in zip(by_line.index, by_line.values, line_share.values, strict=True)],
                 colors=[LINE_COLORS[line] for line in by_line.index], height=260,
             ))
 
@@ -596,10 +608,14 @@ latest_month = full_months["month"].max()
 latest_label = latest_month.strftime("%b %Y")
 year_ago_label = (latest_month - 12).strftime("%b %Y")
 
+# Ridership's window ends at the latest published day, not today (the MBTA
+# publishes one to two months behind)
+ridership_year_start = ridership_through - pd.DateOffset(months=12) + pd.Timedelta(days=1)
+
 section(
     "Ridership",
-    "Fare-gate entries published by the MBTA, typically one to two months behind. "
-    f"Tiles show the average weekday in {latest_label}.",
+    f"12 months through {ridership_through:%b %Y} — the MBTA publishes fare-gate entries one to two "
+    f"months behind. Averages are for an ordinary weekday (Mon–Fri, no holidays); tiles show {latest_label}.",
 )
 
 # Ordinary weekdays: Monday–Friday, excluding federal holidays
@@ -624,8 +640,16 @@ st.write("")
 
 # ── Monthly trend ─────────────────────────────────────────────────────────────
 with st.container(key="card_monthly"):
-    card_title("Monthly ridership", "Average daily entries per month")
-    monthly = full_months.groupby(["month", "line_name"])["gated_entries"].mean().reset_index()
+    card_title("Monthly ridership", "Average weekday entries · last 24 months, to compare with a year earlier")
+    # Average per weekday, not monthly totals: months differ in length and in
+    # how many weekends and holidays they hold, which would move totals with no
+    # change in ridership. The month's total is in the hover.
+    trend_months = full_months[full_months["month"] > latest_month - 24]
+    month_weekdays = trend_months[(trend_months["weekday"] < 5) & ~trend_months["is_holiday"]]
+    monthly = (month_weekdays.groupby(["month", "line_name"])["gated_entries"].mean().rename("weekday_avg")
+               .to_frame()
+               .join(trend_months.groupby(["month", "line_name"])["gated_entries"].sum().rename("total"))
+               .reset_index())
     monthly["month_start"] = monthly["month"].dt.start_time
     fig = go.Figure()
     for line in selected_lines:
@@ -633,16 +657,18 @@ with st.container(key="card_monthly"):
         if m.empty:
             continue
         fig.add_trace(go.Scatter(
-            x=m["month_start"], y=m["gated_entries"], name=line, mode="lines",
+            x=m["month_start"], y=m["weekday_avg"], name=line, mode="lines",
             line=dict(color=LINE_COLORS[line], width=2.5),
-            hovertemplate=f"{line}<br>%{{x|%b %Y}}: %{{y:,.0f}} per day<extra></extra>",
+            customdata=m["total"],
+            hovertemplate=(f"{line} · %{{x|%b %Y}}<br>%{{y:,.0f}} per weekday"
+                           "<br>%{customdata:,.0f} entries that month<extra></extra>"),
         ))
         # Direct label + end dot at the latest month (identity is never color alone)
         last = m.iloc[-1]
         fig.add_trace(go.Scatter(
-            x=[last["month_start"]], y=[last["gated_entries"]], mode="markers+text",
+            x=[last["month_start"]], y=[last["weekday_avg"]], mode="markers+text",
             marker=dict(color=LINE_COLORS[line], size=9, line=dict(color=CARD, width=2)),
-            text=[f"{LABEL_GAP}{line.replace(' Line', '')} · {fmt_count(last['gated_entries'])}"],
+            text=[f"{LABEL_GAP}{line.replace(' Line', '')} · {fmt_count(last['weekday_avg'])}"],
             textposition="middle right", textfont=dict(color=INK_2, size=11),
             showlegend=False, hoverinfo="skip", cliponaxis=False,
         ))
@@ -658,10 +684,13 @@ impact_col, dow_col = st.columns(2, gap="medium")
 # ── Incident impact (replaces the old dual-axis chart) ────────────────────────
 with impact_col:
     with st.container(key="card_impact"):
-        card_title("Ridership on disruption days",
-                   f"Weekdays since {fmt_day(tracking_start)} · average % vs typical")
         tracking_day = tracking_start.tz_convert(TIMEZONE).tz_localize(None).normalize()
-        tracked = weekdays[weekdays["service_date"] >= tracking_day]
+        impact_start = max(tracking_day, ridership_year_start)
+        card_title("Ridership on disruption days",
+                   "Average % vs typical"
+                   + ("" if impact_start == ridership_year_start
+                      else f" · since alert tracking began {fmt_day(tracking_start)}"))
+        tracked = weekdays[weekdays["service_date"] >= impact_start]
         if tracked.empty:
             st.markdown('<div class="empty">Not enough overlapping data yet.</div>', unsafe_allow_html=True)
         else:
@@ -702,8 +731,8 @@ with impact_col:
 # ── Day of week ───────────────────────────────────────────────────────────────
 with dow_col:
     with st.container(key="card_dow"):
-        card_title("By day of week", "Average daily entries, last 12 months")
-        recent = ridership[ridership["service_date"] > ridership_through - pd.DateOffset(months=12)]
+        card_title("By day of week", "Average entries per day, holidays included")
+        recent = ridership[ridership["service_date"] >= ridership_year_start]
         dow = recent.groupby(["weekday", "line_name"])["gated_entries"].mean().reset_index()
         fig = go.Figure()
         for line in selected_lines:
@@ -725,9 +754,9 @@ with dow_col:
 
 section(
     "Weather",
-    "Weekday ridership under different conditions at Boston Logan, compared with normal-weather days. "
-    "Each day is first measured against typical for its line, weekday, and month, so seasons and "
-    "busy lines don't skew the comparison. Holidays excluded.",
+    f"All weekdays since {ridership_all['service_date'].min():%b %Y} — snowstorms and downpours are too rare "
+    "to judge from one year. Each day is measured against typical for its line, weekday, and month, then "
+    "compared with normal-weather days. Holidays excluded.",
 )
 
 wx = weekdays.dropna(subset=["avg_temperature_f"])

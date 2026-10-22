@@ -1,7 +1,8 @@
 {#
   gold.rail_alerts — one row per alert × route
 
-  Alerts enriched with route metadata, for the dashboard's alert views.
+  Individual alerts enriched with route metadata — the alert-level detail
+  behind gold.rail_incidents (which the dashboard reads).
 
   Steps:
     1. final select — silver alerts LEFT JOIN silver routes on route_id
@@ -11,6 +12,7 @@
 SELECT
     a.alert_id,
     a.route_id,
+    a.incident_id,
     r.route_name,
     r.line_name,
     r.route_type,

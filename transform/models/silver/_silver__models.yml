@@ -13,8 +13,9 @@ version: 2
 models:
   - name: mbta_alerts
     description: >
-      One row per alert × route: the latest snapshot of each MBTA rail alert,
-      with start and end resolved from the snapshot history (see model header).
+      One row per service-affecting alert × route: the latest snapshot of each
+      MBTA rail alert, with start and end resolved from the snapshot history
+      (see model header). Effects in var non_service_alert_effects are excluded.
     tests:
       - unique_combination:
           columns: [alert_id, route_id]
@@ -29,6 +30,9 @@ models:
           - relationships:
               to: ref('mbta_routes')
               field: route_id
+      - name: incident_id
+        description: "{{ doc('incident_id') }}"
+        tests: [not_null]
       - name: alert_header
         description: Short alert text.
       - name: alert_description
@@ -64,6 +68,11 @@ models:
               min_value: 0
               config:
                 severity: warn
+      - name: alert_location_key
+        description: >
+          Station/area named in the header after at/near/between/from,
+          lower-cased with punctuation removed (e.g. "jfkumass"); NULL if none.
+          Used to group alerts into incidents.
       - name: alert_created_at
         description: When MBTA created the alert (UTC).
       - name: alert_updated_at

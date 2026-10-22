@@ -3,7 +3,9 @@ Ingest: MBTA service alerts
 
 Source:     MBTA V3 API /alerts (https://api-v3.mbta.com)
 Cadence:    Hourly
-Each run:   Snapshots every rail alert currently in the live feed
+Each run:   Snapshots every rail alert currently in the live feed, including
+            ones that don't affect train service (e.g. elevator closures,
+            notices) — silver filters those out, so bronze stays complete
 Writes to:  bronze.mbta_alerts (append) — one row per alert × route per run
 
 The API only shows alerts that are active or upcoming; once an alert ends it
@@ -24,12 +26,6 @@ from common.bronze import append_to_bronze, fetch
 
 # Rail routes to snapshot — Silver Line, Mattapan, buses, and ferries excluded
 TARGET_ROUTES = ['Red', 'Blue', 'Orange', 'Green-B', 'Green-C', 'Green-D', 'Green-E']
-
-# Facility and amenity effects that don't affect train service
-EXCLUDE_EFFECTS = [
-    'STATION_ISSUE', 'ESCALATOR_CLOSURE', 'ELEVATOR_CLOSURE', 'PARKING_CLOSURE',
-    'PARKING_ISSUE', 'BIKE_ISSUE', 'DOCK_CLOSURE', 'DOCK_ISSUE', 'EXTRA_SERVICE',
-]
 
 
 def parse_timestamp(value):
@@ -55,10 +51,6 @@ alerts = fetch('https://api-v3.mbta.com/alerts', params=params, timeout=30).json
 rows = []
 for alert in alerts:
     attributes = alert.get('attributes', {})
-
-    # Skip effects that don't affect train service
-    if attributes.get('effect') in EXCLUDE_EFFECTS:
-        continue
 
     # Use the first active period; later periods (e.g. recurring weekend
     # closures) aren't tracked

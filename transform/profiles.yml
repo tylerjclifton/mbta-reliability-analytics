@@ -7,7 +7,7 @@ mbta_reliability_analytics:  # profile name for this project
       type: bigquery  # use BigQuery as the data warehouse
       method: oauth  # authenticate with gcloud auth application-default login
       project: mbta-reliability-analytics  # GCP project ID
-      dataset: silver  # default dataset required by dbt
+      dataset: silver  # default dataset required by dbt (models set their own)
       threads: 4  # number of threads dbt can use
       location: us-east1  # BigQuery dataset location
       timeout_seconds: 300  # query timeout in seconds
@@ -17,7 +17,7 @@ mbta_reliability_analytics:  # profile name for this project
       type: bigquery  # use BigQuery as the data warehouse
       method: oauth  # authenticate with attached service account (no keyfile needed)
       project: "{{ env_var('DBT_PROJECT_ID', 'mbta-reliability-analytics') }}"  # use env var or fallback project
-      dataset: silver  # default dataset required by dbt
+      dataset: silver  # default dataset required by dbt (models set their own)
       threads: 4  # number of threads dbt can use
       location: us-east1  # BigQuery dataset location
       timeout_seconds: 300  # query timeout in seconds

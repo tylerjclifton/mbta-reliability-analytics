@@ -23,6 +23,20 @@ vars:
   # MBTA service dates and NOAA observation days are both Eastern time
   local_timezone: 'America/New_York'
 
+  # Alert effects that don't affect train service (amenities, facilities,
+  # informational notices). Bronze keeps them; silver.mbta_alerts drops them.
+  non_service_alert_effects:
+    - NOTICE
+    - STATION_ISSUE
+    - ESCALATOR_CLOSURE
+    - ELEVATOR_CLOSURE
+    - PARKING_CLOSURE
+    - PARKING_ISSUE
+    - BIKE_ISSUE
+    - DOCK_CLOSURE
+    - DOCK_ISSUE
+    - EXTRA_SERVICE
+
 # Model configuration — one folder per medallion layer, one dataset per folder
 # See: https://docs.getdbt.com/docs/configuring-models
 #   bronze — append-only tables written by ingest jobs; declared as sources only

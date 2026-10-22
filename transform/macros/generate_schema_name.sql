@@ -1,12 +1,18 @@
 {% macro generate_schema_name(custom_schema_name, node) -%}
-  {#
-    Use model-level schema names exactly as provided (bronze/silver/gold map
-    straight to BigQuery datasets). If a model does not set schema, fall back
-    to target.schema.
-  #}
+  {#-
+    Map each model's layer (+schema in dbt_project.yml) to a BigQuery dataset.
+
+      gcp target (production)  → silver, gold
+      any other target (local) → dev_silver, dev_gold
+
+    So local builds never overwrite what the dashboard reads. Sources aren't
+    affected: both targets read the real bronze tables.
+  -#}
   {%- if custom_schema_name is none -%}
     {{ target.schema }}
-  {%- else -%}
+  {%- elif target.name == 'gcp' -%}
     {{ custom_schema_name | trim }}
+  {%- else -%}
+    dev_{{ custom_schema_name | trim }}
   {%- endif -%}
 {%- endmacro %}

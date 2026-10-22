@@ -51,8 +51,11 @@ Each layer is its own BigQuery dataset.
 
 | Gold table | Grain | Contents |
 |---|---|---|
-| `rail_alerts` | alert × route | Alerts with route name, line, and type |
-| `rail_ridership` | service date × line | Gated entries, active alert count, and weather |
+| `rail_incidents` | incident × route | One row per real-world event — the MBTA's re-posted/follow-up alerts collapsed (dashboard reads this) |
+| `rail_alerts` | alert × route | Individual alerts with route name, line, type, and their `incident_id` |
+| `rail_ridership` | service date × line | Gated entries, active incident and disruption counts, and weather |
+
+**Alerts → incidents.** The MBTA often posts several alerts for one event (an update, or "delays due to an earlier disabled train at JFK/UMass"). `silver.mbta_alerts` groups them: same route, cause, effect, and station named in the header, starting within 2 hours of the previous alert's end (6 hours for "earlier"/"residual" follow-ups). Alerts that don't affect train service (notices, elevator/parking issues — `non_service_alert_effects` in `dbt_project.yml`) are excluded in silver; bronze keeps them.
 
 ### Data quality
 
@@ -62,6 +65,7 @@ The transform job runs `dbt build` then `dbt source freshness`:
 - **Join tests** — line names are one of the four rail lines; every alert's route exists in routes
 - **Range tests** — temperatures, precipitation, gated entries, and severities are physically plausible
 - **Coverage** — warns if any ridership day has no weather
+- **Incidents** — every incident has at least one alert and a start time
 - **Freshness** — fails the run if an ingest job stops writing to bronze (thresholds per source in `transform/models/bronze/_bronze__sources.yml`)
 
 A failing test skips everything downstream of it, so bad data never reaches gold.
@@ -99,18 +103,17 @@ A failing test skips everything downstream of it, so bad data never reaches gold
 
 ## Dashboard
 
-**Alerts Section**
-- Active and upcoming alerts with cause, effect, duration, and route
-- Alerts by route and by month (last 12 months)
-- Cause share and effect share (donut charts)
-- Average duration by cause and effect
-- Causes and effects broken out by route (normalized %)
-- Cause → effect heatmap
+Dark theme; official MBTA line colors for every line-level visual, a neutral violet for everything else. Every line-colored mark also carries a text label.
 
-**Ridership Section**
-- Monthly ridership vs active alert count (dual-axis, by line)
-- Average ridership by day of week
-- Temperature, precipitation, and snowfall vs ridership (scatter with trendlines)
+**Service status** — KPIs (active now, planned in 30 days, last 30 days vs prior, median duration); incidents happening now and planned work coming up, one card per incident
+
+**Incident patterns** — incidents per week, by line, by cause and effect, median duration by cause, cause mix by line (heatmap)
+
+**Ridership** — per-line weekday average with year-over-year change; monthly trend; ridership on disruption days vs calm days; day of week
+
+**Weather** — weekday ridership on rainy, snowy, and unusually cold/warm days vs normal-weather days
+
+Ridership comparisons use **% vs typical**: a day's entries vs the median for the same line, weekday, and month (federal holidays excluded), so line size, weekends, and seasons don't skew them.
 
 ---
 
@@ -130,7 +133,7 @@ ingest/                 One shared image for every ingest job
 transform/              dbt Core project
   models/bronze/        Source declarations + freshness thresholds
   models/silver/        Per-source views + tests
-  models/gold/          Dashboard tables + tests
+  models/gold/          Dashboard tables (rail_incidents, rail_alerts, rail_ridership) + tests
   macros/               keep_latest_version, null_if_failed_ghcn_qc
   tests/generic/        unique_combination, accepted_range
 serve/                  Streamlit dashboard
@@ -148,8 +151,14 @@ pip install -r requirements.txt
 # Run an ingest job locally (writes to the real bronze table)
 PYTHONPATH=ingest python ingest/noaa-weather/main.py
 
-# Build/test dbt models locally (uses gcloud application-default credentials)
+# Build/test dbt models locally (uses gcloud application-default credentials).
+# The local target writes to dev_silver / dev_gold — never the live datasets.
 cd transform && dbt build --profiles-dir . --target local
+
+# Preview the dashboard against dev_gold in the production image
+docker build -t serve:dev serve && docker run --rm -p 8601:8080 \
+  -v ~/.config/gcloud:/root/.config/gcloud:ro -e GOOGLE_CLOUD_PROJECT=mbta-reliability-analytics \
+  -e GOLD_DATASET=dev_gold serve:dev          # → http://localhost:8601
 
 # Ship a change: build + push the image, bump its tag in Terraform, apply
 scripts/build-image.sh ingest v1.0.1      # or transform / serve

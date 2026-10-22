@@ -1,616 +1,843 @@
 """
-Serve: MBTA Reliability Analytics dashboard (Streamlit)
+Serve: MBTA Reliability & Ridership dashboard (Streamlit)
 
-Reads:      gold.rail_alerts, gold.rail_ridership (cached for 1 hour)
+Reads:      gold.rail_incidents, gold.rail_ridership (cached for 1 hour)
 Deployed:   Cloud Run service `serve` (infra/cloud-run-services.tf), public at
             tylerclifton.com
 
-All charts show the trailing 12 months. Ridership's window is anchored to the
-latest published service date, since the MBTA publishes with a 1–2 month lag.
+Layout:
+  1. Header + line filter
+  2. Service status    — KPIs, incidents happening now, planned work coming up
+  3. Incident patterns — when, where, why, and how long (since alert tracking began)
+  4. Ridership         — per-line KPIs, monthly trend, incident impact, day of week
+  5. Weather           — rain, snow, and temperature vs. typical ridership
+  6. Footer            — sources, cadence, method notes
+
+Counting unit is the incident (gold.rail_incidents): one real-world event the
+MBTA may have posted as several alerts.
+
+Ridership comparisons use "% vs typical": a day's gated entries relative to the
+median for the same line, weekday, and month. That removes line size, the
+weekday/weekend pattern, and seasonality, so what's left is the day's own effect.
 """
 
+import html
 import os
+
+import numpy as np
 import pandas as pd
-import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 from google.cloud import bigquery
+from pandas.tseries.holiday import USFederalHolidayCalendar
 
-# ── Page config ───────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# Design tokens
+# ══════════════════════════════════════════════════════════════════════════════
 
-st.set_page_config(
-    page_title="MBTA Reliability Analytics",
-    page_icon="🚇",
-    layout="wide",
-)
+# Surfaces and ink (dark theme; page background is set in .streamlit/config.toml)
+CARD   = "#13161b"   # card surface
+BORDER = "rgba(255,255,255,0.08)"
+INK    = "#f0efec"   # primary text
+INK_2  = "#b4b6bd"   # secondary text
+MUTED  = "#80838c"   # axis labels, captions
+GRID   = "#22252c"   # hairline gridlines
+AXIS   = "#3a3e47"   # baselines
 
-# ── Dark theme ─────────────────────────────────────────────────────────────────
+# Neutral accent for single-series charts — deliberately not a line color, so
+# it never reads as "Blue Line" or "Green Line"
+ACCENT = "#9085e9"
 
-st.markdown("""
-<style>
-.stApp { background-color: #0e1117; color: #ffffff; }
-[data-testid="stHeader"] { background-color: #0e1117; }
-[data-testid="stSidebar"] { background-color: #161b22; }
-section[data-testid="stMain"] { background-color: #0e1117; }
-[data-testid="stMetric"] {
-    background-color: #161b22;
-    border: 1px solid #30363d;
-    border-radius: 8px;
-    padding: 16px;
-}
-[data-testid="stMetricLabel"] { color: #8b949e !important; font-size: 0.8rem; }
-[data-testid="stMetricValue"] { color: #ffffff !important; }
-hr { border-color: #30363d; }
+# One-hue sequential ramp (dark → lighter on the dark surface) for heatmaps;
+# capped so white cell labels stay readable on the brightest cell
+SEQUENTIAL = [[0.0, "#1c1a2e"], [1.0, "#7366d6"]]
 
-/* Mobile / small-tablet: tighten padding and scale down text so KPI cards,
-   the title, and tables stay readable once columns stack to full width. */
-@media (max-width: 640px) {
-    .block-container { padding: 1rem 0.75rem !important; }
-    h1 { font-size: 1.75rem !important; }
-    h2 { font-size: 1.45rem !important; }
-    h3 { font-size: 1.3rem !important; }
-    [data-testid="stMetric"] { padding: 10px; }
-    [data-testid="stMetricValue"] { font-size: 1.3rem !important; }
-    [data-testid="stMetricLabel"] { font-size: 0.7rem !important; }
-}
-</style>
-""", unsafe_allow_html=True)
+FONT = "Inter, system-ui, -apple-system, 'Segoe UI', sans-serif"
 
-# ── Color maps ─────────────────────────────────────────────────────────────────
-
-ROUTE_COLORS = {
-    "Red":     "#DA291C",
-    "Blue":    "#003DA5",
-    "Orange":  "#ED8B00",
-    "Green-B": "#00843D",
-    "Green-C": "#00843D",
-    "Green-D": "#00843D",
-    "Green-E": "#00843D",
-}
-
+# Official MBTA line colors — the identity of every line-level visual. Official
+# Blue is low-contrast on the dark surface, so line-colored marks always carry
+# a direct text label as well.
 LINE_COLORS = {
     "Red Line":    "#DA291C",
     "Orange Line": "#ED8B00",
     "Blue Line":   "#003DA5",
     "Green Line":  "#00843D",
 }
+LINES = list(LINE_COLORS)
 
-DARK_LAYOUT = dict(
-    paper_bgcolor="#0e1117",
-    plot_bgcolor="#0e1117",
-    font_color="#ffffff",
-    xaxis=dict(gridcolor="#30363d", zerolinecolor="#30363d", fixedrange=True),
-    yaxis=dict(gridcolor="#30363d", zerolinecolor="#30363d", fixedrange=True),
-    legend=dict(bgcolor="#161b22", bordercolor="#30363d", borderwidth=1),
-    margin=dict(t=30, b=30, l=10, r=10),
-)
+TIMEZONE = "America/New_York"
+WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
-# Disables zoom/pan/toolbar on every chart — pinch-zoom and drag-to-pan
-# fight with normal page scrolling on mobile, and add no value here since
-# hover tooltips already surface exact values.
+# Charts are read-only: no toolbar, zoom, or pan (they fight page scrolling on mobile)
 CHART_CONFIG = {"displayModeBar": False, "scrollZoom": False, "doubleClick": False}
 
-def route_color(route_id):
-    return ROUTE_COLORS.get(route_id, "#00843D")
+# ══════════════════════════════════════════════════════════════════════════════
+# Page setup and global styles
+# ══════════════════════════════════════════════════════════════════════════════
 
-def format_duration(minutes):
-    """Format duration minutes as human-readable string."""
+st.set_page_config(page_title="MBTA Reliability & Ridership", page_icon="🚇", layout="wide")
+
+st.markdown(f"""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* Typography: one sans everywhere (icons keep their own font) */
+html, body, .stMarkdown, .stMarkdown *, .stCaption *, [data-testid="stPills"] p,
+[data-testid="stExpander"] summary p {{ font-family: {FONT} !important; }}
+
+/* Page frame: centered column with generous gutters; hide Streamlit chrome */
+.block-container {{ max-width: 1240px; padding: 3rem 2rem 4rem; }}
+[data-testid="stHeader"] {{ display: none; }}
+
+/* Header */
+.eyebrow {{ color: {MUTED}; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em;
+            text-transform: uppercase; margin-bottom: 0.4rem; }}
+.hero h1 {{ font-size: 2.6rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1;
+            margin: 0 0 0.6rem; padding: 0; color: {INK}; }}
+.hero p  {{ color: {INK_2}; font-size: 1.05rem; margin: 0 0 1rem; max-width: 54rem; }}
+.status  {{ display: inline-flex; flex-wrap: wrap; gap: 0.35rem 1rem; color: {MUTED};
+            font-size: 0.8rem; margin-bottom: 1.25rem; }}
+.status .live::before {{ content: ""; display: inline-block; width: 7px; height: 7px;
+            border-radius: 50%; background: #0ca30c; margin-right: 0.4rem; vertical-align: 1px; }}
+
+/* Section headers */
+.section {{ margin: 3.25rem 0 1rem; }}
+.section h2 {{ font-size: 1.5rem; font-weight: 650; letter-spacing: -0.01em; margin: 0; padding: 0; color: {INK}; }}
+.section p  {{ color: {INK_2}; font-size: 0.92rem; margin: 0.35rem 0 0; max-width: 52rem; }}
+
+/* Cards: every st.container(key="card_...") */
+div[class*="st-key-card_"] {{ background: {CARD}; border: 1px solid {BORDER}; border-radius: 14px;
+            padding: 1.15rem 1.25rem 0.75rem; }}
+.card-title {{ font-size: 1rem; font-weight: 600; color: {INK}; margin: 0; }}
+.card-sub   {{ font-size: 0.82rem; color: {MUTED}; margin: 0.15rem 0 0.5rem; }}
+
+/* KPI tiles */
+.kpis {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 0.75rem; }}
+.kpi  {{ background: {CARD}; border: 1px solid {BORDER}; border-radius: 14px; padding: 1rem 1.1rem;
+         position: relative; overflow: hidden; }}
+.kpi .stripe {{ position: absolute; left: 0; top: 0; bottom: 0; width: 4px; }}
+.kpi .label  {{ color: {MUTED}; font-size: 0.8rem; font-weight: 500; }}
+.kpi .value  {{ color: {INK}; font-size: 2rem; font-weight: 650; letter-spacing: -0.02em; line-height: 1.2; margin-top: 0.2rem; }}
+.kpi .sub    {{ color: {INK_2}; font-size: 0.8rem; margin-top: 0.15rem; }}
+.delta-up   {{ color: #0ca30c; }}
+.delta-down {{ color: #e66767; }}
+
+/* Incident list items */
+.inc {{ display: flex; gap: 0.85rem; padding: 0.8rem 0; border-top: 1px solid {BORDER}; }}
+.inc:first-of-type {{ border-top: none; }}
+.inc .bar  {{ width: 4px; border-radius: 2px; flex-shrink: 0; }}
+.inc .top  {{ display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.55rem; }}
+.inc .route {{ color: {INK}; font-weight: 600; font-size: 0.9rem; }}
+.inc .badge {{ color: {INK_2}; font-size: 0.72rem; font-weight: 600; border: 1px solid {BORDER};
+               border-radius: 999px; padding: 0.05rem 0.5rem; }}
+.inc .cause {{ color: {MUTED}; font-size: 0.78rem; }}
+.inc .text  {{ color: {INK_2}; font-size: 0.86rem; line-height: 1.45; margin-top: 0.3rem; }}
+.inc .meta  {{ color: {MUTED}; font-size: 0.78rem; margin-top: 0.3rem; }}
+.empty {{ color: {MUTED}; font-size: 0.9rem; padding: 0.5rem 0 1rem; }}
+
+/* Line filter pills: a colored dot per line, in LINES order */
+.st-key-line_filter button p::before {{ content: ""; display: inline-block; width: 8px; height: 8px;
+            border-radius: 50%; margin-right: 0.45rem; vertical-align: 1px; background: var(--dot); }}
+{"".join(f'.st-key-line_filter button:nth-of-type({i + 1}) {{ --dot: {c}; }}' for i, c in enumerate(LINE_COLORS.values()))}
+
+/* Expanders blend into cards */
+[data-testid="stExpander"] details {{ border: none; }}
+[data-testid="stExpander"] summary {{ color: {INK_2}; font-size: 0.85rem; padding-left: 0; }}
+
+/* Footer */
+.footer {{ color: {MUTED}; font-size: 0.8rem; line-height: 1.6; border-top: 1px solid {BORDER};
+           margin-top: 3.5rem; padding-top: 1.25rem; }}
+.footer b {{ color: {INK_2}; font-weight: 600; }}
+
+/* Phones: tighter gutters and type */
+@media (max-width: 640px) {{
+  .block-container {{ padding: 1.5rem 1rem 3rem; }}
+  .hero h1 {{ font-size: 1.9rem; }}
+  .section {{ margin-top: 2.5rem; }}
+  .kpis {{ grid-template-columns: repeat(2, 1fr); }}
+  .kpi .value {{ font-size: 1.5rem; }}
+}}
+</style>
+""", unsafe_allow_html=True)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Formatting helpers
+# ══════════════════════════════════════════════════════════════════════════════
+
+def fmt_duration(minutes):
+    """45 min · 2.7 hr · 1 day · 12 days"""
     if pd.isna(minutes) or minutes < 0:
-        return "N/A"
+        return "—"
     if minutes < 60:
-        return f"{int(minutes)} min"
+        return f"{minutes:.0f} min"
     if minutes < 1440:
-        return f"{minutes/60:.1f} hrs"
-    return f"{minutes/1440:.1f} days"
+        return f"{minutes / 60:.1f} hr"
+    days = minutes / 1440
+    return "1 day" if days < 1.5 else f"{days:.0f} days"
 
-def format_last_updated(ts, include_time=False):
-    """Format a UTC ingestion timestamp as an ET date (optionally with time)."""
-    if pd.isna(ts):
-        return "N/A"
-    if ts.tzinfo is None:
-        ts = ts.tz_localize("UTC")
-    ts_et = ts.tz_convert("America/New_York")
-    return ts_et.strftime("%b %d, %Y %I:%M %p ET") if include_time else ts_et.strftime("%b %d, %Y")
 
-# ── BigQuery client ───────────────────────────────────────────────────────────
+def fmt_count(n):
+    """1,284 · 118K · 3.2M"""
+    if n >= 1_000_000:
+        return f"{n / 1_000_000:.1f}M"
+    if n >= 10_000:
+        return f"{n / 1_000:.0f}K"
+    return f"{n:,.0f}"
+
+
+def fmt_pct(x, decimals=1):
+    """Signed percent with a true minus sign: +2.1% · −6.4%"""
+    return f"{x:+.{decimals}f}%".replace("-", "−")
+
+
+def fmt_day(ts):
+    """Oct 19"""
+    return ts.tz_convert(TIMEZONE).strftime("%b %-d")
+
+
+def esc(text):
+    return html.escape(str(text)) if text is not None and not pd.isna(text) else ""
+
+
+def strip_route_prefix(header):
+    """MBTA headers repeat the route ("Green Line C Branch: ..."); the card already shows it."""
+    head, sep, rest = str(header).partition(": ")
+    return rest if sep and "Line" in head and len(head) < 40 else header
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Layout helpers
+# ══════════════════════════════════════════════════════════════════════════════
+
+def section(title, subtitle=None):
+    """Section heading with an optional one-line explanation."""
+    sub = f"<p>{subtitle}</p>" if subtitle else ""
+    st.markdown(f'<div class="section"><h2>{title}</h2>{sub}</div>', unsafe_allow_html=True)
+
+
+def card_title(title, subtitle=None):
+    """Title (and optional subtitle) at the top of a card."""
+    sub = f'<div class="card-sub">{subtitle}</div>' if subtitle else '<div class="card-sub"></div>'
+    st.markdown(f'<div class="card-title">{title}</div>{sub}', unsafe_allow_html=True)
+
+
+def kpi_tiles(tiles):
+    """
+    Row of KPI tiles. Each tile: dict(label, value, sub=None, color=None).
+    `color` draws a left stripe (used for line-specific tiles).
+    """
+    cells = []
+    for t in tiles:
+        stripe = f'<div class="stripe" style="background:{t["color"]}"></div>' if t.get("color") else ""
+        sub = f'<div class="sub">{t["sub"]}</div>' if t.get("sub") else ""
+        cells.append(f'<div class="kpi">{stripe}<div class="label">{t["label"]}</div>'
+                     f'<div class="value">{t["value"]}</div>{sub}</div>')
+    st.markdown(f'<div class="kpis">{"".join(cells)}</div>', unsafe_allow_html=True)
+
+
+def incident_items(df, when):
+    """HTML list of incidents; `when(row)` returns the timing line."""
+    items = []
+    for _, row in df.iterrows():
+        color = LINE_COLORS.get(row["line_name"], MUTED)
+        items.append(
+            f'<div class="inc"><div class="bar" style="background:{color}"></div><div>'
+            f'<div class="top"><span class="route">{esc(row["route_name"])}</span>'
+            f'<span class="badge">{esc(row["incident_effect"])}</span>'
+            f'<span class="cause">{esc(row["incident_cause"])}</span></div>'
+            f'<div class="text">{esc(strip_route_prefix(row["incident_header"]))}</div>'
+            f'<div class="meta">{when(row)}</div></div></div>'
+        )
+    return "".join(items)
+
+
+def join_routes(route_names):
+    """["Green Line B", "Green Line C"] → "Green Line B · C"; other lines joined with commas."""
+    names = sorted(set(route_names))
+    if len(names) > 1 and all(n.startswith("Green Line ") for n in names):
+        return "Green Line " + " · ".join(n.removeprefix("Green Line ") for n in names)
+    return ", ".join(names)
+
+
+def one_row_per_incident(df):
+    """
+    gold.rail_incidents has one row per incident × route, so a shutdown across
+    four Green Line branches is four rows. Collapse to one row per incident with
+    the routes joined ("Green Line B · C · D · E").
+    """
+    if df.empty:
+        return df
+    routes = df.groupby("incident_id")["route_name"].agg(join_routes)
+    first = df.drop_duplicates("incident_id").set_index("incident_id")
+    return first.assign(route_name=routes).reset_index()
+
+
+def incident_list(df, when, empty_text, limit=5):
+    """First `limit` incidents inline; the rest behind a "Show more" expander."""
+    if df.empty:
+        st.markdown(f'<div class="empty">{empty_text}</div>', unsafe_allow_html=True)
+        return
+    st.markdown(incident_items(df.head(limit), when), unsafe_allow_html=True)
+    if len(df) > limit:
+        with st.expander(f"Show {len(df) - limit} more"):
+            st.markdown(incident_items(df.iloc[limit:], when), unsafe_allow_html=True)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Chart helpers — one look for every chart
+# ══════════════════════════════════════════════════════════════════════════════
+
+def style(fig, height=300, legend=False):
+    """Apply the shared chart style: transparent surface, hairline grid, muted axes."""
+    axis = dict(gridcolor=GRID, linecolor=AXIS, zeroline=False, fixedrange=True,
+                tickfont=dict(color=MUTED, size=11), title=None, ticks="")
+    fig.update_layout(
+        height=height,
+        margin=dict(l=4, r=12, t=8, b=4),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(family=FONT, color=INK_2, size=12),
+        showlegend=legend,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0, font=dict(color=INK_2, size=11),
+                    bgcolor="rgba(0,0,0,0)"),
+        hoverlabel=dict(bgcolor="#1c2027", bordercolor=BORDER, font=dict(family=FONT, color=INK, size=12)),
+        bargap=0.35,
+        xaxis=axis,
+        yaxis=axis,
+    )
+    return fig
+
+
+def show(fig):
+    st.plotly_chart(fig, config=CHART_CONFIG, width="stretch")
+
+
+def ranked_bars(labels, values, text, hover, colors=ACCENT, height=None):
+    """Horizontal bars, largest on top, value label at each bar's tip."""
+    fig = go.Figure(go.Bar(
+        x=values, y=labels, orientation="h",
+        marker=dict(color=colors, cornerradius=4),
+        text=text, textposition="outside", textfont=dict(color=INK_2, size=11), cliponaxis=False,
+        hovertext=hover, hoverinfo="text",
+    ))
+    style(fig, height=height or max(180, 34 * len(labels) + 30))
+    fig.update_yaxes(autorange="reversed", gridcolor="rgba(0,0,0,0)", tickfont=dict(color=INK_2, size=12))
+    fig.update_xaxes(visible=False, range=[0, max(values) * 1.18 if len(values) else 1])
+    return fig
+
+
+def band_bars(df, height=260):
+    """
+    Weather-band bars: each band vs the normal-conditions band (drawn at zero),
+    signed label on each bar. Expects columns band, pct, days.
+    """
+    fig = go.Figure(go.Bar(
+        x=df["band"].astype(str), y=df["pct"],
+        marker=dict(color=ACCENT, cornerradius=4),
+        # The baseline band is zero by definition; label it as such
+        text=["baseline" if abs(v) < 1e-9 else fmt_pct(v) for v in df["pct"]], textposition="outside",
+        cliponaxis=False, textfont=dict(color=INK_2, size=11),
+        hovertext=[f"{b}<br>{fmt_pct(p)} vs normal days · {d} days" for b, p, d in zip(df["band"], df["pct"], df["days"])],
+        hoverinfo="text",
+    ))
+    style(fig, height=height)
+    span = max(abs(df["pct"]).max(), 2) * 1.35
+    fig.update_yaxes(range=[-span, span], ticksuffix="%", zeroline=True, zerolinecolor=AXIS, zerolinewidth=1)
+    fig.update_xaxes(tickfont=dict(color=INK_2, size=11))
+    return fig
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Data
+# ══════════════════════════════════════════════════════════════════════════════
 
 PROJECT_ID = os.getenv("GCP_PROJECT_ID", "mbta-reliability-analytics")
+# Dataset to read; point at dev_gold to preview a local dbt build
+GOLD_DATASET = os.getenv("GOLD_DATASET", "gold")
+
 
 @st.cache_resource
 def get_client():
     return bigquery.Client(project=PROJECT_ID)
 
-# ── Data loading ──────────────────────────────────────────────────────────────
 
-@st.cache_data(ttl=3600)
-def load_alerts():
-    client = get_client()
-    query = f"""
+@st.cache_data(ttl=3600, show_spinner=False)
+def load_incidents():
+    df = get_client().query(f"""
         SELECT
-            alert_id,
-            route_id,
-            line_name,
-            alert_start_date,
-            alert_end_date,
-            alert_start_at,
-            alert_end_at,
-            alert_duration_minutes,
-            alert_header,
-            alert_description,
-            alert_cause,
-            alert_effect,
-            alert_severity,
-            ingested_at
-        FROM `{PROJECT_ID}.gold.rail_alerts`
-        ORDER BY alert_start_date DESC
-    """
-    return client.query(query).to_dataframe()
+            incident_id, route_id, route_name, line_name,
+            incident_cause, incident_effect, incident_header,
+            incident_start_at, incident_end_at, incident_duration_minutes,
+            alert_count, is_in_feed, ingested_at
+        FROM `{PROJECT_ID}.{GOLD_DATASET}.rail_incidents`
+    """).to_dataframe()
+    for col in ["incident_start_at", "incident_end_at", "ingested_at"]:
+        df[col] = pd.to_datetime(df[col], utc=True)
+    return df
 
-@st.cache_data(ttl=3600)
+
+@st.cache_data(ttl=3600, show_spinner=False)
 def load_ridership():
-    client = get_client()
-    query = f"""
+    df = get_client().query(f"""
         SELECT
-            service_date,
-            line_name,
-            gated_entries,
-            active_alert_count,
-            avg_temperature_f,
-            precipitation_in,
-            snowfall_in
-        FROM `{PROJECT_ID}.gold.rail_ridership`
-        ORDER BY service_date DESC
-    """
-    return client.query(query).to_dataframe()
+            service_date, line_name, gated_entries, active_incident_count,
+            active_disruption_count, avg_temperature_f, precipitation_in, snowfall_in
+        FROM `{PROJECT_ID}.{GOLD_DATASET}.rail_ridership`
+    """).to_dataframe()
+    df["service_date"] = pd.to_datetime(df["service_date"])
 
-# ── Load data ─────────────────────────────────────────────────────────────────
+    # "% vs typical": entries relative to the median for the same line, weekday,
+    # and month — strips out line size, weekday pattern, and seasonality
+    df["weekday"] = df["service_date"].dt.dayofweek
+    df["month"] = df["service_date"].dt.to_period("M")
+    typical = df.groupby(["line_name", "weekday", "month"])["gated_entries"].transform("median")
+    df["pct_vs_typical"] = (df["gated_entries"] / typical - 1) * 100
 
-with st.spinner("Loading data..."):
-    df_alerts    = load_alerts()
-    df_ridership = load_ridership()
+    # Federal holidays behave like weekends; flag them so weekday comparisons skip them
+    holidays = USFederalHolidayCalendar().holidays(df["service_date"].min(), df["service_date"].max())
+    df["is_holiday"] = df["service_date"].isin(holidays)
+    return df
 
-if df_alerts.empty:
+
+incidents_all = load_incidents()
+ridership_all = load_ridership()
+
+now = pd.Timestamp.now(tz="UTC")
+
+if incidents_all.empty and ridership_all.empty:
     st.warning("No data available yet.")
     st.stop()
 
-df_alerts["alert_start_date"] = pd.to_datetime(df_alerts["alert_start_date"])
-df_alerts["alert_end_date"]   = pd.to_datetime(df_alerts["alert_end_date"])
-df_alerts["alert_start_at"]   = pd.to_datetime(df_alerts["alert_start_at"], utc=True)
-df_alerts["alert_end_at"]     = pd.to_datetime(df_alerts["alert_end_at"], utc=True)
-df_ridership["service_date"]  = pd.to_datetime(df_ridership["service_date"])
+# Alert tracking began with the first ingest run; incident history starts there
+tracking_start = incidents_all["ingested_at"].min()
 
-today  = pd.Timestamp.now(tz="UTC").normalize().tz_localize(None)
-now_ts = pd.Timestamp.now(tz="UTC")
+# ══════════════════════════════════════════════════════════════════════════════
+# 1. Header + line filter
+# ══════════════════════════════════════════════════════════════════════════════
 
-# ── Header ────────────────────────────────────────────────────────────────────
+alerts_updated = incidents_all["ingested_at"].max()
+ridership_through = ridership_all["service_date"].max()
 
-st.markdown(
-    "<h1 style='text-align:center; color:#ffffff;'>🚇 MBTA Reliability Analytics</h1>",
-    unsafe_allow_html=True,
+st.markdown(f"""
+<div class="hero">
+  <div class="eyebrow">MBTA rapid transit</div>
+  <h1>Reliability &amp; Ridership</h1>
+  <p>Service incidents, ridership, and weather across Boston's Red, Orange, Blue, and Green Lines.</p>
+  <div class="status">
+    <span class="live">Alerts updated {alerts_updated.tz_convert(TIMEZONE).strftime("%b %-d, %-I:%M %p ET")}</span>
+    <span>Ridership through {ridership_through.strftime("%b %-d, %Y")}</span>
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+selected_lines = st.pills(
+    "Lines", LINES, selection_mode="multi", default=LINES,
+    key="line_filter", label_visibility="collapsed",
+) or LINES  # Nothing selected → show everything rather than an empty page
+
+incidents = incidents_all[incidents_all["line_name"].isin(selected_lines)]
+ridership = ridership_all[ridership_all["line_name"].isin(selected_lines)]
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 2. Service status
+# ══════════════════════════════════════════════════════════════════════════════
+
+section("Service status", "Incidents on the selected lines right now, and planned work ahead.")
+
+active = one_row_per_incident(incidents[
+    (incidents["incident_start_at"] <= now)
+    & (incidents["incident_end_at"].isna() | (incidents["incident_end_at"] >= now))
+]).sort_values("incident_start_at", ascending=False)
+
+upcoming = one_row_per_incident(incidents[incidents["incident_start_at"] > now]).sort_values("incident_start_at")
+upcoming_30d = upcoming[upcoming["incident_start_at"] <= now + pd.Timedelta(days=30)]
+
+started = incidents[incidents["incident_start_at"] <= now]
+last_30 = started[started["incident_start_at"] > now - pd.Timedelta(days=30)]
+prior_30 = started[(started["incident_start_at"] <= now - pd.Timedelta(days=30))
+                   & (started["incident_start_at"] > now - pd.Timedelta(days=60))]
+last_90 = started[started["incident_start_at"] > now - pd.Timedelta(days=90)]
+
+# Change vs the previous 30 days; fewer incidents is good (green)
+if len(prior_30):
+    change = (len(last_30) / len(prior_30) - 1) * 100
+    css = "delta-up" if change <= 0 else "delta-down"
+    arrow = "▼" if change <= 0 else "▲"
+    trend = f'<span class="{css}">{arrow} {abs(change):.0f}%</span> vs prior 30'
+else:
+    trend = "first 30 days of tracking"
+
+kpi_tiles([
+    dict(label="Active now", value=f"{len(active)}",
+         sub=f"on {active['line_name'].nunique()} line{'s' if active['line_name'].nunique() != 1 else ''}" if len(active) else "all clear"),
+    dict(label="Planned · 30 days", value=f"{len(upcoming_30d)}",
+         sub=f"next starts {fmt_day(upcoming_30d['incident_start_at'].iloc[0])}" if len(upcoming_30d) else "none scheduled"),
+    dict(label="Last 30 days", value=f"{len(last_30)}", sub=trend),
+    dict(label="Median duration", value=fmt_duration(last_90["incident_duration_minutes"].median()),
+         sub="last 90 days"),
+])
+
+st.write("")
+now_col, next_col = st.columns(2, gap="medium")
+
+with now_col:
+    with st.container(key="card_active"):
+        card_title("Happening now", f"{len(active)} active incident{'s' if len(active) != 1 else ''}")
+        incident_list(
+            active,
+            lambda r: (f"Since {fmt_day(r['incident_start_at'])} · "
+                       + (f"until {fmt_day(r['incident_end_at'])}" if pd.notna(r["incident_end_at"]) else "no end time posted")
+                       + f" · {fmt_duration(r['incident_duration_minutes'])}"
+                       + (" so far" if pd.isna(r["incident_end_at"]) else "")),
+            "No active incidents on the selected lines.",
+        )
+
+with next_col:
+    with st.container(key="card_upcoming"):
+        card_title("Coming up", "Planned work the MBTA has announced")
+        incident_list(
+            upcoming,
+            lambda r: (f"Starts {fmt_day(r['incident_start_at'])}"
+                       + (f" · until {fmt_day(r['incident_end_at'])}" if pd.notna(r["incident_end_at"]) else "")
+                       + f" · {fmt_duration(r['incident_duration_minutes'])}"),
+            "No planned work announced.",
+        )
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 3. Incident patterns
+# ══════════════════════════════════════════════════════════════════════════════
+
+history = started[started["incident_start_at"] >= tracking_start]
+
+section(
+    "Incident patterns",
+    f"Every incident since alert tracking began on {fmt_day(tracking_start)}, {tracking_start.year}. "
+    "Re-posted alerts for the same event count once.",
 )
 
-# ── Global filters ──────────────────────────────────────────────────────────
-
-all_lines      = ["Red Line", "Orange Line", "Blue Line", "Green Line"]
-selected_lines = st.multiselect("Filter by Route", all_lines, default=all_lines)
-
-filtered_alerts = df_alerts[df_alerts["line_name"].isin(selected_lines)]
-
-# TTM window — applied to all charts
-year_start  = today - pd.DateOffset(months=12)
-year_alerts = filtered_alerts[filtered_alerts["alert_start_date"] >= year_start]
-
-# Ridership: TTM anchored to latest available date
-_max_ridership_date    = df_ridership["service_date"].max() if not df_ridership.empty else today
-_ridership_window_start = _max_ridership_date - pd.DateOffset(months=12)
-filtered_ridership = df_ridership[
-    df_ridership["line_name"].isin(selected_lines) &
-    (df_ridership["service_date"] >= _ridership_window_start)
-]
-
-# Stable cause/effect color maps — built once as an explicit name→color dict
-# (not just a shared order + sequence) so the pie's top-10 cutoff can never
-# leave it and the "by route" bar chart assigning different colors to the
-# same cause/effect. Set2 alone only has 8 colors but there can be up to 10
-# distinct causes, so it's extended with Set3 to avoid two causes silently
-# sharing a color.
-cause_order = sorted(filtered_alerts["alert_cause"].dropna().unique().tolist())
-effect_order = sorted(filtered_alerts["alert_effect"].dropna().unique().tolist())
-CAUSE_COLORS = dict(zip(cause_order, px.colors.qualitative.Set2 + px.colors.qualitative.Set3))
-EFFECT_COLORS = dict(zip(effect_order, px.colors.qualitative.Pastel))
-
-_alerts_updated = pd.to_datetime(df_alerts["ingested_at"]).max()
-
-st.caption("All data and charts reflect the trailing 12 months")
-st.caption(f"Alerts updated {format_last_updated(_alerts_updated, include_time=True)}")
-
-# ── KPI row ───────────────────────────────────────────────────────────────────
-
-active_alerts = filtered_alerts[
-    (filtered_alerts["alert_start_at"] <= now_ts) &
-    (filtered_alerts["alert_end_at"].isna() | (filtered_alerts["alert_end_at"] >= now_ts))
-]
-upcoming_alerts = filtered_alerts[filtered_alerts["alert_start_at"] > now_ts]
-
-st.divider()
-k1, k2, k3, k4 = st.columns(4)
-k1.metric("Active Alerts",   f"{len(active_alerts):,}")
-k2.metric("Upcoming Alerts", f"{len(upcoming_alerts):,}")
-k3.metric("Impacted Routes", f"{active_alerts['route_id'].nunique()}")
-median_dur = df_alerts["alert_duration_minutes"].median()
-k4.metric("Median Alert Duration", format_duration(median_dur))
-st.divider()
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# ALERTS SECTION
-# ═══════════════════════════════════════════════════════════════════════════════
-
-st.markdown("<h2 style='text-align:center'>🚨 Alerts</h2>", unsafe_allow_html=True)
-st.divider()
-
-def _alert_table(df):
-    display = df[[
-        "route_id", "alert_effect", "alert_cause",
-        "alert_start_date", "alert_end_date", "alert_duration_minutes",
-        "alert_header", "alert_description",
-    ]].rename(columns={
-        "route_id": "Route", "alert_effect": "Effect", "alert_cause": "Cause",
-        "alert_start_date": "Start", "alert_end_date": "End",
-        "alert_duration_minutes": "Duration",
-        "alert_header": "Header", "alert_description": "Description",
-    }).copy()
-    display["Start"] = display["Start"].dt.date
-    display["End"]   = display["End"].apply(lambda x: x.date() if pd.notna(x) else "Ongoing")
-    display["Duration"] = display["Duration"].apply(format_duration)
-    return display
-
-# Active alerts table
-st.subheader("Active Alerts")
-if active_alerts.empty:
-    st.info("No active alerts right now.")
+if history.empty:
+    st.markdown('<div class="empty">No incidents recorded yet.</div>', unsafe_allow_html=True)
 else:
-    st.dataframe(_alert_table(active_alerts), use_container_width=True, hide_index=True)
+    # ── When: incidents per week ──────────────────────────────────────────────
+    week_col, line_col = st.columns([3, 2], gap="medium")
+    with week_col:
+        with st.container(key="card_weekly"):
+            card_title("Incidents per week", "By the week the incident started")
+            weeks = (history["incident_start_at"].dt.tz_convert(TIMEZONE).dt.tz_localize(None)
+                     .dt.to_period("W-SUN").dt.start_time)
+            weekly = weeks.value_counts().sort_index()
+            weekly = weekly.reindex(pd.date_range(weekly.index.min(), weekly.index.max(), freq="7D"), fill_value=0)
+            # The current week is still in progress — draw it lighter
+            this_week = pd.Timestamp.now(tz=TIMEZONE).tz_localize(None).to_period("W-SUN").start_time
+            opacity = [0.45 if w == this_week else 1.0 for w in weekly.index]
+            fig = go.Figure(go.Bar(
+                x=weekly.index, y=weekly.values,
+                marker=dict(color=ACCENT, cornerradius=4, opacity=opacity),
+                hovertext=[f"Week of {w:%b %-d}{' (so far)' if w == this_week else ''}<br>{n} incidents"
+                           for w, n in weekly.items()],
+                hoverinfo="text",
+            ))
+            style(fig, height=260)
+            fig.update_xaxes(tickformat="%b %-d", gridcolor="rgba(0,0,0,0)")
+            show(fig)
 
-st.divider()
+    # ── Where: incidents by line ──────────────────────────────────────────────
+    with line_col:
+        with st.container(key="card_by_line"):
+            card_title("By line", "Incidents on any of the line's routes")
+            by_line = history.groupby("line_name")["incident_id"].nunique().reindex(selected_lines).fillna(0)
+            show(ranked_bars(
+                labels=list(by_line.index), values=list(by_line.values),
+                text=[f"{v:.0f}" for v in by_line.values],
+                hover=[f"{l}: {v:.0f} incidents" for l, v in by_line.items()],
+                colors=[LINE_COLORS[l] for l in by_line.index], height=260,
+            ))
 
-# Upcoming alerts table — scheduled to start in the future
-st.subheader("Upcoming Alerts")
-if upcoming_alerts.empty:
-    st.info("No upcoming alerts scheduled.")
-else:
-    st.dataframe(_alert_table(upcoming_alerts), use_container_width=True, hide_index=True)
+    # ── Why: causes and effects ───────────────────────────────────────────────
+    cause_col, effect_col = st.columns(2, gap="medium")
+    cause_counts = history["incident_cause"].value_counts()
+    top_causes = cause_counts.head(7)
+    if len(cause_counts) > 7:
+        top_causes["Other"] = cause_counts.iloc[7:].sum()
 
-st.divider()
+    with cause_col:
+        with st.container(key="card_causes"):
+            card_title("What causes incidents", "Top causes; the rest grouped as Other")
+            share = top_causes / top_causes.sum() * 100
+            show(ranked_bars(
+                labels=list(top_causes.index), values=list(top_causes.values),
+                text=[f"{n}  ·  {s:.0f}%" for n, s in zip(top_causes.values, share.values)],
+                hover=[f"{c}: {n} incidents ({s:.0f}%)" for c, n, s in zip(top_causes.index, top_causes.values, share.values)],
+            ))
 
-# Alerts by route + by month
-al_c1, al_c2 = st.columns(2)
-with al_c1:
-    st.subheader("Alerts by Route")
-    route_counts = (
-        year_alerts
-        .groupby("route_id").size().reset_index(name="alert_count")
-    )
-    fig = px.bar(
-        route_counts, x="route_id", y="alert_count",
-        color="route_id", color_discrete_map=ROUTE_COLORS,
-        labels={"route_id": "Route", "alert_count": "Alerts"},
-    )
-    fig.update_traces(showlegend=False)
-    fig.update_layout(**DARK_LAYOUT)
-    fig.update_yaxes(tickformat="d", rangemode="tozero")
-    st.plotly_chart(fig, use_container_width=True, config=CHART_CONFIG)
+    with effect_col:
+        with st.container(key="card_effects"):
+            card_title("What riders experience", "Effect on service")
+            effects = history["incident_effect"].value_counts()
+            share = effects / effects.sum() * 100
+            show(ranked_bars(
+                labels=list(effects.index), values=list(effects.values),
+                text=[f"{n}  ·  {s:.0f}%" for n, s in zip(effects.values, share.values)],
+                hover=[f"{e}: {n} incidents ({s:.0f}%)" for e, n, s in zip(effects.index, effects.values, share.values)],
+                height=max(180, 34 * len(top_causes) + 30),  # match the causes card
+            ))
 
-with al_c2:
-    st.subheader("Alerts by Month")
-    monthly_df = year_alerts.copy()
-    monthly_df["month"] = monthly_df["alert_start_date"].dt.to_period("M").dt.to_timestamp()
-    monthly = monthly_df.groupby("month").size().reset_index(name="alert_count")
-    fig = px.bar(
-        monthly, x="month", y="alert_count",
-        color_discrete_sequence=["#80276C"],
-        labels={"month": "Month", "alert_count": "Alerts"},
-    )
-    fig.update_layout(**DARK_LAYOUT)
-    fig.update_yaxes(tickformat="d", rangemode="tozero")
-    fig.update_xaxes(dtick="M1", tickformat="%b %Y", tickangle=-45)
-    st.plotly_chart(fig, use_container_width=True, config=CHART_CONFIG)
+    # ── How long, and where each cause hits ───────────────────────────────────
+    dur_col, mix_col = st.columns(2, gap="medium")
+    named_causes = [c for c in top_causes.index if c != "Other"]
 
-st.divider()
+    with dur_col:
+        with st.container(key="card_duration"):
+            card_title("How long they last", "Median duration by cause")
+            dur = (history[history["incident_cause"].isin(named_causes)]
+                   .groupby("incident_cause")["incident_duration_minutes"].median()
+                   .reindex(named_causes))
+            fig = go.Figure(go.Scatter(
+                x=dur.values, y=dur.index, mode="markers+text",
+                marker=dict(color=ACCENT, size=11, line=dict(color=CARD, width=2)),
+                text=[fmt_duration(v) for v in dur.values], textposition="middle right",
+                textfont=dict(color=INK_2, size=11), cliponaxis=False,
+                hovertext=[f"{c}: median {fmt_duration(v)}" for c, v in dur.items()], hoverinfo="text",
+            ))
+            style(fig, height=max(180, 34 * len(named_causes) + 40))
+            if dur.max() < 1440:
+                # Everything under a day: linear hours read more naturally
+                hours = int(np.ceil(dur.max() / 60)) + 1
+                fig.update_xaxes(range=[0, hours * 60 * 1.15], tickvals=[h * 60 for h in range(0, hours + 1)],
+                                 ticktext=[f"{h} hr" for h in range(0, hours + 1)])
+            else:
+                # Mixed hours and days: log scale keeps short causes readable
+                fig.update_xaxes(type="log", tickvals=[60, 360, 1440, 10080, 43200],
+                                 ticktext=["1 hr", "6 hr", "1 day", "1 wk", "1 mo"],
+                                 range=[np.log10(20), np.log10(200000)])
+            fig.update_yaxes(autorange="reversed", gridcolor="rgba(0,0,0,0)", tickfont=dict(color=INK_2, size=12))
+            show(fig)
 
-# Cause share + Effect share side by side
-cs_c1, cs_c2 = st.columns(2)
-with cs_c1:
-    st.subheader("Alerts by Cause")
-    causes = (
-        year_alerts.groupby("alert_cause").size()
-        .reset_index(name="count").sort_values("count", ascending=False).head(10)
-    )
-    fig = px.pie(
-        causes, names="alert_cause", values="count", hole=0.4,
-        color="alert_cause", color_discrete_map=CAUSE_COLORS,
-    )
-    fig.update_traces(textfont_color="white")
-    fig.update_layout(**{**DARK_LAYOUT, "showlegend": True})
-    st.plotly_chart(fig, use_container_width=True, config=CHART_CONFIG)
+    with mix_col:
+        with st.container(key="card_mix"):
+            card_title("Cause mix by line", "Share of each line's incidents")
+            mix = (history[history["incident_cause"].isin(named_causes)]
+                   .groupby(["incident_cause", "line_name"])["incident_id"].nunique().unstack(fill_value=0)
+                   .reindex(index=named_causes, columns=selected_lines, fill_value=0))
+            mix_pct = mix / history.groupby("line_name")["incident_id"].nunique().reindex(selected_lines) * 100
+            fig = go.Figure(go.Heatmap(
+                z=mix_pct.values, x=[l.replace(" Line", "") for l in mix_pct.columns], y=mix_pct.index,
+                colorscale=SEQUENTIAL, showscale=False, xgap=3, ygap=3,
+                text=[[f"{v:.0f}%" for v in row] for row in mix_pct.values], texttemplate="%{text}",
+                textfont=dict(size=11, color=INK),
+                hovertemplate="%{y} · %{x} Line<br>%{text} of incidents<extra></extra>",
+            ))
+            style(fig, height=max(180, 34 * len(named_causes) + 40))
+            fig.update_yaxes(autorange="reversed", gridcolor="rgba(0,0,0,0)", tickfont=dict(color=INK_2, size=12))
+            fig.update_xaxes(side="top", gridcolor="rgba(0,0,0,0)", tickfont=dict(color=INK_2, size=12))
+            show(fig)
 
-with cs_c2:
-    st.subheader("Alerts by Effect")
-    effects = (
-        year_alerts.groupby("alert_effect").size()
-        .reset_index(name="count").sort_values("count", ascending=False).head(10)
-    )
-    fig = px.pie(
-        effects, names="alert_effect", values="count", hole=0.4,
-        color="alert_effect", color_discrete_map=EFFECT_COLORS,
-    )
-    fig.update_traces(textfont_color="white")
-    fig.update_layout(**{**DARK_LAYOUT, "showlegend": True})
-    st.plotly_chart(fig, use_container_width=True, config=CHART_CONFIG)
+# ══════════════════════════════════════════════════════════════════════════════
+# 4. Ridership
+# ══════════════════════════════════════════════════════════════════════════════
 
-# Average duration by cause + effect — side by side horizontal bars.
-# Deliberately mean here (unlike the headline KPI, which uses median): a
-# cause/effect bucket with a high average is itself useful signal (e.g.
-# "construction-caused alerts tend to run long"), even when driven by a
-# rare multi-year outlier within that bucket.
-dur_c1, dur_c2 = st.columns(2)
-with dur_c1:
-    st.subheader("Average Alert Duration by Cause")
-    dur_cause = (
-        year_alerts.dropna(subset=["alert_duration_minutes", "alert_cause"])
-        .groupby("alert_cause")["alert_duration_minutes"]
-        .mean()
-        .reset_index(name="avg_minutes")
-        .sort_values("avg_minutes", ascending=True)
-    )
-    if not dur_cause.empty:
-        dur_cause["avg_display"] = dur_cause["avg_minutes"].apply(format_duration)
-        fig = px.bar(
-            dur_cause, x="avg_minutes", y="alert_cause",
-            orientation="h",
-            color_discrete_sequence=["#80276C"],
-            labels={"avg_minutes": "Avg Duration", "alert_cause": ""},
-            text="avg_display",
-        )
-        fig.update_traces(textposition="outside")
-        fig.update_layout(**DARK_LAYOUT)
-        fig.update_xaxes(visible=False, range=[0, dur_cause["avg_minutes"].max() * 1.4])
-        st.plotly_chart(fig, use_container_width=True, config=CHART_CONFIG)
-    else:
-        st.info("No data.")
+if ridership.empty:
+    section("Ridership")
+    st.markdown('<div class="empty">No ridership data available yet.</div>', unsafe_allow_html=True)
+    st.stop()
 
-with dur_c2:
-    st.subheader("Average Alert Duration by Effect")
-    dur_effect = (
-        year_alerts.dropna(subset=["alert_duration_minutes", "alert_effect"])
-        .groupby("alert_effect")["alert_duration_minutes"]
-        .mean()
-        .reset_index(name="avg_minutes")
-        .sort_values("avg_minutes", ascending=True)
-    )
-    if not dur_effect.empty:
-        dur_effect["avg_display"] = dur_effect["avg_minutes"].apply(format_duration)
-        fig = px.bar(
-            dur_effect, x="avg_minutes", y="alert_effect",
-            orientation="h",
-            color_discrete_sequence=["#80276C"],
-            labels={"avg_minutes": "Avg Duration", "alert_effect": ""},
-            text="avg_display",
-        )
-        fig.update_traces(textposition="outside")
-        fig.update_layout(**DARK_LAYOUT)
-        fig.update_xaxes(visible=False, range=[0, dur_effect["avg_minutes"].max() * 1.4])
-        st.plotly_chart(fig, use_container_width=True, config=CHART_CONFIG)
-    else:
-        st.info("No data.")
+# Complete months only (the MBTA publishes whole months, but guard the edges)
+month_days = ridership.groupby(["line_name", "month"])["service_date"].nunique().rename("days").reset_index()
+month_days = month_days[month_days["days"] == month_days["month"].dt.days_in_month]
+full_months = ridership.merge(month_days[["line_name", "month"]], on=["line_name", "month"])
+latest_month = full_months["month"].max()
+latest_label = latest_month.strftime("%b %Y")
+year_ago_label = (latest_month - 12).strftime("%b %Y")
 
-st.divider()
-
-# Cause breakdown by route — normalized to % so routes with fewer alerts are still comparable
-cr_c1, cr_c2 = st.columns(2)
-with cr_c1:
-    st.subheader("Cause Distribution by Route")
-    cause_route_grp = year_alerts.groupby(["route_id", "alert_cause"]).size().reset_index(name="count")
-    if not cause_route_grp.empty:
-        totals = cause_route_grp.groupby("route_id")["count"].transform("sum")
-        cause_route_grp["pct"] = (cause_route_grp["count"] / totals * 100).round(1)
-        fig = px.bar(
-            cause_route_grp, x="route_id", y="pct",
-            color="alert_cause", barmode="stack",
-            color_discrete_map=CAUSE_COLORS,
-            category_orders={"alert_cause": cause_order},
-            labels={"route_id": "Route", "pct": "% of Alerts", "alert_cause": "Cause"},
-            text="pct",
-        )
-        fig.update_traces(texttemplate="%{text:.0f}%", textposition="inside")
-        fig.update_layout(**DARK_LAYOUT)
-        fig.update_yaxes(range=[0, 100], ticksuffix="%")
-        st.plotly_chart(fig, use_container_width=True, config=CHART_CONFIG)
-    else:
-        st.info("No data.")
-
-with cr_c2:
-    st.subheader("Effect Distribution by Route")
-    effect_route_grp = year_alerts.groupby(["route_id", "alert_effect"]).size().reset_index(name="count")
-    if not effect_route_grp.empty:
-        totals = effect_route_grp.groupby("route_id")["count"].transform("sum")
-        effect_route_grp["pct"] = (effect_route_grp["count"] / totals * 100).round(1)
-        fig = px.bar(
-            effect_route_grp, x="route_id", y="pct",
-            color="alert_effect", barmode="stack",
-            color_discrete_map=EFFECT_COLORS,
-            category_orders={"alert_effect": effect_order},
-            labels={"route_id": "Route", "pct": "% of Alerts", "alert_effect": "Effect"},
-            text="pct",
-        )
-        fig.update_traces(texttemplate="%{text:.0f}%", textposition="inside")
-        fig.update_layout(**DARK_LAYOUT)
-        fig.update_yaxes(range=[0, 100], ticksuffix="%")
-        st.plotly_chart(fig, use_container_width=True, config=CHART_CONFIG)
-    else:
-        st.info("No data.")
-
-st.divider()
-
-# Cause → Effect heatmap
-st.subheader("Cause & Effect Matrix (Alert Count)")
-heat_df = (
-    year_alerts
-    .groupby(["alert_cause", "alert_effect"])
-    .size()
-    .reset_index(name="count")
+section(
+    "Ridership",
+    "Fare-gate entries published by the MBTA, typically one to two months behind. "
+    f"Tiles show the average weekday in {latest_label}.",
 )
-if not heat_df.empty:
-    heat_pivot = heat_df.pivot(index="alert_cause", columns="alert_effect", values="count").fillna(0)
-    fig = px.imshow(
-        heat_pivot,
-        color_continuous_scale=[[0, "#f5e8f5"], [0.5, "#80276C"], [1.0, "#2d0a2d"]],
-        text_auto=True,
-        aspect="auto",
-        labels={"x": "Effect", "y": "Cause", "color": "Alerts"},
-    )
-    fig.update_layout(
-        **DARK_LAYOUT,
-        coloraxis_showscale=False,
-        xaxis_tickangle=-45,
-    )
-    st.plotly_chart(fig, use_container_width=True, config=CHART_CONFIG)
-else:
-    st.info("No data.")
 
-st.divider()
+# Ordinary weekdays: Monday–Friday, excluding federal holidays
+weekdays = ridership[(ridership["weekday"] < 5) & ~ridership["is_holiday"]]
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# RIDERSHIP SECTION
-# ═══════════════════════════════════════════════════════════════════════════════
+# ── Per-line KPIs: average weekday entries in the latest month, year over year ──
+tiles = []
+for line in selected_lines:
+    wk = weekdays[weekdays["line_name"] == line]
+    current = wk[wk["month"] == latest_month]["gated_entries"].mean()
+    year_ago = wk[wk["month"] == latest_month - 12]["gated_entries"].mean()
+    if pd.notna(year_ago) and year_ago:
+        change = (current / year_ago - 1) * 100
+        sub = (f'<span class="{"delta-up" if change >= 0 else "delta-down"}">{"▲" if change >= 0 else "▼"} '
+               f'{abs(change):.1f}%</span> vs {year_ago_label}')
+    else:
+        sub = "no prior-year data"
+    tiles.append(dict(label=line,
+                      value=fmt_count(current) if pd.notna(current) else "—", sub=sub, color=LINE_COLORS[line]))
+kpi_tiles(tiles)
+st.write("")
 
-st.markdown("<h2 style='text-align:center'>🚃 Ridership</h2>", unsafe_allow_html=True)
-
-if df_ridership.empty:
-    st.info("No ridership data available yet.")
-else:
-    st.divider()
-
-    # Ridership over time with alert count overlay — aggregated to monthly
-    st.subheader("Alert Impact on Ridership")
-
-    monthly_r = filtered_ridership.copy()
-    monthly_r["month"] = monthly_r["service_date"].dt.to_period("M").dt.to_timestamp()
-    monthly_r = monthly_r.groupby(["month", "line_name"]).agg(
-        gated_entries=("gated_entries", "sum"),
-        active_alert_count=("active_alert_count", "mean"),
-    ).reset_index()
-
+# ── Monthly trend ─────────────────────────────────────────────────────────────
+with st.container(key="card_monthly"):
+    card_title("Monthly ridership", "Average daily entries per month")
+    monthly = full_months.groupby(["month", "line_name"])["gated_entries"].mean().reset_index()
+    monthly["month_start"] = monthly["month"].dt.start_time
     fig = go.Figure()
     for line in selected_lines:
-        line_data = monthly_r[monthly_r["line_name"] == line].sort_values("month")
-        color = LINE_COLORS.get(line, "#888888")
-        fig.add_trace(go.Bar(
-            name=line,
-            x=line_data["month"],
-            y=line_data["gated_entries"],
-            marker_color=color,
-            opacity=1.0,
-            yaxis="y1",
-        ))
+        m = monthly[monthly["line_name"] == line].sort_values("month_start")
+        if m.empty:
+            continue
         fig.add_trace(go.Scatter(
-            name=f"{line} Alerts",
-            x=line_data["month"],
-            y=line_data["active_alert_count"],
-            mode="lines",
-            line=dict(color=color, dash="dot", width=2),
-            yaxis="y2",
+            x=m["month_start"], y=m["gated_entries"], name=line, mode="lines",
+            line=dict(color=LINE_COLORS[line], width=2.5),
+            hovertemplate=f"{line}<br>%{{x|%b %Y}}: %{{y:,.0f}} per day<extra></extra>",
         ))
+        # Direct label + end dot at the latest month (identity is never color alone)
+        last = m.iloc[-1]
+        fig.add_trace(go.Scatter(
+            x=[last["month_start"]], y=[last["gated_entries"]], mode="markers+text",
+            marker=dict(color=LINE_COLORS[line], size=9, line=dict(color=CARD, width=2)),
+            text=[f"  {line.replace(' Line', '')} · {fmt_count(last['gated_entries'])}"],
+            textposition="middle right", textfont=dict(color=INK_2, size=11),
+            showlegend=False, hoverinfo="skip", cliponaxis=False,
+        ))
+    style(fig, height=340)
+    fig.update_layout(margin=dict(l=4, r=100, t=8, b=4))
+    # Yearly ticks stay legible at phone width (the end labels take the right margin)
+    fig.update_xaxes(tickformat="%b %Y", gridcolor="rgba(0,0,0,0)", dtick="M12", tick0="2025-01-01", tickangle=0)
+    fig.update_yaxes(tickformat="~s", rangemode="tozero")
+    show(fig)
 
-    fig.update_layout(**DARK_LAYOUT)
-    fig.update_layout(
-        barmode="group",
-        yaxis=dict(title="Ridership", gridcolor="#30363d", rangemode="tozero"),
-        yaxis2=dict(
-            title="Active Alerts", overlaying="y", side="right",
-            rangemode="tozero", gridcolor="rgba(0,0,0,0)",
-            dtick=1, tickformat="d",
-        ),
-    )
-    fig.update_xaxes(dtick="M1", tickformat="%b %Y", tickangle=-45)
-    st.plotly_chart(fig, use_container_width=True, config=CHART_CONFIG)
+impact_col, dow_col = st.columns(2, gap="medium")
 
-    st.divider()
-
-    # Day of week ridership
-    st.subheader("Average Ridership by Day")
-    dow_order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-    dow_df = filtered_ridership.copy()
-    dow_df["day_of_week"] = dow_df["service_date"].dt.day_name()
-    dow = dow_df.groupby(["day_of_week", "line_name"])["gated_entries"].mean().reset_index()
-    dow["day_of_week"] = pd.Categorical(dow["day_of_week"], categories=dow_order, ordered=True)
-    dow = dow.sort_values("day_of_week")
-    fig = px.bar(
-        dow, x="day_of_week", y="gated_entries",
-        color="line_name", barmode="group",
-        color_discrete_map=LINE_COLORS,
-        labels={"day_of_week": "Day", "gated_entries": "Ridership", "line_name": "Line"},
-    )
-    fig.update_layout(**DARK_LAYOUT)
-    st.plotly_chart(fig, use_container_width=True, config=CHART_CONFIG)
-
-    st.divider()
-
-    # Weather correlations
-    wx_c1, wx_c2 = st.columns(2)
-    with wx_c1:
-        st.subheader("Temperature vs Ridership")
-        temp_df = filtered_ridership.dropna(subset=["avg_temperature_f"])
-        if not temp_df.empty:
-            fig = px.scatter(
-                temp_df, x="avg_temperature_f", y="gated_entries",
-                color="line_name", color_discrete_map=LINE_COLORS,
-                trendline="ols", trendline_scope="overall",
-                trendline_color_override="#ff6b6b",
-                labels={"avg_temperature_f": "Avg Temperature (°F)",
-                        "gated_entries": "Daily Ridership", "line_name": "Line"},
-            )
-            fig.update_layout(**DARK_LAYOUT)
-            st.plotly_chart(fig, use_container_width=True, config=CHART_CONFIG)
+# ── Incident impact (replaces the old dual-axis chart) ────────────────────────
+with impact_col:
+    with st.container(key="card_impact"):
+        card_title("Ridership on disruption days",
+                   f"Weekdays since {fmt_day(tracking_start)} · average % vs typical")
+        tracked = weekdays[weekdays["service_date"] >= tracking_start.tz_convert(TIMEZONE).tz_localize(None).normalize()]
+        if tracked.empty:
+            st.markdown('<div class="empty">Not enough overlapping data yet.</div>', unsafe_allow_html=True)
         else:
-            st.info("Temperature data not yet available.")
+            # A disruption is an incident under 24 hours (see gold.rail_ridership)
+            tracked = tracked.assign(has_incident=tracked["active_disruption_count"] > 0)
+            impact = tracked.groupby(["line_name", "has_incident"]).agg(
+                pct=("pct_vs_typical", "mean"), days=("service_date", "nunique")
+            ).reset_index()
+            fig = go.Figure()
+            for line in reversed(selected_lines):
+                rows = impact[impact["line_name"] == line].set_index("has_incident")
+                if True not in rows.index or False not in rows.index:
+                    continue
+                calm, hit = rows.loc[False], rows.loc[True]
+                # Dumbbell: gray dot = calm days, line-colored dot = disruption days
+                fig.add_trace(go.Scatter(
+                    x=[calm["pct"], hit["pct"]], y=[line, line], mode="lines",
+                    line=dict(color=AXIS, width=2), hoverinfo="skip", showlegend=False))
+                fig.add_trace(go.Scatter(
+                    x=[calm["pct"]], y=[line], mode="markers", showlegend=False,
+                    marker=dict(color=MUTED, size=11, line=dict(color=CARD, width=2)),
+                    hovertext=f"{line}: no disruption · {fmt_pct(calm['pct'])} ({calm['days']} days)", hoverinfo="text"))
+                fig.add_trace(go.Scatter(
+                    x=[hit["pct"]], y=[line], mode="markers+text", showlegend=False,
+                    marker=dict(color=LINE_COLORS[line], size=12, line=dict(color=CARD, width=2)),
+                    text=[fmt_pct(hit["pct"] - calm["pct"]).replace("%", " pts")], textposition="top center",
+                    textfont=dict(color=INK_2, size=11), cliponaxis=False,
+                    hovertext=f"{line}: disruption · {fmt_pct(hit['pct'])} ({hit['days']} days)", hoverinfo="text"))
+            style(fig, height=280)
+            fig.update_xaxes(ticksuffix="%", zeroline=True, zerolinecolor=AXIS)
+            fig.update_yaxes(gridcolor="rgba(0,0,0,0)", tickfont=dict(color=INK_2, size=12))
+            show(fig)
+            st.caption("Gray dot: weekdays with no disruption. Colored dot: weekdays with one or more "
+                       "(an incident under 24 hours, e.g. a delay). Label: the difference, in percentage points. "
+                       "Disruptions are more common on busy days, so a higher dot isn't a sign they attract riders.")
 
-    with wx_c2:
-        st.subheader("Precipitation vs Ridership")
-        prec_df = filtered_ridership.dropna(subset=["precipitation_in"])
-        if not prec_df.empty:
-            fig = px.scatter(
-                prec_df, x="precipitation_in", y="gated_entries",
-                color="line_name", color_discrete_map=LINE_COLORS,
-                trendline="ols", trendline_scope="overall",
-                trendline_color_override="#ff6b6b",
-                labels={"precipitation_in": "Precipitation (in, incl. melted snow)",
-                        "gated_entries": "Daily Ridership", "line_name": "Line"},
-            )
-            fig.update_layout(**DARK_LAYOUT)
-            st.plotly_chart(fig, use_container_width=True, config=CHART_CONFIG)
-        else:
-            st.info("Precipitation data not yet available.")
+# ── Day of week ───────────────────────────────────────────────────────────────
+with dow_col:
+    with st.container(key="card_dow"):
+        card_title("By day of week", "Average daily entries, last 12 months")
+        recent = ridership[ridership["service_date"] > ridership_through - pd.DateOffset(months=12)]
+        dow = recent.groupby(["weekday", "line_name"])["gated_entries"].mean().reset_index()
+        fig = go.Figure()
+        for line in selected_lines:
+            d = dow[dow["line_name"] == line].sort_values("weekday")
+            fig.add_trace(go.Bar(
+                x=[WEEKDAYS[i][:3] for i in d["weekday"]], y=d["gated_entries"], name=line.replace(" Line", ""),
+                marker=dict(color=LINE_COLORS[line], cornerradius=3),
+                hovertemplate=f"{line}<br>%{{x}}: %{{y:,.0f}} per day<extra></extra>",
+            ))
+        style(fig, height=280, legend=True)
+        fig.update_layout(barmode="group", bargap=0.3, bargroupgap=0.12)
+        fig.update_yaxes(tickformat="~s")
+        fig.update_xaxes(gridcolor="rgba(0,0,0,0)", tickfont=dict(color=INK_2, size=12))
+        show(fig)
 
-    # Snowfall — only snow days, otherwise the hundreds of zero-snow days
-    # swamp the trend
-    st.subheader("Snowfall vs Ridership")
-    snow_df = filtered_ridership[filtered_ridership["snowfall_in"] > 0]
-    if not snow_df.empty:
-        fig = px.scatter(
-            snow_df, x="snowfall_in", y="gated_entries",
-            color="line_name", color_discrete_map=LINE_COLORS,
-            trendline="ols", trendline_scope="overall",
-            trendline_color_override="#ff6b6b",
-            labels={"snowfall_in": "Snowfall (in)",
-                    "gated_entries": "Daily Ridership", "line_name": "Line"},
-        )
-        fig.update_layout(**DARK_LAYOUT)
-        st.plotly_chart(fig, use_container_width=True, config=CHART_CONFIG)
-    else:
-        st.info("No snow days in this window.")
+# ══════════════════════════════════════════════════════════════════════════════
+# 5. Weather
+# ══════════════════════════════════════════════════════════════════════════════
 
-# ── Footer ────────────────────────────────────────────────────────────────────
+section(
+    "Weather",
+    "Weekday ridership under different conditions at Boston Logan, compared with normal-weather days. "
+    "Each day is first measured against typical for its line, weekday, and month, so seasons and "
+    "busy lines don't skew the comparison. Holidays excluded.",
+)
 
-st.divider()
-st.caption("Sources: MBTA Alerts API · NOAA GHCN-Daily (Boston Logan) · MBTA ArcGIS Open Data")
-st.caption("Cadence: Alerts refresh hourly · Weather refreshes daily (~3 day NOAA delay) · Ridership checked weekly (~1–2 month MBTA delay)")
+wx = weekdays.dropna(subset=["avg_temperature_f"])
+
+
+def band_summary(df, column, bins, labels, baseline):
+    """
+    Average % vs typical per band of `column`, re-expressed relative to the
+    `baseline` band (normal conditions), so the chart reads "heavy rain days
+    run 5.7 points below dry days". Also returns the day count per band.
+    """
+    banded = df.assign(band=pd.cut(df[column], bins=bins, labels=labels))
+    summary = (banded.groupby("band", observed=False)
+               .agg(pct=("pct_vs_typical", "mean"), days=("service_date", "nunique"))
+               .reset_index().dropna(subset=["pct"]))
+    reference = summary.loc[summary["band"] == baseline, "pct"]
+    summary["pct"] -= reference.iloc[0] if len(reference) else 0
+    return summary
+
+
+rain_col, snow_col, temp_col = st.columns(3, gap="medium")
+
+with rain_col:
+    with st.container(key="card_rain"):
+        card_title("Rain", "Days without snow, by precipitation")
+        rain = band_summary(wx[wx["snowfall_in"].fillna(0) == 0], "precipitation_in",
+                            [-0.01, 0, 0.1, 0.5, 100], ["Dry", "Light", "Moderate", "Heavy"], baseline="Dry")
+        show(band_bars(rain))
+        st.caption("Light ≤ 0.1″ · Moderate 0.1–0.5″ · Heavy > 0.5″")
+
+with snow_col:
+    with st.container(key="card_snow"):
+        card_title("Snow", "December–March days, by snowfall")
+        winter = wx[wx["service_date"].dt.month.isin([12, 1, 2, 3])]
+        snow = band_summary(winter, "snowfall_in", [-0.01, 0, 1, 4, 100], ["None", "≤ 1″", "1–4″", "4″+"],
+                            baseline="None")
+        show(band_bars(snow))
+        st.caption("Snowfall depth before melting")
+
+with temp_col:
+    with st.container(key="card_temp"):
+        card_title("Temperature", "Versus that month's average temperature")
+        temp = wx.assign(temp_vs_month=wx["avg_temperature_f"]
+                         - wx.groupby("month")["avg_temperature_f"].transform("mean"))
+        temps = band_summary(temp, "temp_vs_month", [-100, -10, -5, 5, 10, 100],
+                             ["≤ −10°", "−10 to −5°", "± 5°", "+5 to +10°", "≥ +10°"], baseline="± 5°")
+        show(band_bars(temps))
+        st.caption("Degrees °F from the month's average daily mean")
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 6. Footer
+# ══════════════════════════════════════════════════════════════════════════════
+
+st.markdown("""
+<div class="footer">
+  <b>Sources</b> · MBTA V3 API (alerts, routes) · MBTA Gated Station Entries (ArcGIS Open Data) ·
+  NOAA GHCN-Daily, Boston Logan (USW00014739)<br>
+  <b>Refresh</b> · Alerts hourly · Weather daily (NOAA posts ~3 days behind) · Ridership weekly
+  (MBTA posts ~1–2 months behind)<br>
+  <b>Method</b> · An incident groups the alerts the MBTA posts for one event (same route, cause,
+  effect, and station, posted in close succession). Notices and facility issues (elevators,
+  parking) are excluded. "% vs typical" compares a day to the median for the same line, weekday,
+  and month.
+</div>
+""", unsafe_allow_html=True)

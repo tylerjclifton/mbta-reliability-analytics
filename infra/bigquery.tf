@@ -137,28 +137,3 @@ resource "google_bigquery_table" "bronze" {
     prevent_destroy = true
   }
 }
-
-# ── Legacy datasets ───────────────────────────────────────────────────────────
-# Pre-medallion layout (stage → per-source bronze/silver). No longer written;
-# kept until the new layout is verified, then removed in a follow-up change.
-
-resource "google_bigquery_dataset" "stage" {
-  dataset_id    = "stage"
-  friendly_name = "Stage Dataset"
-  description   = "Raw data from API ingestion jobs (all sources)"
-  location      = var.location
-}
-
-resource "google_bigquery_dataset" "mbta" {
-  dataset_id    = "mbta"
-  friendly_name = "MBTA Dataset"
-  description   = "Data sourced from MBTA"
-  location      = var.location
-}
-
-resource "google_bigquery_dataset" "nws" {
-  dataset_id    = "nws"
-  friendly_name = "NWS Dataset"
-  description   = "Data sourced from National Weather Service"
-  location      = var.location
-}

@@ -340,7 +340,7 @@ def load_ridership():
     df = get_client().query(f"""
         SELECT
             service_date, line_name, gated_entries, active_incident_count,
-            active_disruption_count, avg_temperature_f, precipitation_in, snowfall_in
+            most_severe_effect, avg_temperature_f, precipitation_in, snowfall_in
         FROM `{PROJECT_ID}.{GOLD_DATASET}.rail_ridership`
     """).to_dataframe()
     df["service_date"] = pd.to_datetime(df["service_date"])
@@ -717,54 +717,58 @@ with st.container(key="card_monthly"):
 
 impact_col, dow_col = st.columns(2, gap="medium")
 
-# ── Incident impact (replaces the old dual-axis chart) ────────────────────────
+# ── Ridership by alert effect (replaces the old dual-axis chart) ─────────────
 with impact_col:
     with st.container(key="card_impact"):
         tracking_day = coverage_start.tz_convert(TIMEZONE).tz_localize(None).normalize()
         impact_start = max(tracking_day, ridership_year_start)
-        card_title("Ridership on disruption days",
-                   "Compared with calm days on the same line"
+        card_title("Ridership by alert effect",
+                   "Compared with calm days"
                    + ("" if impact_start == ridership_year_start
                       else f" · since continuous alert tracking began {fmt_day(coverage_start)}"))
         tracked = ordinary_days[ordinary_days["service_date"] >= impact_start]
         if tracked.empty:
             st.markdown('<div class="empty">Not enough overlapping data yet.</div>', unsafe_allow_html=True)
         else:
-            # A disruption is an incident under 24 hours (see gold.rail_ridership).
-            # Calm days are the baseline: each bar is how much busier (or quieter)
-            # disruption days ran, as a percent difference of their averages.
-            tracked = tracked.assign(has_incident=tracked["active_disruption_count"] > 0)
-            impact = tracked.groupby(["line_name", "has_incident"]).agg(
-                pct=("pct_vs_typical", "mean"), days=("service_date", "nunique")
-            ).reset_index()
+            # Each line-day counts under its most severe effect (gold.rail_ridership);
+            # pooled across the selected lines, since one line alone has too few
+            # shuttle or suspension days to trust. Calm days are the baseline.
+            effects = ["Delay", "Suspension", "Shuttle"]
+            by_effect = (tracked.assign(effect=tracked["most_severe_effect"].fillna("Calm"))
+                         .groupby("effect")
+                         .agg(pct=("pct_vs_typical", "mean"), days=("service_date", "size")))
             rows = []
-            for line in selected_lines:
-                by_kind = impact[impact["line_name"] == line].set_index("has_incident")
-                if True not in by_kind.index or False not in by_kind.index:
-                    continue
-                calm, hit = by_kind.loc[False], by_kind.loc[True]
-                diff = ((1 + hit["pct"] / 100) / (1 + calm["pct"] / 100) - 1) * 100
-                rows.append((line, diff, hit["days"], calm["days"]))
-
-            fig = go.Figure(go.Bar(
-                x=[diff for _, diff, _, _ in rows], y=[line for line, *_ in rows], orientation="h",
-                marker=dict(color=[LINE_COLORS[line] for line, *_ in rows], cornerradius=4),
-                text=[LABEL_GAP + fmt_pct(diff) + LABEL_GAP for _, diff, _, _ in rows], textposition="outside",
-                textfont=dict(color=INK_2, size=11), cliponaxis=False,
-                hovertext=[f"{line}: disruption days ran {fmt_pct(diff)} vs calm days"
-                           f"<br>{hit_days} disruption days · {calm_days} calm days"
-                           for line, diff, hit_days, calm_days in rows],
-                hoverinfo="text",
-            ))
-            style(fig, height=260)
-            span = max([abs(diff) for _, diff, _, _ in rows] + [2]) * 1.5
-            fig.update_xaxes(range=[-span, span], ticksuffix="%", zeroline=True, zerolinecolor=AXIS,
-                             zerolinewidth=1)
-            fig.update_yaxes(autorange="reversed", gridcolor="rgba(0,0,0,0)", tickfont=dict(color=INK_2, size=12))
-            show(fig)
-            st.caption("0% = calm days. A disruption is an incident under 24 hours, such as a delay. "
-                       "Disruptions happen more on busy days, so a positive bar shows when they occur, "
-                       "not that they attract riders. Holidays excluded.")
+            if "Calm" in by_effect.index:
+                calm = by_effect.loc["Calm"]
+                for effect in effects:
+                    if effect in by_effect.index:
+                        hit = by_effect.loc[effect]
+                        diff = ((1 + hit["pct"] / 100) / (1 + calm["pct"] / 100) - 1) * 100
+                        rows.append((effect, diff, int(hit["days"])))
+            if not rows:
+                st.markdown('<div class="empty">Not enough calm days to compare yet.</div>', unsafe_allow_html=True)
+            else:
+                fig = go.Figure(go.Bar(
+                    x=[diff for _, diff, _ in rows], y=[effect for effect, *_ in rows], orientation="h",
+                    marker=dict(color=ACCENT, cornerradius=4),
+                    text=[LABEL_GAP + fmt_pct(diff) + LABEL_GAP for _, diff, _ in rows], textposition="outside",
+                    textfont=dict(color=INK_2, size=11), cliponaxis=False,
+                    hovertext=[f"{effect}: {fmt_pct(diff)} vs calm days<br>{days} line-days"
+                               f" · {int(calm['days'])} calm line-days"
+                               for effect, diff, days in rows],
+                    hoverinfo="text",
+                ))
+                style(fig, height=230)
+                # Room past the longest bar for its label, at phone width too
+                span = max([abs(diff) for _, diff, _ in rows] + [2]) * 1.8
+                fig.update_xaxes(range=[-span, span], ticksuffix="%", zeroline=True, zerolinecolor=AXIS,
+                                 zerolinewidth=1)
+                fig.update_yaxes(autorange="reversed", gridcolor="rgba(0,0,0,0)",
+                                 tickfont=dict(color=INK_2, size=12))
+                show(fig)
+                st.caption("0% = calm days. Each day counts under its most severe alert: shuttle buses, then a "
+                           "suspension, then a delay. Delays rarely last long enough to move a day's total; "
+                           "shuttle riders skip the fare gates entirely. Holidays excluded.")
 
 # ── Day of week ───────────────────────────────────────────────────────────────
 with dow_col:

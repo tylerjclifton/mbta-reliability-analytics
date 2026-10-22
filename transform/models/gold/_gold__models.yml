@@ -89,10 +89,15 @@ models:
         description: Fare-gate entries across the line's stations that day.
       - name: active_incident_count
         description: Distinct incidents on any of the line's routes active at some point that service date.
-      - name: active_disruption_count
+      - name: most_severe_effect
         description: >
-          Like active_incident_count, but only incidents lasting under 24 hours —
-          excludes long planned closures that would otherwise be active every day.
+          The most severe effect among incidents active on the line that day —
+          Shuttle, then Suspension, then Delay — or NULL on a calm day. Station
+          closures and service changes are ignored (a long closure would
+          otherwise mark every day).
+        tests:
+          - accepted_values:
+              values: ['Shuttle', 'Suspension', 'Delay']
       - name: avg_temperature_f
         description: Daily mean temperature at Boston Logan, °F.
         tests:

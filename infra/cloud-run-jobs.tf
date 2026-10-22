@@ -10,7 +10,7 @@ locals {
 
   # Image versions — bump after pushing with scripts/build-image.sh
   ingest_image_tag    = "v1.1.1"
-  transform_image_tag = "v1.5.1"
+  transform_image_tag = "v1.6.1"
 
   # One entry per ingest job. Key = job folder under ingest/ = bronze table
   # name with "-" for "_" (e.g. mbta-alerts → bronze.mbta_alerts).

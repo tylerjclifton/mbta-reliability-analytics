@@ -4,15 +4,14 @@
   Daily ridership with the number of incidents active on that line that day
   and that day's weather at Boston Logan, for the dashboard's ridership views.
 
-  Two incident counts: all incidents, and disruptions — incidents lasting under
-  24 hours (a delay, a disabled train). Long planned closures (a station shut
-  for months) are active every day, so they'd make every day an "incident day";
-  the disruption count leaves them out.
+  Alongside the incident count, each day gets its most severe service effect
+  (shuttle buses, then a suspension, then a delay) so the dashboard can compare
+  ridership by effect against calm days.
 
   Steps:
-    1. incident_counts — count distinct incidents (and disruptions) active per
-                         service date × line
-    2. final select    — ridership + incident count + weather
+    1. incident_counts — count distinct incidents active per service date ×
+                         line, and the day's most severe effect
+    2. final select    — ridership + incident count and effect + weather
 #}
 
 WITH
@@ -25,7 +24,14 @@ WITH
             d.service_date,
             d.line_name,
             COUNT(DISTINCT i.incident_id) AS active_incident_count,
-            COUNT(DISTINCT IF(i.incident_duration_minutes < 24 * 60, i.incident_id, NULL)) AS active_disruption_count
+            -- The day's most severe service effect, for comparing ridership by
+            -- effect: shuttle buses, then a suspension, then a delay. NULL on
+            -- calm days (station closures and service changes don't count).
+            CASE
+                WHEN LOGICAL_OR(i.incident_effect = 'Shuttle') THEN 'Shuttle'
+                WHEN LOGICAL_OR(i.incident_effect = 'Suspension') THEN 'Suspension'
+                WHEN LOGICAL_OR(i.incident_effect = 'Delay') THEN 'Delay'
+            END AS most_severe_effect
         FROM {{ ref('mbta_ridership') }} AS d
         LEFT JOIN {{ ref('rail_incidents') }} AS i
             ON  d.line_name = i.line_name
@@ -43,7 +49,7 @@ SELECT
     d.line_name,
     d.gated_entries,
     ic.active_incident_count,
-    ic.active_disruption_count,
+    ic.most_severe_effect,
     w.avg_temperature_f,
     w.max_temperature_f,
     w.min_temperature_f,

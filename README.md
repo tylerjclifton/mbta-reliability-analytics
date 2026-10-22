@@ -55,7 +55,7 @@ Each layer is its own BigQuery dataset.
 |---|---|---|
 | `rail_incidents` | incident × route | One row per real-world event — the MBTA's re-posted/follow-up alerts collapsed (dashboard reads this) |
 | `rail_alerts` | alert × route | Individual alerts with route name, line, type, and their `incident_id` |
-| `rail_ridership` | service date × line | Gated entries, active incident and disruption counts, and weather |
+| `rail_ridership` | service date × line | Gated entries, active incident count, the day's most severe alert effect, and weather |
 
 **`silver.mbta_alert_latest` is a table, not a view.** Alert snapshots add ~1 GB/year to bronze, and a view would re-read all of it for every model and test that uses alerts (~9× per transform), outgrowing the free query tier within a year. The incremental table reads only snapshots added since the last run, so cost stays flat; `dbt build --full-refresh` rebuilds it from bronze.
 
@@ -130,7 +130,7 @@ Dark theme; official MBTA line colors for every line-level visual, a neutral vio
 
 **Incident patterns** — incidents per week, by line, by cause and effect, median duration by cause, cause mix by line (heatmap)
 
-**Ridership** — per-line average entries per day with year-over-year change; 24-month trend; ridership on disruption days vs calm days; day of week
+**Ridership** — per-line average entries per day with year-over-year change; 24-month trend; ridership by alert effect (delay, suspension, shuttle) vs calm days; day of week
 
 **Weather** — ridership on rainy, snowy, and unusually cold/warm days vs normal-weather days
 
@@ -138,7 +138,7 @@ Ridership figures are **average entries per day**, weekends included. Time windo
 
 Incident history counts from when alert coverage became continuous (detected as the first incident after the last 14-day gap — the pre-October pipeline missed June 8 – July 1, 2026), so missing data never reads as a quiet day.
 
-The disruption and weather charts use **% vs typical**: a day's entries vs the median for the same line, day of week, and month (federal holidays excluded), so line size, weekends, and seasons don't skew them.
+The alert-effect and weather charts use **% vs typical**: a day's entries vs the median for the same line, day of week, and month (federal holidays excluded), so line size, weekends, and seasons don't skew them.
 
 ---
 

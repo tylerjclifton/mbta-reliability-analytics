@@ -135,45 +135,6 @@ moved {
   to   = google_cloud_run_v2_job.ingest["mbta-ridership"]
 }
 
-# Retired NWS job (replaced by noaa-weather). Deletion protection is turned off
-# here first; the resource is removed in the follow-up apply.
-resource "google_cloud_run_v2_job" "ingest_nws_weather" {
-  name     = "ingest-nws-weather"
-  location = var.location
-
-  deletion_protection = false
-
-  template {
-    task_count  = 1
-    parallelism = 0
-    template {
-      service_account = var.default_sa_compute_engine
-      containers {
-        name  = "ingest-nws-weather"
-        image = "${local.backend_registry}/ingest-nws-weather:v1.0.3"
-        env {
-          name  = "BQ_PROJECT_ID"
-          value = var.project_id
-        }
-        env {
-          name  = "BQ_DATASET_ID"
-          value = "stage"
-        }
-        env {
-          name  = "BQ_TABLE_ID"
-          value = "nws_weather"
-        }
-        resources {
-          limits = {
-            memory = "512Mi"
-            cpu    = "1000m"
-          }
-        }
-      }
-    }
-  }
-}
-
 # ── Transform job ─────────────────────────────────────────────────────────────
 
 resource "google_cloud_run_v2_job" "transform" {

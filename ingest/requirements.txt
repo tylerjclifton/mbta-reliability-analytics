@@ -1,0 +1,6 @@
+# Shared by every ingest job (single image, see Dockerfile)
+google-cloud-bigquery
+pandas
+pyarrow
+requests
+db-dtypes

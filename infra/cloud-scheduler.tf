@@ -1,17 +1,33 @@
-resource "google_cloud_scheduler_job" "ingest_alerts" {
-  name             = "ingest-mbta-alerts"
-  schedule         = var.ingestion_schedule
+# ══════════════════════════════════════════════════════════════════════════════
+# Cloud Scheduler — cron triggers for the Cloud Run jobs
+#
+# Each trigger POSTs to the Cloud Run Admin API's jobs.run endpoint. Ingest
+# schedules come from local.ingest_jobs (cloud-run-jobs.tf).
+# ══════════════════════════════════════════════════════════════════════════════
+
+locals {
+  run_jobs_api = "https://${var.location}-run.googleapis.com/v2/projects/${var.project_id}/locations/${var.location}/jobs"
+}
+
+# ── Ingest triggers ───────────────────────────────────────────────────────────
+
+resource "google_cloud_scheduler_job" "ingest" {
+  for_each = local.ingest_jobs
+
+  name             = "ingest-${each.key}"
+  schedule         = each.value.schedule
   time_zone        = var.scheduler_time_zone
   attempt_deadline = "180s"
   paused           = false
 
+  # Retries are handled by the job itself (max_retries), not the trigger
   retry_config {
     retry_count = 0
   }
 
   http_target {
     http_method = "POST"
-    uri         = "https://${var.location}-run.googleapis.com/v2/projects/${var.project_id}/locations/${var.location}/jobs/ingest-mbta-alerts:run"
+    uri         = "${local.run_jobs_api}/${google_cloud_run_v2_job.ingest[each.key].name}:run"
     oauth_token {
       service_account_email = var.default_sa_compute_engine
       scope                 = "https://www.googleapis.com/auth/cloud-platform"
@@ -19,68 +35,23 @@ resource "google_cloud_scheduler_job" "ingest_alerts" {
   }
 }
 
-resource "google_cloud_scheduler_job" "ingest_routes" {
-  name             = "ingest-mbta-routes"
-  schedule         = "0 0 1 1,4,7,10 *"
-  time_zone        = var.scheduler_time_zone
-  attempt_deadline = "180s"
-  paused           = false
-
-  retry_config {
-    retry_count = 0
-  }
-
-  http_target {
-    http_method = "POST"
-    uri         = "https://${var.location}-run.googleapis.com/v2/projects/${var.project_id}/locations/${var.location}/jobs/ingest-mbta-routes:run"
-    oauth_token {
-      service_account_email = var.default_sa_compute_engine
-      scope                 = "https://www.googleapis.com/auth/cloud-platform"
-    }
-  }
+# Existing triggers were individual resources before the for_each refactor.
+# (The old NWS trigger has no successor here: its name changes, so the
+# noaa-weather trigger is created fresh and the NWS one is destroyed.)
+moved {
+  from = google_cloud_scheduler_job.ingest_alerts
+  to   = google_cloud_scheduler_job.ingest["mbta-alerts"]
+}
+moved {
+  from = google_cloud_scheduler_job.ingest_routes
+  to   = google_cloud_scheduler_job.ingest["mbta-routes"]
+}
+moved {
+  from = google_cloud_scheduler_job.ingest_ridership
+  to   = google_cloud_scheduler_job.ingest["mbta-ridership"]
 }
 
-resource "google_cloud_scheduler_job" "ingest_weather" {
-  name             = "ingest-nws-weather"
-  schedule         = var.nws_ingestion_schedule
-  time_zone        = var.scheduler_time_zone
-  attempt_deadline = "180s"
-  paused           = false
-
-  retry_config {
-    retry_count = 0
-  }
-
-  http_target {
-    http_method = "POST"
-    uri         = "https://${var.location}-run.googleapis.com/v2/projects/${var.project_id}/locations/${var.location}/jobs/ingest-nws-weather:run"
-    oauth_token {
-      service_account_email = var.default_sa_compute_engine
-      scope                 = "https://www.googleapis.com/auth/cloud-platform"
-    }
-  }
-}
-
-resource "google_cloud_scheduler_job" "ingest_ridership" {
-  name             = "ingest-mbta-ridership"
-  schedule         = "0 0 1 1,4,7,10 *" # Quarterly: Jan 1, Apr 1, Jul 1, Oct 1 — aligns with routes and transform cycle
-  time_zone        = var.scheduler_time_zone
-  attempt_deadline = "180s"
-  paused           = false
-
-  retry_config {
-    retry_count = 0
-  }
-
-  http_target {
-    http_method = "POST"
-    uri         = "https://${var.location}-run.googleapis.com/v2/projects/${var.project_id}/locations/${var.location}/jobs/ingest-mbta-ridership:run"
-    oauth_token {
-      service_account_email = var.default_sa_compute_engine
-      scope                 = "https://www.googleapis.com/auth/cloud-platform"
-    }
-  }
-}
+# ── Transform trigger ─────────────────────────────────────────────────────────
 
 resource "google_cloud_scheduler_job" "transform" {
   name             = "transform"
@@ -95,7 +66,7 @@ resource "google_cloud_scheduler_job" "transform" {
 
   http_target {
     http_method = "POST"
-    uri         = "https://${var.location}-run.googleapis.com/v2/projects/${var.project_id}/locations/${var.location}/jobs/transform:run"
+    uri         = "${local.run_jobs_api}/${google_cloud_run_v2_job.transform.name}:run"
     oauth_token {
       service_account_email = google_service_account.dbt_bigquery.email
       scope                 = "https://www.googleapis.com/auth/cloud-platform"

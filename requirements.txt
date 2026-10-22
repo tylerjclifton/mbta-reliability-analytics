@@ -1,19 +1,8 @@
-# dbt Core and BigQuery adapter
-dbt-core==1.7.8
-dbt-bigquery==1.7.4
-
-# Google Cloud dependencies (explicitly pinned for dbt compatibility)
-protobuf<5,>=4.0.0
-grpcio-status<1.60.0
-google-cloud-bigquery==3.40.1
-
-# Data processing
-pandas>=2.0.0,<3.0.0
-pyarrow>=12.0.0
-db-dtypes
-
-# API requests
-requests>=2.31.0,<3.0.0
+# Local development environment: everything the deployed components use, plus
+# dev tooling. Component dependencies live with each component (DRY).
+-r ingest/requirements.txt
+-r transform/requirements.txt
+-r serve/requirements.txt
 
 # SQL linting
 sqlfluff==3.0.3

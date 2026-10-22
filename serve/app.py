@@ -1,3 +1,14 @@
+"""
+Serve: MBTA Reliability Analytics dashboard (Streamlit)
+
+Reads:      gold.rail_alerts, gold.rail_ridership (cached for 1 hour)
+Deployed:   Cloud Run service `serve` (infra/cloud-run-services.tf), public at
+            tylerclifton.com
+
+All charts show the trailing 12 months. Ridership's window is anchored to the
+latest published service date, since the MBTA publishes with a 1–2 month lag.
+"""
+
 import os
 import pandas as pd
 import plotly.express as px
@@ -64,24 +75,6 @@ LINE_COLORS = {
     "Green Line":  "#00843D",
 }
 
-# Maps line-level display names to their underlying alert route_id values
-LINE_TO_ROUTES = {
-    "Red Line":    ["Red"],
-    "Orange Line": ["Orange"],
-    "Blue Line":   ["Blue"],
-    "Green Line":  ["Green-B", "Green-C", "Green-D", "Green-E"],
-}
-
-ROUTE_TO_LINE = {
-    "Red":     "Red Line",
-    "Orange":  "Orange Line",
-    "Blue":    "Blue Line",
-    "Green-B": "Green Line",
-    "Green-C": "Green Line",
-    "Green-D": "Green Line",
-    "Green-E": "Green Line",
-}
-
 DARK_LAYOUT = dict(
     paper_bgcolor="#0e1117",
     plot_bgcolor="#0e1117",
@@ -136,18 +129,18 @@ def load_alerts():
         SELECT
             alert_id,
             route_id,
-            route_name,
+            line_name,
             alert_start_date,
             alert_end_date,
-            alert_start_ts,
-            alert_end_ts,
+            alert_start_at,
+            alert_end_at,
             alert_duration_minutes,
             alert_header,
             alert_description,
             alert_cause,
             alert_effect,
             alert_severity,
-            ingestion_timestamp
+            ingested_at
         FROM `{PROJECT_ID}.gold.rail_alerts`
         ORDER BY alert_start_date DESC
     """
@@ -159,15 +152,12 @@ def load_ridership():
     query = f"""
         SELECT
             service_date,
-            route_name,
-            ridership,
-            line_alert_count,
+            line_name,
+            gated_entries,
+            active_alert_count,
             avg_temperature_f,
-            max_temperature_f,
-            total_precipitation_mm,
-            avg_wind_speed_mph,
-            avg_humidity_percent,
-            min_visibility_miles
+            precipitation_in,
+            snowfall_in
         FROM `{PROJECT_ID}.gold.rail_ridership`
         ORDER BY service_date DESC
     """
@@ -185,8 +175,8 @@ if df_alerts.empty:
 
 df_alerts["alert_start_date"] = pd.to_datetime(df_alerts["alert_start_date"])
 df_alerts["alert_end_date"]   = pd.to_datetime(df_alerts["alert_end_date"])
-df_alerts["alert_start_ts"]   = pd.to_datetime(df_alerts["alert_start_ts"], utc=True)
-df_alerts["alert_end_ts"]     = pd.to_datetime(df_alerts["alert_end_ts"], utc=True)
+df_alerts["alert_start_at"]   = pd.to_datetime(df_alerts["alert_start_at"], utc=True)
+df_alerts["alert_end_at"]     = pd.to_datetime(df_alerts["alert_end_at"], utc=True)
 df_ridership["service_date"]  = pd.to_datetime(df_ridership["service_date"])
 
 today  = pd.Timestamp.now(tz="UTC").normalize().tz_localize(None)
@@ -204,8 +194,7 @@ st.markdown(
 all_lines      = ["Red Line", "Orange Line", "Blue Line", "Green Line"]
 selected_lines = st.multiselect("Filter by Route", all_lines, default=all_lines)
 
-selected_route_ids = [r for line in selected_lines for r in LINE_TO_ROUTES[line]]
-filtered_alerts    = df_alerts[df_alerts["route_id"].isin(selected_route_ids)]
+filtered_alerts = df_alerts[df_alerts["line_name"].isin(selected_lines)]
 
 # TTM window — applied to all charts
 year_start  = today - pd.DateOffset(months=12)
@@ -215,7 +204,7 @@ year_alerts = filtered_alerts[filtered_alerts["alert_start_date"] >= year_start]
 _max_ridership_date    = df_ridership["service_date"].max() if not df_ridership.empty else today
 _ridership_window_start = _max_ridership_date - pd.DateOffset(months=12)
 filtered_ridership = df_ridership[
-    df_ridership["route_name"].isin(selected_lines) &
+    df_ridership["line_name"].isin(selected_lines) &
     (df_ridership["service_date"] >= _ridership_window_start)
 ]
 
@@ -230,7 +219,7 @@ effect_order = sorted(filtered_alerts["alert_effect"].dropna().unique().tolist()
 CAUSE_COLORS = dict(zip(cause_order, px.colors.qualitative.Set2 + px.colors.qualitative.Set3))
 EFFECT_COLORS = dict(zip(effect_order, px.colors.qualitative.Pastel))
 
-_alerts_updated = pd.to_datetime(df_alerts["ingestion_timestamp"]).max()
+_alerts_updated = pd.to_datetime(df_alerts["ingested_at"]).max()
 
 st.caption("All data and charts reflect the trailing 12 months")
 st.caption(f"Alerts updated {format_last_updated(_alerts_updated, include_time=True)}")
@@ -238,10 +227,10 @@ st.caption(f"Alerts updated {format_last_updated(_alerts_updated, include_time=T
 # ── KPI row ───────────────────────────────────────────────────────────────────
 
 active_alerts = filtered_alerts[
-    (filtered_alerts["alert_start_ts"] <= now_ts) &
-    (filtered_alerts["alert_end_ts"].isna() | (filtered_alerts["alert_end_ts"] >= now_ts))
+    (filtered_alerts["alert_start_at"] <= now_ts) &
+    (filtered_alerts["alert_end_at"].isna() | (filtered_alerts["alert_end_at"] >= now_ts))
 ]
-upcoming_alerts = filtered_alerts[filtered_alerts["alert_start_ts"] > now_ts]
+upcoming_alerts = filtered_alerts[filtered_alerts["alert_start_at"] > now_ts]
 
 st.divider()
 k1, k2, k3, k4 = st.columns(4)
@@ -506,19 +495,19 @@ else:
 
     monthly_r = filtered_ridership.copy()
     monthly_r["month"] = monthly_r["service_date"].dt.to_period("M").dt.to_timestamp()
-    monthly_r = monthly_r.groupby(["month", "route_name"]).agg(
-        ridership=("ridership", "sum"),
-        line_alert_count=("line_alert_count", "mean"),
+    monthly_r = monthly_r.groupby(["month", "line_name"]).agg(
+        gated_entries=("gated_entries", "sum"),
+        active_alert_count=("active_alert_count", "mean"),
     ).reset_index()
 
     fig = go.Figure()
     for line in selected_lines:
-        line_data = monthly_r[monthly_r["route_name"] == line].sort_values("month")
+        line_data = monthly_r[monthly_r["line_name"] == line].sort_values("month")
         color = LINE_COLORS.get(line, "#888888")
         fig.add_trace(go.Bar(
             name=line,
             x=line_data["month"],
-            y=line_data["ridership"],
+            y=line_data["gated_entries"],
             marker_color=color,
             opacity=1.0,
             yaxis="y1",
@@ -526,7 +515,7 @@ else:
         fig.add_trace(go.Scatter(
             name=f"{line} Alerts",
             x=line_data["month"],
-            y=line_data["line_alert_count"],
+            y=line_data["active_alert_count"],
             mode="lines",
             line=dict(color=color, dash="dot", width=2),
             yaxis="y2",
@@ -552,14 +541,14 @@ else:
     dow_order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
     dow_df = filtered_ridership.copy()
     dow_df["day_of_week"] = dow_df["service_date"].dt.day_name()
-    dow = dow_df.groupby(["day_of_week", "route_name"])["ridership"].mean().reset_index()
+    dow = dow_df.groupby(["day_of_week", "line_name"])["gated_entries"].mean().reset_index()
     dow["day_of_week"] = pd.Categorical(dow["day_of_week"], categories=dow_order, ordered=True)
     dow = dow.sort_values("day_of_week")
     fig = px.bar(
-        dow, x="day_of_week", y="ridership",
-        color="route_name", barmode="group",
+        dow, x="day_of_week", y="gated_entries",
+        color="line_name", barmode="group",
         color_discrete_map=LINE_COLORS,
-        labels={"day_of_week": "Day", "ridership": "Ridership", "route_name": "Line"},
+        labels={"day_of_week": "Day", "gated_entries": "Ridership", "line_name": "Line"},
     )
     fig.update_layout(**DARK_LAYOUT)
     st.plotly_chart(fig, use_container_width=True, config=CHART_CONFIG)
@@ -573,12 +562,12 @@ else:
         temp_df = filtered_ridership.dropna(subset=["avg_temperature_f"])
         if not temp_df.empty:
             fig = px.scatter(
-                temp_df, x="avg_temperature_f", y="ridership",
-                color="route_name", color_discrete_map=LINE_COLORS,
+                temp_df, x="avg_temperature_f", y="gated_entries",
+                color="line_name", color_discrete_map=LINE_COLORS,
                 trendline="ols", trendline_scope="overall",
                 trendline_color_override="#ff6b6b",
                 labels={"avg_temperature_f": "Avg Temperature (°F)",
-                        "ridership": "Daily Ridership", "route_name": "Line"},
+                        "gated_entries": "Daily Ridership", "line_name": "Line"},
             )
             fig.update_layout(**DARK_LAYOUT)
             st.plotly_chart(fig, use_container_width=True, config=CHART_CONFIG)
@@ -587,23 +576,41 @@ else:
 
     with wx_c2:
         st.subheader("Precipitation vs Ridership")
-        prec_df = filtered_ridership.dropna(subset=["total_precipitation_mm"])
+        prec_df = filtered_ridership.dropna(subset=["precipitation_in"])
         if not prec_df.empty:
             fig = px.scatter(
-                prec_df, x="total_precipitation_mm", y="ridership",
-                color="route_name", color_discrete_map=LINE_COLORS,
+                prec_df, x="precipitation_in", y="gated_entries",
+                color="line_name", color_discrete_map=LINE_COLORS,
                 trendline="ols", trendline_scope="overall",
                 trendline_color_override="#ff6b6b",
-                labels={"total_precipitation_mm": "Total Precipitation (mm)",
-                        "ridership": "Daily Ridership", "route_name": "Line"},
+                labels={"precipitation_in": "Precipitation (in, incl. melted snow)",
+                        "gated_entries": "Daily Ridership", "line_name": "Line"},
             )
             fig.update_layout(**DARK_LAYOUT)
             st.plotly_chart(fig, use_container_width=True, config=CHART_CONFIG)
         else:
             st.info("Precipitation data not yet available.")
 
+    # Snowfall — only snow days, otherwise the hundreds of zero-snow days
+    # swamp the trend
+    st.subheader("Snowfall vs Ridership")
+    snow_df = filtered_ridership[filtered_ridership["snowfall_in"] > 0]
+    if not snow_df.empty:
+        fig = px.scatter(
+            snow_df, x="snowfall_in", y="gated_entries",
+            color="line_name", color_discrete_map=LINE_COLORS,
+            trendline="ols", trendline_scope="overall",
+            trendline_color_override="#ff6b6b",
+            labels={"snowfall_in": "Snowfall (in)",
+                    "gated_entries": "Daily Ridership", "line_name": "Line"},
+        )
+        fig.update_layout(**DARK_LAYOUT)
+        st.plotly_chart(fig, use_container_width=True, config=CHART_CONFIG)
+    else:
+        st.info("No snow days in this window.")
+
 # ── Footer ────────────────────────────────────────────────────────────────────
 
 st.divider()
-st.caption("Sources: MBTA Alerts API · NWS Weather API · MBTA ArcGIS Open Data")
-st.caption("Cadence: Alerts refresh hourly · Weather refreshes daily at 6AM ET · Ridership refreshes quarterly (~1–2 month delay)")
+st.caption("Sources: MBTA Alerts API · NOAA GHCN-Daily (Boston Logan) · MBTA ArcGIS Open Data")
+st.caption("Cadence: Alerts refresh hourly · Weather refreshes daily (~3 day NOAA delay) · Ridership checked weekly (~1–2 month MBTA delay)")

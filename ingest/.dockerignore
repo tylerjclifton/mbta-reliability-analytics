@@ -1,0 +1,3 @@
+# Keep local caches out of the image
+**/__pycache__
+**/*.pyc

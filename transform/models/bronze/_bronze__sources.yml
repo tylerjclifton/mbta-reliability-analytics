@@ -1,0 +1,55 @@
+version: 2
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Bronze — append-only raw history
+#
+# Tables are created by Terraform (infra/bigquery.tf) and written only by ingest
+# jobs (ingest/<source>-<entity>/). dbt reads them as sources and never writes
+# to them. Each ingest run appends a new version of every record it saw; silver
+# keeps the latest version (macros/keep_latest_version.sql).
+#
+# Freshness: `dbt source freshness` (run after `dbt build` in the transform
+# job) fails the run when a table hasn't been written for longer than its ingest
+# schedule allows — i.e. when an ingest job has stopped working.
+# ══════════════════════════════════════════════════════════════════════════════
+
+sources:
+  - name: bronze
+    schema: bronze
+    loaded_at_field: ingested_at
+
+    tables:
+      - name: mbta_alerts
+        description: >
+          Hourly snapshots of the MBTA alerts API (rail routes only).
+          Grain: alert × route × ingest run. Column names follow the API.
+        freshness:
+          # Hourly job; a run with no rail alerts writes nothing, so allow slack
+          warn_after: {count: 3, period: hour}
+          error_after: {count: 6, period: hour}
+
+      - name: mbta_routes
+        description: >
+          Snapshots of the MBTA routes API (rail routes only).
+          Grain: route × ingest run.
+        freshness:
+          # Yearly job
+          error_after: {count: 400, period: day}
+
+      - name: mbta_ridership
+        description: >
+          Gated station entries per day and line from MBTA ArcGIS open data,
+          full published history every run. Grain: service date × line × ingest run.
+        freshness:
+          # Weekly job
+          warn_after: {count: 8, period: day}
+          error_after: {count: 15, period: day}
+
+      - name: noaa_weather
+        description: >
+          NOAA GHCN-Daily values for Boston Logan in source units (tenths of °C,
+          tenths of mm, mm) with QC flags. Grain: observation date × ingest run.
+        freshness:
+          # Daily job
+          warn_after: {count: 2, period: day}
+          error_after: {count: 4, period: day}

@@ -1,131 +1,52 @@
+"""
+Ingest: MBTA route metadata
+
+Source:     MBTA V3 API /routes (https://api-v3.mbta.com)
+Cadence:    Yearly (routes rarely change)
+Each run:   Snapshots the full list of rail routes
+Writes to:  bronze.mbta_routes (append) — one row per route per run
+"""
+
 # Import standard libraries
-import datetime
 import logging
 import os
 
 # Import third party libraries
 import pandas
-import requests
-from google.cloud import bigquery
 
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# Import shared ingest helpers
+from common.bronze import append_to_bronze, fetch
 
-# Initialize BigQuery client
-client = bigquery.Client()
+# Rail routes to snapshot — must match the alerts job's TARGET_ROUTES
+TARGET_ROUTES = ['Red', 'Blue', 'Orange', 'Green-B', 'Green-C', 'Green-D', 'Green-E']
 
-# Read MBTA API key from environment (optional but removes anonymous rate limit)
-MBTA_API_KEY = os.getenv('MBTA_API_KEY')
-mbta_params = {'filter[id]': 'Red,Blue,Orange,Green-B,Green-C,Green-D,Green-E'}
-if MBTA_API_KEY:
-    mbta_params['api_key'] = MBTA_API_KEY
+# ── Fetch ─────────────────────────────────────────────────────────────────────
 
-# Attempt to request response from MBTA routes API endpoint
-try:
-    # Make a GET request to the MBTA routes API
-    # Filter to Red, Blue, Orange, and Green routes
-    # Set request to timeout after 30 seconds
-    response = requests.get('https://api-v3.mbta.com/routes', params=mbta_params, timeout=30)
+# Filter to target routes server-side; the API key is optional but removes the
+# anonymous rate limit
+params = {'filter[id]': ','.join(TARGET_ROUTES)}
+if os.getenv('MBTA_API_KEY'):
+    params['api_key'] = os.getenv('MBTA_API_KEY')
 
-# If request times out
-except requests.exceptions.Timeout:
-    # Log that the request timed out
-    logging.error("Request timed out")
-    # Terminate Python script
-    exit(1)
+routes = fetch('https://api-v3.mbta.com/routes', params=params, timeout=30).json()['data']
 
-# Check if the request was successful (HTTP status 200)
-if response.status_code == 200:
+# ── Shape ─────────────────────────────────────────────────────────────────────
 
-    # Convert the response JSON into a Python dictionary
-    data = response.json()
+rows = []
+for route in routes:
+    attributes = route.get('attributes', {})
+    destinations = attributes.get('direction_destinations')
+    rows.append({
+        'route_id':               route.get('id'),
+        'long_name':              attributes.get('long_name'),
+        'route_type':             attributes.get('type'),
+        'color':                  attributes.get('color'),
+        'description':            attributes.get('description'),
+        'direction_destinations': str(destinations) if destinations else None,
+    })
 
-    # Extract routes from the data list in the response
-    routes = data['data']
+logging.info(f"{len(rows)} routes in response")
 
-    # Create a list to store standardized routes in
-    standardized_routes = []
+# ── Write ─────────────────────────────────────────────────────────────────────
 
-    # Proceed only if any routes exist
-    if routes:
-
-        # Loop through each route in the list
-        for route in routes:
-
-            # Extract the route ID and attributes dictionary
-            route_id = route.get('id', None)
-            attributes = route.get('attributes', {})
-
-            # Extract specific route details from the attributes dictionary
-            long_name = attributes.get('long_name', None)
-            route_type = attributes.get('type', None)
-            color = attributes.get('color', None)
-            description = attributes.get('description', None)
-            direction_destinations = attributes.get('direction_destinations', [])
-            
-            # Record ingestion metadata
-            current_datetime = datetime.datetime.now(datetime.timezone.utc)
-            ingestion_timestamp = current_datetime
-            ingestion_source = 'ingest-mbta-routes'
-            
-            # Append updated routes to list
-            standardized_routes.append({
-                'route_id': route_id,
-                'long_name': long_name,
-                'route_type': route_type,
-                'color': color,
-                'description': description,
-                'direction_destinations': str(direction_destinations) if direction_destinations else None,
-                'ingestion_source': ingestion_source,
-                'ingestion_timestamp': ingestion_timestamp
-            })
-
-    else:
-        # Log that no routes exist in current response
-        logging.info("No current routes")
-else:
-    # The API request failed; log the HTTP status code
-    logging.error(f"API request failed with status code: {response.status_code}")
-    exit(1)
-
-# Convert the list of route dictionaries into a pandas DataFrame
-output = pandas.DataFrame(standardized_routes)
-
-# Define BigQuery project, dataset, and table using environment variables
-project_id = os.getenv('BQ_PROJECT_ID', 'mbta-reliability-analytics')
-dataset_id = os.getenv('BQ_DATASET_ID', 'stage')
-table_id = os.getenv('BQ_TABLE_ID', 'mbta_routes')
-
-# Define the schema for the table
-schema = [
-    bigquery.SchemaField("route_id", "STRING"),
-    bigquery.SchemaField("long_name", "STRING"),
-    bigquery.SchemaField("route_type", "INTEGER"),
-    bigquery.SchemaField("color", "STRING"),
-    bigquery.SchemaField("description", "STRING"),
-    bigquery.SchemaField("direction_destinations", "STRING"),
-    bigquery.SchemaField("ingestion_source", "STRING"),
-    bigquery.SchemaField("ingestion_timestamp", "TIMESTAMP"),
-]
-
-# Deduplicate based on unique combination of route_id
-output_deduped = output.drop_duplicates(subset=['route_id'], keep='first')
-
-# Write deduplicated data to BigQuery
-# WRITE_TRUNCATE replaces the table atomically and enforces the explicit schema,
-# preventing pandas type inference from creating mismatched column types
-try:
-    job_config = bigquery.LoadJobConfig(
-        schema=schema,
-        write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
-    )
-    load_job = client.load_table_from_dataframe(
-        output_deduped,
-        f"{project_id}.{dataset_id}.{table_id}",
-        job_config=job_config
-    )
-    load_job.result()
-    logging.info(f"{len(output_deduped)} rows uploaded to BigQuery")
-except Exception as e:
-    logging.error(f"BigQuery upload failed: {e}")
-    exit(1)
+append_to_bronze(pandas.DataFrame(rows))

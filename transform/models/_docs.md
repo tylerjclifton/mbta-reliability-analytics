@@ -1,0 +1,29 @@
+{# Shared column descriptions, referenced from properties files as {{ doc('name') }} #}
+
+{% docs ingested_at %}
+When the ingest run that wrote this version started (UTC). Every row written by the same run shares this value.
+{% enddocs %}
+
+{% docs ingested_by %}
+Cloud Run job that wrote this version (e.g. `ingest-mbta-alerts`).
+{% enddocs %}
+
+{% docs alert_id %}
+MBTA alert ID. One alert can apply to several routes.
+{% enddocs %}
+
+{% docs route_id %}
+MBTA route ID: `Red`, `Orange`, `Blue`, or a Green Line branch (`Green-B` … `Green-E`).
+{% enddocs %}
+
+{% docs line_name %}
+Rail line: `Red Line`, `Orange Line`, `Blue Line`, or `Green Line` (all branches). Ridership is reported at this level.
+{% enddocs %}
+
+{% docs service_date %}
+MBTA service date (Eastern). A service day runs from roughly 5am to 1am the next calendar day.
+{% enddocs %}
+
+{% docs observation_date %}
+Day the weather values summarize: midnight to midnight local standard time (1am–1am during daylight saving time).
+{% enddocs %}

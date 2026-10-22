@@ -15,18 +15,28 @@ variable "scheduler_time_zone" {
   default     = "America/New_York"
 }
 
-variable "ingestion_schedule" {
-  description = "Cron for alert ingestion jobs. Runs hourly."
+variable "alerts_ingestion_schedule" {
+  description = "Cron for MBTA alerts ingestion. Hourly; each run snapshots the live feed."
   default     = "0 * * * *"
 }
 
-variable "nws_ingestion_schedule" {
-  description = "Cron for NWS weather ingestion. Runs daily at 6AM ET to pull previous day's full observations."
+variable "weather_ingestion_schedule" {
+  description = "Cron for NOAA weather ingestion. Daily at 6AM ET; NOAA publishes with a ~2-3 day lag."
   default     = "0 6 * * *"
 }
 
+variable "ridership_ingestion_schedule" {
+  description = "Cron for MBTA ridership ingestion. Weekly (Mondays 6AM ET) so newly published months are picked up within a week."
+  default     = "0 6 * * 1"
+}
+
+variable "routes_ingestion_schedule" {
+  description = "Cron for MBTA routes ingestion. Yearly on Jan 1; routes rarely change."
+  default     = "0 0 1 1 *"
+}
+
 variable "transform_schedule" {
-  description = "Cron for transform job. Runs 30 minutes after each ingestion window."
+  description = "Cron for the dbt transform job. Hourly, 30 minutes after alerts ingestion."
   default     = "30 * * * *"
 }
 

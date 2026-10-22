@@ -41,6 +41,8 @@ vars:
 # See: https://docs.getdbt.com/docs/configuring-models
 #   bronze — append-only tables written by ingest jobs; declared as sources only
 #   silver — views: the latest version of each record per source, cleaned and typed
+#            (one exception: mbta_alert_latest is an incremental table, so the
+#            transform doesn't re-read every 15-minute alert snapshot each run)
 #   gold   — tables the dashboard reads, rebuilt every run
 models:
   mbta_reliability_analytics:

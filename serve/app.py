@@ -14,7 +14,8 @@ Layout:
   6. Footer            — sources, cadence, method notes
 
 Counting unit is the incident (gold.rail_incidents): one real-world event the
-MBTA may have posted as several alerts.
+MBTA may have posted as several alerts. An alert ends at its posted end time or
+when it leaves the MBTA feed, whichever comes first (silver.mbta_alerts).
 
 Ridership comparisons use "% vs typical": a day's gated entries relative to the
 median for the same line, weekday, and month. That removes line size, the
@@ -85,7 +86,7 @@ st.markdown(f"""
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 /* Typography: one sans everywhere (icons keep their own font) */
-html, body, .stMarkdown, .stMarkdown *, .stCaption *, [data-testid="stPills"] p,
+html, body, .stMarkdown, .stMarkdown *, .stCaption *, .st-key-line_filter button p,
 [data-testid="stExpander"] summary p {{ font-family: {FONT} !important; }}
 
 /* Page frame: centered column with generous gutters; hide Streamlit chrome */
@@ -93,8 +94,6 @@ html, body, .stMarkdown, .stMarkdown *, .stCaption *, [data-testid="stPills"] p,
 [data-testid="stHeader"] {{ display: none; }}
 
 /* Header */
-.eyebrow {{ color: {MUTED}; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em;
-            text-transform: uppercase; margin-bottom: 0.4rem; }}
 .hero h1 {{ font-size: 2.6rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1;
             margin: 0 0 0.6rem; padding: 0; color: {INK}; }}
 .hero p  {{ color: {INK_2}; font-size: 1.05rem; margin: 0 0 1rem; max-width: 54rem; }}
@@ -426,8 +425,7 @@ ridership_through = ridership_all["service_date"].max()
 
 st.markdown(f"""
 <div class="hero">
-  <div class="eyebrow">MBTA rapid transit</div>
-  <h1>Reliability &amp; Ridership</h1>
+  <h1>MBTA Reliability &amp; Ridership</h1>
   <p>Service incidents, ridership, and weather across Boston's Red, Orange, Blue, and Green Lines.</p>
   <div class="status">
     <span class="live">Alerts updated {alerts_updated.tz_convert(TIMEZONE).strftime("%b %-d, %-I:%M %p ET")}</span>
@@ -842,11 +840,12 @@ st.markdown("""
 <div class="footer">
   <b>Sources</b> · MBTA V3 API (alerts, routes) · MBTA Gated Station Entries (ArcGIS Open Data) ·
   NOAA GHCN-Daily, Boston Logan (USW00014739)<br>
-  <b>Refresh</b> · Alerts hourly · Weather daily (NOAA posts ~3 days behind) · Ridership weekly
+  <b>Refresh</b> · Alerts every 15 minutes · Weather daily (NOAA posts ~3 days behind) · Ridership weekly
   (MBTA posts ~1–2 months behind)<br>
   <b>Method</b> · An incident groups the alerts the MBTA posts for one event (same route, cause,
   effect, and station, posted in close succession). Notices and facility issues (elevators,
-  parking) are excluded. "% vs typical" compares a day to the median for the same line, weekday,
-  and month.
+  parking) are excluded. An alert ends at the end time the MBTA posted or when it leaves the MBTA's
+  feed, whichever comes first. "% vs typical" compares a day to the median for the same line,
+  weekday, and month.
 </div>
 """, unsafe_allow_html=True)

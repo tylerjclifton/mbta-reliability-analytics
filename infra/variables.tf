@@ -16,8 +16,8 @@ variable "scheduler_time_zone" {
 }
 
 variable "alerts_ingestion_schedule" {
-  description = "Cron for MBTA alerts ingestion. Hourly; each run snapshots the live feed."
-  default     = "0 * * * *"
+  description = "Cron for MBTA alerts ingestion. Every 15 minutes; each run snapshots the live feed, and the gap between runs bounds how precisely an alert's end is known."
+  default     = "*/15 * * * *"
 }
 
 variable "weather_ingestion_schedule" {
@@ -36,8 +36,8 @@ variable "routes_ingestion_schedule" {
 }
 
 variable "transform_schedule" {
-  description = "Cron for the dbt transform job. Hourly, 30 minutes after alerts ingestion."
-  default     = "30 * * * *"
+  description = "Cron for the dbt transform job. Hourly at :35, just after the :30 alerts snapshot."
+  default     = "35 * * * *"
 }
 
 # Serve (dashboard) configuration

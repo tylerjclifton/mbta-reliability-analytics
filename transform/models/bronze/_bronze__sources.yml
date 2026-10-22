@@ -21,12 +21,12 @@ sources:
     tables:
       - name: mbta_alerts
         description: >
-          Hourly snapshots of the MBTA alerts API (rail routes only).
+          15-minute snapshots of the MBTA alerts API (rail routes only).
           Grain: alert × route × ingest run. Column names follow the API.
         freshness:
-          # Hourly job; a run with no rail alerts writes nothing, so allow slack
-          warn_after: {count: 3, period: hour}
-          error_after: {count: 6, period: hour}
+          # Every 15 minutes; a run with no rail alerts writes nothing, so allow slack
+          warn_after: {count: 1, period: hour}
+          error_after: {count: 3, period: hour}
 
       - name: mbta_routes
         description: >

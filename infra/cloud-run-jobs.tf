@@ -9,8 +9,8 @@ locals {
   backend_registry = "${var.location}-docker.pkg.dev/${var.project_id}/backend"
 
   # Image versions — bump after pushing with scripts/build-image.sh
-  ingest_image_tag    = "v1.1.0"
-  transform_image_tag = "v1.4.0"
+  ingest_image_tag    = "v1.1.1"
+  transform_image_tag = "v1.5.0"
 
   # One entry per ingest job. Key = job folder under ingest/ = bronze table
   # name with "-" for "_" (e.g. mbta-alerts → bronze.mbta_alerts).

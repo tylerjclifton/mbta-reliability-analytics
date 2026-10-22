@@ -1,27 +1,32 @@
 {#
   silver.mbta_alerts — one row per service-affecting alert × route
 
-  Collapses the hourly alert snapshots in bronze to the latest version of each
-  alert, drops alerts that don't affect train service (var
-  non_service_alert_effects, e.g. notices and elevator closures), resolves
-  when each alert started and ended, and groups alerts into incidents. The MBTA API often leaves start
-  or end unset (or sets them to the epoch), and drops alerts from the feed when
-  they end, so:
+  Takes the latest version of each alert (silver.mbta_alert_latest), drops
+  alerts that don't affect train service (var non_service_alert_effects, e.g.
+  notices and elevator closures), resolves when each alert started and ended,
+  and groups alerts into incidents.
 
     start  = API start, else when MBTA created the alert
-    end    = API end, else NULL while the alert is still in the feed,
-             else halfway between the last run that saw it and the next (hourly) run
+    end    = whichever comes first:
+               - the end time the MBTA posted (an estimate, usually on the hour)
+               - when the alert left the feed: halfway between the last ingest
+                 run that saw it and the next run (runs are every 15 minutes),
+                 capped at 30 minutes after it was last seen
+             NULL while the alert is still in the feed with no posted end
+
+  Announced alerts that left the feed before their start never took effect
+  (cancelled, or re-posted under a new alert ID) and are dropped.
 
   Steps:
-    1. latest_run      — timestamp of the most recent ingest run
-    2. latest_versions — latest snapshot per alert × route, plus first/last seen
-    3. cleaned         — drop non-service effects; epoch placeholders → NULL;
+    1. runs            — every ingest run and the run after it
+    2. cleaned         — drop non-service effects; epoch placeholders → NULL;
                          flag alerts still in the feed
-    4. resolved        — start/end per the rules above
-    5. located         — pull the station/area out of the header ("at Harvard")
-    6. incident_breaks — flag alerts that start a new incident (see below)
-    7. incidents       — number incidents and assign incident_id
-    8. final select    — rename to project conventions, derive dates and duration
+    3. resolved        — start/end per the rules above; drop alerts that left
+                         the feed before they started
+    4. located         — pull the station/area out of the header ("at Harvard")
+    5. incident_breaks — flag alerts that start a new incident (see below)
+    6. incidents       — number incidents and assign incident_id
+    7. final select    — rename to project conventions, derive dates and duration
 
   Incidents: the MBTA often posts several alerts for one event — an update, or a
   follow-up such as "delays due to an earlier disabled train at JFK/UMass". An
@@ -33,58 +38,63 @@
 
 WITH
 
-    -- 1. Every row written by one ingest run shares its ingested_at, so the
-    --    max is the latest run (computed over all effects, before filtering)
-    latest_run AS (
-        SELECT MAX(ingested_at) AS ingested_at
-        FROM {{ source('bronze', 'mbta_alerts') }}
-    ),
-
-    -- 2. Latest version of each alert × route, keeping when it was first and
-    --    last seen across all snapshots
-    latest_versions AS (
+    -- 1. Ingest runs, to the minute (rows from one run share a timestamp; rows
+    --    from the pre-2026-10 pipeline differ by microseconds within a run).
+    --    Reads only the ingested_at column of bronze, so it stays cheap.
+    runs AS (
         SELECT
-            *,
-            MIN(ingested_at) OVER alert_snapshots AS first_seen_at,
-            MAX(ingested_at) OVER alert_snapshots AS last_seen_at
-        FROM {{ source('bronze', 'mbta_alerts') }}
-        {{ keep_latest_version(['alert_id', 'route']) }}
-        WINDOW alert_snapshots AS (PARTITION BY alert_id, route)
+            run_at,
+            LEAD(run_at) OVER (ORDER BY run_at) AS next_run_at,
+            MAX(run_at) OVER ()                 AS latest_run_at
+        FROM (
+            SELECT DISTINCT TIMESTAMP_TRUNC(ingested_at, MINUTE) AS run_at
+            FROM {{ source('bronze', 'mbta_alerts') }}
+        )
     ),
 
-    -- 3. Keep service-affecting alerts (judged on the latest version's effect).
+    -- 2. Keep service-affecting alerts (judged on the latest version's effect).
     --    The API uses the epoch (1970-01-01) for "not set"; treat it as NULL.
     --    An alert seen in the latest run is still in the live feed.
     cleaned AS (
         SELECT
-            v.*,
-            IF(v.active_period_start > TIMESTAMP '1970-01-02', v.active_period_start, NULL) AS api_start_at,
-            IF(v.active_period_end   > TIMESTAMP '1970-01-02', v.active_period_end,   NULL) AS api_end_at,
-            v.last_seen_at = r.ingested_at                                                AS is_in_feed
-        FROM latest_versions v
-        CROSS JOIN latest_run r
-        WHERE v.effect NOT IN ('{{ var("non_service_alert_effects") | join("', '") }}')
+            a.*,
+            IF(a.active_period_start > TIMESTAMP '1970-01-02', a.active_period_start, NULL) AS api_start_at,
+            IF(a.active_period_end   > TIMESTAMP '1970-01-02', a.active_period_end,   NULL) AS api_end_at,
+            r.run_at = r.latest_run_at                                                    AS is_in_feed,
+            -- It left the feed between its last run and the next; take the
+            -- midpoint, capped at 30 minutes. Runs were never scheduled more than
+            -- an hour apart, but history carried over from the pre-2026-10
+            -- pipeline only kept each alert's last sighting, so its run list has
+            -- gaps that would otherwise push the midpoint hours too late.
+            TIMESTAMP_ADD(
+                a.last_seen_at,
+                INTERVAL LEAST(DIV(TIMESTAMP_DIFF(r.next_run_at, r.run_at, SECOND), 2), 30 * 60) SECOND
+            )                                                                             AS left_feed_at
+        FROM {{ ref('mbta_alert_latest') }} a
+        INNER JOIN runs r
+            ON TIMESTAMP_TRUNC(a.last_seen_at, MINUTE) = r.run_at
+        WHERE a.effect NOT IN ('{{ var("non_service_alert_effects") | join("', '") }}')
     ),
 
-    -- 4. Resolve start and end
+    -- 3. Resolve start and end
     resolved AS (
         SELECT
             *,
             -- No real start from the API → fall back to when the alert was created
             COALESCE(api_start_at, created_at) AS start_at,
             CASE
-                -- Explicit end from the API → use it as-is
-                WHEN api_end_at IS NOT NULL THEN api_end_at
-                -- Still in the feed → genuinely ongoing
-                WHEN is_in_feed THEN NULL
-                -- Dropped out of the feed with no explicit end → it ended between
-                -- the last run that saw it and the next (hourly) one; use the midpoint
-                ELSE TIMESTAMP_ADD(last_seen_at, INTERVAL 30 MINUTE)
+                -- Still in the feed → ends at its posted end (NULL = ongoing)
+                WHEN is_in_feed THEN api_end_at
+                -- Left the feed → whichever came first: the posted end or leaving
+                WHEN api_end_at < left_feed_at THEN api_end_at
+                ELSE left_feed_at
             END AS end_at
         FROM cleaned
+        -- Left the feed before starting → never took effect
+        WHERE is_in_feed OR left_feed_at > COALESCE(api_start_at, created_at)
     ),
 
-    -- 5. Location named after at/near/between/from: the run of capitalized words
+    -- 4. Location named after at/near/between/from: the run of capitalized words
     --    ("JFK/UMass", "Revere Beach and Beachmont"), lower-cased with
     --    punctuation stripped so "at JFK/UMass" and "near JFK/UMass" match.
     --    NULL when the header names no location.
@@ -99,7 +109,7 @@ WITH
         FROM resolved
     ),
 
-    -- 6. Within each route × cause × effect × location group (alerts with no
+    -- 5. Within each route × cause × effect × location group (alerts with no
     --    location never group), an alert starts a new incident unless it
     --    begins within the follow-up window of the latest end seen so far
     incident_breaks AS (
@@ -123,7 +133,7 @@ WITH
         )
     ),
 
-    -- 7. A running count of new-incident flags numbers the incidents in each
+    -- 6. A running count of new-incident flags numbers the incidents in each
     --    group; the incident's first alert ID becomes its incident_id
     incidents AS (
         SELECT
@@ -143,7 +153,7 @@ WITH
         )
     )
 
--- 8. Project conventions: alert_* attributes, `_at` timestamps (UTC),
+-- 7. Project conventions: alert_* attributes, `_at` timestamps (UTC),
 --    `_date` dates (Eastern), human-readable enums
 SELECT
     alert_id,
@@ -167,6 +177,7 @@ SELECT
     is_in_feed,
     first_seen_at,
     last_seen_at,
-    ingested_at,
-    ingested_by
+    -- The latest version of an alert is the one from its last-seen run
+    last_seen_at                                                AS ingested_at,
+    'ingest-mbta-alerts'                                        AS ingested_by
 FROM incidents

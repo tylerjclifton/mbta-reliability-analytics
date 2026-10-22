@@ -2,15 +2,16 @@
 Ingest: MBTA service alerts
 
 Source:     MBTA V3 API /alerts (https://api-v3.mbta.com)
-Cadence:    Hourly
+Cadence:    Every 15 minutes
 Each run:   Snapshots every rail alert currently in the live feed, including
             ones that don't affect train service (e.g. elevator closures,
             notices) — silver filters those out, so bronze stays complete
 Writes to:  bronze.mbta_alerts (append) — one row per alert × route per run
 
 The API only shows alerts that are active or upcoming; once an alert ends it
-disappears for good. Bronze's hourly snapshots are therefore the only record of
-past alerts, and silver infers when an alert ended from the last run it was seen.
+disappears for good. Bronze's snapshots are therefore the only record of past
+alerts, and silver uses the last run an alert was seen in to tell when it ended
+(whichever comes first: that, or the end time the MBTA posted).
 """
 
 # Import standard libraries

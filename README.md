@@ -1,5 +1,7 @@
 # MBTA Reliability Analytics
 
+[![CI](https://github.com/tylerjclifton/mbta-reliability-analytics/actions/workflows/ci.yml/badge.svg)](https://github.com/tylerjclifton/mbta-reliability-analytics/actions/workflows/ci.yml)
+
 A full-stack data engineering project tracking MBTA rail reliability, ridership, and weather across the Red, Orange, Blue, and Green Lines.
 
 **Live dashboard:** [tylerclifton.com](https://tylerclifton.com)
@@ -92,6 +94,21 @@ A failing test skips everything downstream of it, so bad data never reaches gold
 
 ---
 
+## Security & Access
+
+Each workload runs as its own service account with access granted per dataset (`infra/iam.tf`). No workload has a project-wide data or admin role.
+
+| Service account | Runs | Access |
+|---|---|---|
+| `ingest-jobs` | Ingest jobs | Write `bronze`; read the `mbta-api-key` secret |
+| `dbt-bigquery` | Transform job | Read `bronze`; write `silver` and `gold` |
+| `serve-bigquery` | Dashboard | Read `gold` |
+| `job-scheduler` | Cloud Scheduler | Start the five Cloud Run jobs (`run.invoker` on each job) |
+
+All four also hold `bigquery.jobUser` (permission to run queries), which grants no data access on its own. Only the APIs the pipeline uses are enabled (`infra/apis.tf`), and Artifact Registry keeps the 5 newest versions of each image.
+
+---
+
 ## Stack
 
 | Category | Technology |
@@ -130,6 +147,7 @@ infra/                  Terraform — all GCP infrastructure
   cloud-scheduler.tf    Cron triggers
 ingest/                 One shared image for every ingest job
   common/bronze.py      Shared fetch + append-to-bronze helpers
+  tests/                Job tests against canned API responses
   mbta-alerts/          MBTA service alert snapshots (hourly)
   mbta-routes/          MBTA route metadata snapshots (yearly)
   mbta-ridership/       ArcGIS gated entries, full history (weekly)
@@ -140,13 +158,24 @@ transform/              dbt Core project
   models/gold/          Dashboard tables (rail_incidents, rail_alerts, rail_ridership) + tests
   macros/               keep_latest_version, null_if_failed_ghcn_qc
   tests/generic/        unique_combination, accepted_range
-serve/                  Streamlit dashboard
+serve/                  Streamlit dashboard (app.py; pure helpers in helpers.py, tested in tests/)
 scripts/build-image.sh  Build + push any component's image
+.github/workflows/      CI: lint, tests, dbt parse, terraform validate
+pyproject.toml          pytest + ruff config
 ```
 
 ---
 
 ## Development & Deployment
+
+CI (`.github/workflows/ci.yml`) runs on every push without cloud credentials: ruff + pytest for the Python, `dbt parse` + sqlfluff for the SQL, and `terraform fmt` + `validate` for the infrastructure. The same checks locally:
+
+```bash
+pip install -r requirements.txt
+ruff check ingest serve && pytest                        # Python
+(cd transform && dbt parse --profiles-dir . && sqlfluff lint models)   # SQL
+(cd infra && terraform fmt -check -recursive && terraform validate)    # Terraform
+```
 
 ```bash
 # Local environment (all components + dev tools)
@@ -172,3 +201,12 @@ cd infra && terraform apply
 # Backfill weather (e.g. ~2 years)
 gcloud run jobs execute ingest-noaa-weather --region=us-east1 --update-env-vars LOOKBACK_DAYS=800
 ```
+
+### Terraform state
+
+State lives in the GCS bucket `mbta-reliability-analytics-tfstate` (versioned, 30-day history; `infra/cloud-storage.tf`), configured as the backend in `infra/main.tf`. The bucket is itself managed by Terraform, so it was bootstrapped once:
+
+1. Comment out the `backend "gcs"` block in `infra/main.tf` and `terraform apply -target=google_storage_bucket.tfstate` (state is local).
+2. Restore the block and run `terraform init -migrate-state` to move the local state into the bucket.
+
+After that, `terraform init` in `infra/` is all a new machine needs (with `gcloud auth application-default login`).

@@ -30,6 +30,12 @@
     )
 }}
 
+{#- Alert fields carried from bronze (everything except the audit columns) -#}
+{%- set alert_columns = [
+    'alert_id', 'route', 'active_period_start', 'active_period_end', 'duration_certainty',
+    'header', 'description', 'cause', 'effect', 'severity', 'created_at', 'updated_at',
+] -%}
+
 {#- The newest snapshot already processed, compiled into the query as a literal
     so BigQuery prunes bronze's ingested_at partitions (a subquery wouldn't) -#}
 {%- set processed_through = none -%}
@@ -53,39 +59,31 @@ WITH
     --    survives the merge, which replaces the whole row)
     candidates AS (
         SELECT
-            alert_id, route, active_period_start, active_period_end, duration_certainty,
-            header, description, cause, effect, severity, created_at, updated_at,
-            ingested_at  AS seen_at,
-            ingested_at  AS first_seen_at
+            {{ alert_columns | join(',\n            ') }},
+            ingested_at AS seen_at,
+            ingested_at AS first_seen_at
         FROM new_snapshots
         {%- if is_incremental() %}
 
         UNION ALL
 
         SELECT
-            alert_id, route, active_period_start, active_period_end, duration_certainty,
-            header, description, cause, effect, severity, created_at, updated_at,
+            {{ alert_columns | join(',\n            ') }},
             last_seen_at AS seen_at,
             first_seen_at
         FROM {{ this }}
-        WHERE STRUCT(alert_id, route) IN (SELECT AS STRUCT alert_id, route FROM new_snapshots)
+        WHERE STRUCT(alert_id, route) IN (
+            SELECT AS STRUCT
+                alert_id,
+                route
+            FROM new_snapshots
+        )
         {%- endif %}
     )
 
 -- 3. Latest version per alert × route, with the full seen span
 SELECT
-    alert_id,
-    route,
-    active_period_start,
-    active_period_end,
-    duration_certainty,
-    header,
-    description,
-    cause,
-    effect,
-    severity,
-    created_at,
-    updated_at,
+    {{ alert_columns | join(',\n    ') }},
     MIN(first_seen_at) OVER alert AS first_seen_at,
     MAX(seen_at) OVER alert       AS last_seen_at
 FROM candidates

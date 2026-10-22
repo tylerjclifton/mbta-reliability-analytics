@@ -26,8 +26,8 @@ WITH
             d.line_name,
             COUNT(DISTINCT i.incident_id) AS active_incident_count,
             COUNT(DISTINCT IF(i.incident_duration_minutes < 24 * 60, i.incident_id, NULL)) AS active_disruption_count
-        FROM {{ ref('mbta_ridership') }} d
-        LEFT JOIN {{ ref('rail_incidents') }} i
+        FROM {{ ref('mbta_ridership') }} AS d
+        LEFT JOIN {{ ref('rail_incidents') }} AS i
             ON  d.line_name = i.line_name
             AND d.service_date BETWEEN i.incident_start_date
                 AND COALESCE(i.incident_end_date, CURRENT_DATE('{{ var("local_timezone") }}'))
@@ -51,9 +51,9 @@ SELECT
     w.snowfall_in,
     d.ingested_at               AS ridership_ingested_at,
     w.ingested_at               AS weather_ingested_at
-FROM {{ ref('mbta_ridership') }} d
-INNER JOIN incident_counts ic
+FROM {{ ref('mbta_ridership') }} AS d
+INNER JOIN incident_counts AS ic
     ON  d.service_date = ic.service_date
     AND d.line_name = ic.line_name
-LEFT JOIN {{ ref('noaa_weather') }} w
+LEFT JOIN {{ ref('noaa_weather') }} AS w
     ON d.service_date = w.observation_date

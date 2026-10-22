@@ -1,205 +1,133 @@
-# Terraform Runner Service Account Roles
+# ══════════════════════════════════════════════════════════════════════════════
+# IAM — least privilege per workload
+#
+# Data access is granted per dataset, not project-wide. The only project-level
+# role a workload gets is bigquery.jobUser (permission to run queries/loads),
+# which grants no data access by itself.
+#
+#                  bronze        silver        gold          other
+#   ingest-jobs    dataEditor    —             —             secret: mbta-api-key
+#   dbt-bigquery   dataViewer    dataEditor    dataEditor    bigquery.user (dataset lookups)
+#   serve-bigquery —             —             dataViewer
+#   job-scheduler  —             —             —             run.invoker on each job
+# ══════════════════════════════════════════════════════════════════════════════
+
+# ── Project-level ─────────────────────────────────────────────────────────────
+
 locals {
-  terraform_runner_roles = [
-    "roles/artifactregistry.admin",
-    "roles/bigquery.admin",
-    "roles/run.admin",
-    "roles/compute.admin",
-    "roles/resourcemanager.projectIamAdmin",
-    "roles/iam.serviceAccountAdmin",
-    "roles/iam.serviceAccountUser",
-    "roles/storage.admin"
-  ]
+  project_roles = {
+    ingest_job_user = { member = google_service_account.ingest.member, role = "roles/bigquery.jobUser" }
+    dbt_job_user    = { member = google_service_account.dbt_bigquery.member, role = "roles/bigquery.jobUser" }
+    # dbt lists and looks up datasets before building; bigquery.user covers that
+    # without granting read or write on any existing dataset
+    dbt_user       = { member = google_service_account.dbt_bigquery.member, role = "roles/bigquery.user" }
+    serve_job_user = { member = google_service_account.serve_bigquery.member, role = "roles/bigquery.jobUser" }
+  }
 }
 
-resource "google_project_iam_member" "terraform_runner" {
-  for_each = toset(local.terraform_runner_roles)
+resource "google_project_iam_member" "workload" {
+  for_each = local.project_roles
 
   project = var.project_id
-  role    = each.value
-  member  = "serviceAccount:${google_service_account.terraform_runner.email}"
+  role    = each.value.role
+  member  = each.value.member
 }
 
-# Default Compute Engine Service Account Roles
+# ── Dataset-level ─────────────────────────────────────────────────────────────
+
 locals {
-  compute_engine_roles = [
-    "roles/bigquery.jobUser",
-    "roles/run.developer",
-    "roles/run.invoker",
-    "roles/cloudscheduler.serviceAgent",
-    "roles/editor",
-    "roles/iam.serviceAccountTokenCreator",
-    "roles/iam.serviceAccountUser",
-    "roles/secretmanager.secretAccessor"
-  ]
+  dataset_roles = {
+    ingest_writes_bronze = { dataset = google_bigquery_dataset.bronze.dataset_id, role = "roles/bigquery.dataEditor", member = google_service_account.ingest.member }
+    dbt_reads_bronze     = { dataset = google_bigquery_dataset.bronze.dataset_id, role = "roles/bigquery.dataViewer", member = google_service_account.dbt_bigquery.member }
+    dbt_writes_silver    = { dataset = google_bigquery_dataset.silver.dataset_id, role = "roles/bigquery.dataEditor", member = google_service_account.dbt_bigquery.member }
+    dbt_writes_gold      = { dataset = google_bigquery_dataset.gold.dataset_id, role = "roles/bigquery.dataEditor", member = google_service_account.dbt_bigquery.member }
+    serve_reads_gold     = { dataset = google_bigquery_dataset.gold.dataset_id, role = "roles/bigquery.dataViewer", member = google_service_account.serve_bigquery.member }
+  }
 }
 
-resource "google_project_iam_member" "compute_engine" {
-  for_each = toset(local.compute_engine_roles)
+resource "google_bigquery_dataset_iam_member" "workload" {
+  for_each = local.dataset_roles
+
+  dataset_id = each.value.dataset
+  role       = each.value.role
+  member     = each.value.member
+}
+
+# ── Secret and job-level ──────────────────────────────────────────────────────
+
+# Ingest jobs read the MBTA API key (the secret itself is created by hand)
+resource "google_secret_manager_secret_iam_member" "ingest_reads_mbta_api_key" {
+  secret_id = "mbta-api-key"
+  role      = "roles/secretmanager.secretAccessor"
+  member    = google_service_account.ingest.member
+}
+
+# The scheduler may start exactly these jobs (run.invoker includes run.jobs.run)
+resource "google_cloud_run_v2_job_iam_member" "scheduler_runs_ingest" {
+  for_each = google_cloud_run_v2_job.ingest
+
+  name     = each.value.name
+  location = each.value.location
+  role     = "roles/run.invoker"
+  member   = google_service_account.job_scheduler.member
+}
+
+resource "google_cloud_run_v2_job_iam_member" "scheduler_runs_transform" {
+  name     = google_cloud_run_v2_job.transform.name
+  location = google_cloud_run_v2_job.transform.location
+  role     = "roles/run.invoker"
+  member   = google_service_account.job_scheduler.member
+}
+
+# ── Google service agents ─────────────────────────────────────────────────────
+# Google grants these when an API is enabled; they're kept here so Terraform
+# documents (and would restore) them. Removing one breaks its service.
+
+locals {
+  service_agent_roles = {
+    cloud_run         = { member = "serviceAccount:${var.default_sa_cloud_run}", role = "roles/run.serviceAgent" }
+    artifact_registry = { member = "serviceAccount:${var.default_sa_artifact_registry}", role = "roles/artifactregistry.serviceAgent" }
+    cloud_scheduler   = { member = "serviceAccount:${var.default_sa_cloud_scheduler}", role = "roles/cloudscheduler.serviceAgent" }
+    # Google APIs service agent: Editor is Google's default for project-level
+    # automation (e.g. creating managed resources); not used by our workloads
+    google_apis = { member = "serviceAccount:${var.default_sa_google_apis}", role = "roles/editor" }
+  }
+}
+
+resource "google_project_iam_member" "service_agent" {
+  for_each = local.service_agent_roles
 
   project = var.project_id
-  role    = each.value
-  member  = "serviceAccount:${var.default_sa_compute_engine}"
+  role    = each.value.role
+  member  = each.value.member
 }
 
-# Default Dataform Service Account Roles
-locals {
-  dataform_roles = [
-    "roles/bigquery.dataEditor",
-    "roles/bigquery.jobUser",
-    "roles/bigquery.user",
-    "roles/dataform.serviceAgent",
-    "roles/editor",
-    "roles/secretmanager.secretAccessor",
-    "roles/iam.serviceAccountTokenCreator",
-    "roles/iam.serviceAccountUser"
-  ]
+# Pre-refactor addresses of the service-agent grants kept above
+moved {
+  from = google_project_iam_member.cloud_run_service_agent["roles/run.serviceAgent"]
+  to   = google_project_iam_member.service_agent["cloud_run"]
 }
-
-resource "google_project_iam_member" "dataform" {
-  for_each = toset(local.dataform_roles)
-
-  project = var.project_id
-  role    = each.value
-  member  = "serviceAccount:${var.default_sa_dataform}"
+moved {
+  from = google_project_iam_member.artifact_registry_service_agent["roles/artifactregistry.serviceAgent"]
+  to   = google_project_iam_member.service_agent["artifact_registry"]
 }
-
-# Default Cloud Scheduler Service Account Roles
-locals {
-  cloud_scheduler_roles = [
-    "roles/run.invoker",
-    "roles/cloudscheduler.serviceAgent"
-  ]
+moved {
+  from = google_project_iam_member.cloud_scheduler["roles/cloudscheduler.serviceAgent"]
+  to   = google_project_iam_member.service_agent["cloud_scheduler"]
 }
-
-resource "google_project_iam_member" "cloud_scheduler" {
-  for_each = toset(local.cloud_scheduler_roles)
-
-  project = var.project_id
-  role    = each.value
-  member  = "serviceAccount:${var.default_sa_cloud_scheduler}"
+moved {
+  from = google_project_iam_member.google_apis_service_agent["roles/editor"]
+  to   = google_project_iam_member.service_agent["google_apis"]
 }
-
-# Artifact Registry Service Agent Roles
-locals {
-  artifact_registry_service_agent_roles = [
-    "roles/artifactregistry.serviceAgent"
-  ]
+moved {
+  from = google_project_iam_member.serve_bigquery["roles/bigquery.jobUser"]
+  to   = google_project_iam_member.workload["serve_job_user"]
 }
-
-resource "google_project_iam_member" "artifact_registry_service_agent" {
-  for_each = toset(local.artifact_registry_service_agent_roles)
-
-  project = var.project_id
-  role    = each.value
-  member  = "serviceAccount:${var.default_sa_artifact_registry}"
+moved {
+  from = google_project_iam_member.dbt_bigquery["roles/bigquery.jobUser"]
+  to   = google_project_iam_member.workload["dbt_job_user"]
 }
-
-# dbt BigQuery Service Account Roles
-locals {
-  dbt_bigquery_roles = [
-    "roles/bigquery.dataEditor",
-    "roles/bigquery.jobUser",
-    "roles/bigquery.user",
-    "roles/run.invoker"
-  ]
-}
-
-resource "google_project_iam_member" "dbt_bigquery" {
-  for_each = toset(local.dbt_bigquery_roles)
-
-  project = var.project_id
-  role    = each.value
-  member  = "serviceAccount:${google_service_account.dbt_bigquery.email}"
-}
-
-# BigQuery Data Transfer Service Agent Roles
-locals {
-  bigquery_data_transfer_service_agent_roles = [
-    "roles/bigquerydatatransfer.serviceAgent"
-  ]
-}
-
-resource "google_project_iam_member" "bigquery_data_transfer_service_agent" {
-  for_each = toset(local.bigquery_data_transfer_service_agent_roles)
-
-  project = var.project_id
-  role    = each.value
-  member  = "serviceAccount:${var.default_sa_bigquery_data_transfer}"
-}
-
-# Cloud Pub/Sub Service Agent Roles
-locals {
-  cloud_pubsub_service_agent_roles = [
-    "roles/pubsub.serviceAgent"
-  ]
-}
-
-resource "google_project_iam_member" "cloud_pubsub_service_agent" {
-  for_each = toset(local.cloud_pubsub_service_agent_roles)
-
-  project = var.project_id
-  role    = each.value
-  member  = "serviceAccount:${var.default_sa_cloud_pubsub}"
-}
-
-# Cloud Run Service Agent Roles
-locals {
-  cloud_run_service_agent_roles = [
-    "roles/run.serviceAgent"
-  ]
-}
-
-resource "google_project_iam_member" "cloud_run_service_agent" {
-  for_each = toset(local.cloud_run_service_agent_roles)
-
-  project = var.project_id
-  role    = each.value
-  member  = "serviceAccount:${var.default_sa_cloud_run}"
-}
-
-# Serve Service Account Roles (read-only BigQuery access for the dashboard)
-locals {
-  serve_bigquery_roles = [
-    "roles/bigquery.dataViewer",
-    "roles/bigquery.jobUser",
-  ]
-}
-
-resource "google_project_iam_member" "serve_bigquery" {
-  for_each = toset(local.serve_bigquery_roles)
-
-  project = var.project_id
-  role    = each.value
-  member  = "serviceAccount:${google_service_account.serve_bigquery.email}"
-}
-
-# Container Registry Service Agent Roles
-locals {
-  container_registry_service_agent_roles = [
-    "roles/containerregistry.ServiceAgent"
-  ]
-}
-
-resource "google_project_iam_member" "container_registry_service_agent" {
-  for_each = toset(local.container_registry_service_agent_roles)
-
-  project = var.project_id
-  role    = each.value
-  member  = "serviceAccount:${var.default_sa_google_container_registry}"
-}
-
-# Google APIs Service Agent Roles
-locals {
-  google_apis_service_agent_roles = [
-    "roles/editor"
-  ]
-}
-
-resource "google_project_iam_member" "google_apis_service_agent" {
-  for_each = toset(local.google_apis_service_agent_roles)
-
-  project = var.project_id
-  role    = each.value
-  member  = "serviceAccount:${var.default_sa_google_apis}"
+moved {
+  from = google_project_iam_member.dbt_bigquery["roles/bigquery.user"]
+  to   = google_project_iam_member.workload["dbt_user"]
 }

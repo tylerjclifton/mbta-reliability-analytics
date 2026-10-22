@@ -10,7 +10,7 @@ locals {
 
   # Image versions — bump after pushing with scripts/build-image.sh
   ingest_image_tag    = "v1.1.1"
-  transform_image_tag = "v1.5.0"
+  transform_image_tag = "v1.5.1"
 
   # One entry per ingest job. Key = job folder under ingest/ = bronze table
   # name with "-" for "_" (e.g. mbta-alerts → bronze.mbta_alerts).
@@ -60,11 +60,15 @@ resource "google_cloud_run_v2_job" "ingest" {
 
   deletion_protection = true
 
+  # Cloud Run checks secret access when the job is updated, so the ingest
+  # account's grant on the MBTA API key must exist first
+  depends_on = [google_secret_manager_secret_iam_member.ingest_reads_mbta_api_key]
+
   template {
     task_count  = 1 # Total number of tasks to run
     parallelism = 0 # Maximum number of tasks to run concurrently
     template {
-      service_account = var.default_sa_compute_engine
+      service_account = google_service_account.ingest.email
       timeout         = each.value.timeout
       max_retries     = 1 # One retry absorbs transient API errors
 

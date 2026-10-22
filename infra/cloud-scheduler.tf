@@ -1,8 +1,9 @@
 # ══════════════════════════════════════════════════════════════════════════════
 # Cloud Scheduler — cron triggers for the Cloud Run jobs
 #
-# Each trigger POSTs to the Cloud Run Admin API's jobs.run endpoint. Ingest
-# schedules come from local.ingest_jobs (cloud-run-jobs.tf).
+# Each trigger POSTs to the Cloud Run Admin API's jobs.run endpoint as the
+# job-scheduler service account, which may run only these jobs (iam.tf).
+# Ingest schedules come from local.ingest_jobs (cloud-run-jobs.tf).
 # ══════════════════════════════════════════════════════════════════════════════
 
 locals {
@@ -29,7 +30,7 @@ resource "google_cloud_scheduler_job" "ingest" {
     http_method = "POST"
     uri         = "${local.run_jobs_api}/${google_cloud_run_v2_job.ingest[each.key].name}:run"
     oauth_token {
-      service_account_email = var.default_sa_compute_engine
+      service_account_email = google_service_account.job_scheduler.email
       scope                 = "https://www.googleapis.com/auth/cloud-platform"
     }
   }
@@ -68,7 +69,7 @@ resource "google_cloud_scheduler_job" "transform" {
     http_method = "POST"
     uri         = "${local.run_jobs_api}/${google_cloud_run_v2_job.transform.name}:run"
     oauth_token {
-      service_account_email = google_service_account.dbt_bigquery.email
+      service_account_email = google_service_account.job_scheduler.email
       scope                 = "https://www.googleapis.com/auth/cloud-platform"
     }
   }

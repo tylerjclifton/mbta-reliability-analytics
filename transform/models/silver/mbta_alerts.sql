@@ -70,10 +70,11 @@ WITH
                 a.last_seen_at,
                 INTERVAL LEAST(DIV(TIMESTAMP_DIFF(r.next_run_at, r.run_at, SECOND), 2), 30 * 60) SECOND
             )                                                                             AS left_feed_at
-        FROM {{ ref('mbta_alert_latest') }} a
-        INNER JOIN runs r
+        FROM {{ ref('mbta_alert_latest') }} AS a
+        INNER JOIN runs AS r
             ON TIMESTAMP_TRUNC(a.last_seen_at, MINUTE) = r.run_at
-        WHERE a.effect NOT IN ('{{ var("non_service_alert_effects") | join("', '") }}')
+        -- Exempt from the length rule: the line is only long once the effect list is rendered
+        WHERE a.effect NOT IN ('{{ var("non_service_alert_effects") | join("', '") }}')  -- noqa: LT05
     ),
 
     -- 3. Resolve start and end
@@ -102,7 +103,8 @@ WITH
         SELECT
             *,
             REGEXP_REPLACE(
-                LOWER(REGEXP_EXTRACT(header, r"(?:\bat|\bnear|\bbetween|\bfrom) ((?:[A-Z][\w/'-]*)(?: (?:[A-Z][\w/'-]*|and))*)")),
+                -- A regex can't be wrapped, so this line is exempt from the length rule
+                LOWER(REGEXP_EXTRACT(header, r"(?:\bat|\bnear|\bbetween|\bfrom) ((?:[A-Z][\w/'-]*)(?: (?:[A-Z][\w/'-]*|and))*)")),  -- noqa: LT05
                 r'[^a-z]', ''
             ) AS location_key,
             REGEXP_CONTAINS(LOWER(header), r'\b(earlier|residual)\b') AS is_follow_up_wording

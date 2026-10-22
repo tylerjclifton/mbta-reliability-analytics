@@ -22,7 +22,6 @@ median for the same line, weekday, and month. That removes line size, the
 weekday/weekend pattern, and seasonality, so what's left is the day's own effect.
 """
 
-import html
 import os
 
 import numpy as np
@@ -31,6 +30,8 @@ import plotly.graph_objects as go
 import streamlit as st
 from google.cloud import bigquery
 from pandas.tseries.holiday import USFederalHolidayCalendar
+
+from helpers import TIMEZONE, esc, fmt_count, fmt_day, fmt_duration, fmt_pct, one_row_per_incident, strip_route_prefix
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Design tokens
@@ -66,7 +67,6 @@ LINE_COLORS = {
 }
 LINES = list(LINE_COLORS)
 
-TIMEZONE = "America/New_York"
 WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
 # Space between a mark and its value label (an em space), so labels never touch bars or dots
@@ -119,7 +119,8 @@ div[class*="st-key-card_"] {{ background: {CARD}; border: 1px solid {BORDER}; bo
          position: relative; overflow: hidden; }}
 .kpi .stripe {{ position: absolute; left: 0; top: 0; bottom: 0; width: 4px; }}
 .kpi .label  {{ color: {MUTED}; font-size: 0.8rem; font-weight: 500; }}
-.kpi .value  {{ color: {INK}; font-size: 2rem; font-weight: 650; letter-spacing: -0.02em; line-height: 1.2; margin-top: 0.2rem; }}
+.kpi .value  {{ color: {INK}; font-size: 2rem; font-weight: 650; letter-spacing: -0.02em;
+               line-height: 1.2; margin-top: 0.2rem; }}
 .kpi .sub    {{ color: {INK_2}; font-size: 0.8rem; margin-top: 0.15rem; }}
 .delta-up   {{ color: #0ca30c; }}
 .delta-down {{ color: #e66767; }}
@@ -140,7 +141,8 @@ div[class*="st-key-card_"] {{ background: {CARD}; border: 1px solid {BORDER}; bo
 /* Line filter pills: a colored dot per line, in LINES order */
 .st-key-line_filter button p::before {{ content: ""; display: inline-block; width: 8px; height: 8px;
             border-radius: 50%; margin-right: 0.45rem; vertical-align: 1px; background: var(--dot); }}
-{"".join(f'.st-key-line_filter button:nth-of-type({i + 1}) {{ --dot: {c}; }}' for i, c in enumerate(LINE_COLORS.values()))}
+{"".join(f'.st-key-line_filter button:nth-of-type({i + 1}) {{ --dot: {color}; }}'
+         for i, color in enumerate(LINE_COLORS.values()))}
 
 /* Expanders blend into cards */
 [data-testid="stExpander"] details {{ border: none; }}
@@ -161,50 +163,6 @@ div[class*="st-key-card_"] {{ background: {CARD}; border: 1px solid {BORDER}; bo
 }}
 </style>
 """, unsafe_allow_html=True)
-
-# ══════════════════════════════════════════════════════════════════════════════
-# Formatting helpers
-# ══════════════════════════════════════════════════════════════════════════════
-
-def fmt_duration(minutes):
-    """45 min · 2.7 hr · 1 day · 12 days"""
-    if pd.isna(minutes) or minutes < 0:
-        return "—"
-    if minutes < 60:
-        return f"{minutes:.0f} min"
-    if minutes < 1440:
-        return f"{minutes / 60:.1f} hr"
-    days = minutes / 1440
-    return "1 day" if days < 1.5 else f"{days:.0f} days"
-
-
-def fmt_count(n):
-    """1,284 · 118K · 3.2M"""
-    if n >= 1_000_000:
-        return f"{n / 1_000_000:.1f}M"
-    if n >= 10_000:
-        return f"{n / 1_000:.0f}K"
-    return f"{n:,.0f}"
-
-
-def fmt_pct(x, decimals=1):
-    """Signed percent with a true minus sign: +2.1% · −6.4%"""
-    return f"{x:+.{decimals}f}%".replace("-", "−")
-
-
-def fmt_day(ts):
-    """Oct 19"""
-    return ts.tz_convert(TIMEZONE).strftime("%b %-d")
-
-
-def esc(text):
-    return html.escape(str(text)) if text is not None and not pd.isna(text) else ""
-
-
-def strip_route_prefix(header):
-    """MBTA headers repeat the route ("Green Line C Branch: ..."); the card already shows it."""
-    head, sep, rest = str(header).partition(": ")
-    return rest if sep and "Line" in head and len(head) < 40 else header
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Layout helpers
@@ -250,27 +208,6 @@ def incident_items(df, when):
             f'<div class="meta">{when(row)}</div></div></div>'
         )
     return "".join(items)
-
-
-def join_routes(route_names):
-    """["Green Line B", "Green Line C"] → "Green Line B · C"; other lines joined with commas."""
-    names = sorted(set(route_names))
-    if len(names) > 1 and all(n.startswith("Green Line ") for n in names):
-        return "Green Line " + " · ".join(n.removeprefix("Green Line ") for n in names)
-    return ", ".join(names)
-
-
-def one_row_per_incident(df):
-    """
-    gold.rail_incidents has one row per incident × route, so a shutdown across
-    four Green Line branches is four rows. Collapse to one row per incident with
-    the routes joined ("Green Line B · C · D · E").
-    """
-    if df.empty:
-        return df
-    routes = df.groupby("incident_id")["route_name"].agg(join_routes)
-    first = df.drop_duplicates("incident_id").set_index("incident_id")
-    return first.assign(route_name=routes).reset_index()
 
 
 def incident_list(df, when, empty_text, limit=5):
@@ -343,7 +280,8 @@ def band_bars(df, height=260):
         # The baseline band is zero by definition; label it as such
         text=["baseline" if abs(v) < 1e-9 else fmt_pct(v) for v in df["pct"]], textposition="outside",
         cliponaxis=False, textfont=dict(color=INK_2, size=11),
-        hovertext=[f"{b}<br>{fmt_pct(p)} vs normal days · {d} days" for b, p, d in zip(df["band"], df["pct"], df["days"])],
+        hovertext=[f"{band}<br>{fmt_pct(pct)} vs normal days · {days} days"
+                   for band, pct, days in zip(df["band"], df["pct"], df["days"], strict=True)],
         hoverinfo="text",
     ))
     style(fig, height=height)
@@ -471,11 +409,13 @@ if len(prior_30):
 else:
     trend = "first 30 days of tracking"
 
+active_lines = active["line_name"].nunique()
 kpi_tiles([
     dict(label="Active now", value=f"{len(active)}",
-         sub=f"on {active['line_name'].nunique()} line{'s' if active['line_name'].nunique() != 1 else ''}" if len(active) else "all clear"),
+         sub=f"on {active_lines} line{'s' if active_lines != 1 else ''}" if len(active) else "all clear"),
     dict(label="Planned · 30 days", value=f"{len(upcoming_30d)}",
-         sub=f"next starts {fmt_day(upcoming_30d['incident_start_at'].iloc[0])}" if len(upcoming_30d) else "none scheduled"),
+         sub=(f"next starts {fmt_day(upcoming_30d['incident_start_at'].iloc[0])}"
+              if len(upcoming_30d) else "none scheduled")),
     dict(label="Last 30 days", value=f"{len(last_30)}", sub=trend),
     dict(label="Median duration", value=fmt_duration(last_90["incident_duration_minutes"].median()),
          sub="last 90 days"),
@@ -490,7 +430,8 @@ with now_col:
         incident_list(
             active,
             lambda r: (f"Since {fmt_day(r['incident_start_at'])} · "
-                       + (f"until {fmt_day(r['incident_end_at'])}" if pd.notna(r["incident_end_at"]) else "no end time posted")
+                       + (f"until {fmt_day(r['incident_end_at'])}" if pd.notna(r["incident_end_at"])
+                          else "no end time posted")
                        + f" · {fmt_duration(r['incident_duration_minutes'])}"
                        + (" so far" if pd.isna(r["incident_end_at"]) else "")),
             "No active incidents on the selected lines.",
@@ -553,8 +494,8 @@ else:
             show(ranked_bars(
                 labels=list(by_line.index), values=list(by_line.values),
                 text=[f"{v:.0f}" for v in by_line.values],
-                hover=[f"{l}: {v:.0f} incidents" for l, v in by_line.items()],
-                colors=[LINE_COLORS[l] for l in by_line.index], height=260,
+                hover=[f"{line}: {v:.0f} incidents" for line, v in by_line.items()],
+                colors=[LINE_COLORS[line] for line in by_line.index], height=260,
             ))
 
     # ── Why: causes and effects ───────────────────────────────────────────────
@@ -570,8 +511,9 @@ else:
             share = top_causes / top_causes.sum() * 100
             show(ranked_bars(
                 labels=list(top_causes.index), values=list(top_causes.values),
-                text=[f"{n}  ·  {s:.0f}%" for n, s in zip(top_causes.values, share.values)],
-                hover=[f"{c}: {n} incidents ({s:.0f}%)" for c, n, s in zip(top_causes.index, top_causes.values, share.values)],
+                text=[f"{n}  ·  {s:.0f}%" for n, s in zip(top_causes.values, share.values, strict=True)],
+                hover=[f"{cause}: {n} incidents ({s:.0f}%)"
+                       for cause, n, s in zip(top_causes.index, top_causes.values, share.values, strict=True)],
             ))
 
     with effect_col:
@@ -581,8 +523,9 @@ else:
             share = effects / effects.sum() * 100
             show(ranked_bars(
                 labels=list(effects.index), values=list(effects.values),
-                text=[f"{n}  ·  {s:.0f}%" for n, s in zip(effects.values, share.values)],
-                hover=[f"{e}: {n} incidents ({s:.0f}%)" for e, n, s in zip(effects.index, effects.values, share.values)],
+                text=[f"{n}  ·  {s:.0f}%" for n, s in zip(effects.values, share.values, strict=True)],
+                hover=[f"{effect}: {n} incidents ({s:.0f}%)"
+                       for effect, n, s in zip(effects.index, effects.values, share.values, strict=True)],
                 height=max(180, 34 * len(top_causes) + 30),  # match the causes card
             ))
 
@@ -625,7 +568,7 @@ else:
                    .reindex(index=named_causes, columns=selected_lines, fill_value=0))
             mix_pct = mix / history.groupby("line_name")["incident_id"].nunique().reindex(selected_lines) * 100
             fig = go.Figure(go.Heatmap(
-                z=mix_pct.values, x=[l.replace(" Line", "") for l in mix_pct.columns], y=mix_pct.index,
+                z=mix_pct.values, x=[line.replace(" Line", "") for line in mix_pct.columns], y=mix_pct.index,
                 colorscale=SEQUENTIAL, showscale=False, xgap=3, ygap=3,
                 text=[[f"{v:.0f}%" for v in row] for row in mix_pct.values], texttemplate="%{text}",
                 textfont=dict(size=11, color=INK),
@@ -717,7 +660,8 @@ with impact_col:
     with st.container(key="card_impact"):
         card_title("Ridership on disruption days",
                    f"Weekdays since {fmt_day(tracking_start)} · average % vs typical")
-        tracked = weekdays[weekdays["service_date"] >= tracking_start.tz_convert(TIMEZONE).tz_localize(None).normalize()]
+        tracking_day = tracking_start.tz_convert(TIMEZONE).tz_localize(None).normalize()
+        tracked = weekdays[weekdays["service_date"] >= tracking_day]
         if tracked.empty:
             st.markdown('<div class="empty">Not enough overlapping data yet.</div>', unsafe_allow_html=True)
         else:
@@ -739,7 +683,8 @@ with impact_col:
                 fig.add_trace(go.Scatter(
                     x=[calm["pct"]], y=[line], mode="markers", showlegend=False,
                     marker=dict(color=MUTED, size=11, line=dict(color=CARD, width=2)),
-                    hovertext=f"{line}: no disruption · {fmt_pct(calm['pct'])} ({calm['days']} days)", hoverinfo="text"))
+                    hovertext=f"{line}: no disruption · {fmt_pct(calm['pct'])} ({calm['days']} days)",
+                    hoverinfo="text"))
                 fig.add_trace(go.Scatter(
                     x=[hit["pct"]], y=[line], mode="markers+text", showlegend=False,
                     marker=dict(color=LINE_COLORS[line], size=12, line=dict(color=CARD, width=2)),

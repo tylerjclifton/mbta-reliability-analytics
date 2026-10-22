@@ -1,17 +1,27 @@
-# Terraform Runner Service Account
-resource "google_service_account" "terraform_runner" {
-  account_id   = "terraform-runner"
-  display_name = "Terraform Runner"
+# ══════════════════════════════════════════════════════════════════════════════
+# Service accounts — one per workload, each granted only what it uses (iam.tf)
+# ══════════════════════════════════════════════════════════════════════════════
+
+# Ingest jobs: append to bronze, read the MBTA API key
+resource "google_service_account" "ingest" {
+  account_id   = "ingest-jobs"
+  display_name = "Ingest jobs (write bronze)"
 }
 
-# dbt Service Account
+# Transform job: read bronze, build silver and gold
 resource "google_service_account" "dbt_bigquery" {
   account_id   = "dbt-bigquery"
-  display_name = "dbt BigQuery"
+  display_name = "dbt transform (read bronze, write silver/gold)"
 }
 
-# Serve (Streamlit dashboard) Service Account
+# Dashboard: read gold
 resource "google_service_account" "serve_bigquery" {
   account_id   = "serve-bigquery"
-  display_name = "Serve BigQuery (read-only)"
+  display_name = "Dashboard (read gold)"
+}
+
+# Cloud Scheduler: start the Cloud Run jobs on their crons
+resource "google_service_account" "job_scheduler" {
+  account_id   = "job-scheduler"
+  display_name = "Cloud Scheduler (run jobs)"
 }

@@ -31,6 +31,6 @@ SELECT
     a.alert_updated_at,
     a.is_in_feed,
     a.ingested_at
-FROM {{ ref('mbta_alerts') }} a
-LEFT JOIN {{ ref('mbta_routes') }} r
+FROM {{ ref('mbta_alerts') }} AS a
+LEFT JOIN {{ ref('mbta_routes') }} AS r
     ON a.route_id = r.route_id

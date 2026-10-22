@@ -46,46 +46,26 @@ variable "serve_domain" {
   default     = "tylerclifton.com"
 }
 
-# Default Service Accounts
-variable "default_sa_compute_engine" {
-  description = "Default compute service account"
-  default     = "558105773739-compute@developer.gserviceaccount.com"
-}
+# Google service agents (project-number-specific; granted by Google, documented in iam.tf)
 
 variable "default_sa_google_apis" {
   description = "Google APIs Service Agent"
   default     = "558105773739@cloudservices.gserviceaccount.com"
 }
 
-variable "default_sa_google_container_registry" {
-  description = "Google Container Registry Service Agent"
-  default     = "service-558105773739@containerregistry.iam.gserviceaccount.com"
-}
 
 variable "default_sa_artifact_registry" {
   description = "Artifact Registry Service Agent"
   default     = "service-558105773739@gcp-sa-artifactregistry.iam.gserviceaccount.com"
 }
 
-variable "default_sa_bigquery_data_transfer" {
-  description = "BigQuery Data Transfer Service Agent"
-  default     = "service-558105773739@gcp-sa-bigquerydatatransfer.iam.gserviceaccount.com"
-}
 
 variable "default_sa_cloud_scheduler" {
   description = "Cloud Scheduler Service Account"
   default     = "service-558105773739@gcp-sa-cloudscheduler.iam.gserviceaccount.com"
 }
 
-variable "default_sa_dataform" {
-  description = "Dataform Service Account"
-  default     = "service-558105773739@gcp-sa-dataform.iam.gserviceaccount.com"
-}
 
-variable "default_sa_cloud_pubsub" {
-  description = "Cloud Pub/Sub Service Account"
-  default     = "service-558105773739@gcp-sa-pubsub.iam.gserviceaccount.com"
-}
 
 variable "default_sa_cloud_run" {
   description = "Google Cloud Run Service Agent"

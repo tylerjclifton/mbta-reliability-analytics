@@ -21,8 +21,8 @@ WITH
             r.route_name,
             r.line_name,
             r.route_type
-        FROM {{ ref('mbta_alerts') }} a
-        LEFT JOIN {{ ref('mbta_routes') }} r
+        FROM {{ ref('mbta_alerts') }} AS a
+        LEFT JOIN {{ ref('mbta_routes') }} AS r
             ON a.route_id = r.route_id
     )
 
@@ -44,7 +44,10 @@ SELECT
     MIN(alert_start_at)                                         AS incident_start_at,
     IF(LOGICAL_OR(alert_end_at IS NULL), NULL, MAX(alert_end_at)) AS incident_end_at,
     DATE(MIN(alert_start_at), '{{ var("local_timezone") }}')    AS incident_start_date,
-    DATE(IF(LOGICAL_OR(alert_end_at IS NULL), NULL, MAX(alert_end_at)), '{{ var("local_timezone") }}') AS incident_end_date,
+    DATE(
+        IF(LOGICAL_OR(alert_end_at IS NULL), NULL, MAX(alert_end_at)),
+        '{{ var("local_timezone") }}'
+    )                                                           AS incident_end_date,
     -- Ongoing incidents are measured up to now
     TIMESTAMP_DIFF(
         IF(LOGICAL_OR(alert_end_at IS NULL), CURRENT_TIMESTAMP(), MAX(alert_end_at)),

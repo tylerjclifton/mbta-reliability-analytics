@@ -1,15 +1,52 @@
-# Artifact Registry for backend containers
-resource "google_artifact_registry_repository" "backend" {
-  location      = var.location
-  repository_id = "backend"
-  format        = "DOCKER"
-  description   = "MBTA backend Docker images"
+# ══════════════════════════════════════════════════════════════════════════════
+# Artifact Registry — Docker images for the jobs (backend) and dashboard (frontend)
+#
+# Cleanup: keep the 5 most recent versions of each image and delete anything
+# older than 30 days beyond those. Deployed images are always among the most
+# recent, so a rollback target stays available while old builds stop
+# accumulating storage (the free tier is 0.5 GB).
+# ══════════════════════════════════════════════════════════════════════════════
+
+locals {
+  image_repositories = {
+    backend  = "MBTA backend Docker images (ingest, transform)"
+    frontend = "MBTA frontend Docker images (serve)"
+  }
 }
 
-# Artifact Registry for frontend containers
-resource "google_artifact_registry_repository" "frontend" {
+resource "google_artifact_registry_repository" "repo" {
+  for_each = local.image_repositories
+
   location      = var.location
-  repository_id = "frontend"
+  repository_id = each.key
   format        = "DOCKER"
-  description   = "MBTA frontend Docker images"
+  description   = each.value
+
+  cleanup_policy_dry_run = false
+
+  # Policies are evaluated together: KEEP wins over DELETE
+  cleanup_policies {
+    id     = "keep-5-most-recent"
+    action = "KEEP"
+    most_recent_versions {
+      keep_count = 5
+    }
+  }
+  cleanup_policies {
+    id     = "delete-older-than-30-days"
+    action = "DELETE"
+    condition {
+      tag_state  = "ANY"
+      older_than = "2592000s" # 30 days
+    }
+  }
+}
+
+moved {
+  from = google_artifact_registry_repository.backend
+  to   = google_artifact_registry_repository.repo["backend"]
+}
+moved {
+  from = google_artifact_registry_repository.frontend
+  to   = google_artifact_registry_repository.repo["frontend"]
 }

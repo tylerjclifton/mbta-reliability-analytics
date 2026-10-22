@@ -14,8 +14,8 @@ resource "google_storage_bucket" "tfstate" {
   # Keep state history bounded — old versions beyond 30 days are pruned.
   lifecycle_rule {
     condition {
-      age                = 30
-      with_state         = "ARCHIVED"
+      age        = 30
+      with_state = "ARCHIVED"
     }
     action {
       type = "Delete"

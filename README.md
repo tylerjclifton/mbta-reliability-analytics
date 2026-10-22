@@ -54,7 +54,6 @@ Each layer is its own BigQuery dataset.
 | Gold table | Grain | Contents |
 |---|---|---|
 | `rail_incidents` | incident × route | One row per real-world event — the MBTA's re-posted/follow-up alerts collapsed (dashboard reads this) |
-| `rail_alerts` | alert × route | Individual alerts with route name, line, type, and their `incident_id` |
 | `rail_ridership` | service date × line | Gated entries, active incident count, the day's most severe alert effect, and weather |
 
 **`silver.mbta_alert_latest` is a table, not a view.** Alert snapshots add ~1 GB/year to bronze, and a view would re-read all of it for every model and test that uses alerts (~9× per transform), outgrowing the free query tier within a year. The incremental table reads only snapshots added since the last run, so cost stays flat; `dbt build --full-refresh` rebuilds it from bronze.
@@ -159,7 +158,7 @@ ingest/                 One shared image for every ingest job
 transform/              dbt Core project
   models/bronze/        Source declarations + freshness thresholds
   models/silver/        Per-source views + tests
-  models/gold/          Dashboard tables (rail_incidents, rail_alerts, rail_ridership) + tests
+  models/gold/          Dashboard tables (rail_incidents, rail_ridership) + tests
   macros/               keep_latest_version, null_if_failed_ghcn_qc
   tests/generic/        unique_combination, accepted_range
 serve/                  Streamlit dashboard (app.py; pure helpers in helpers.py, tested in tests/)

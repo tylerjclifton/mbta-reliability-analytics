@@ -53,26 +53,6 @@ models:
       - name: ingested_at
         description: "{{ doc('ingested_at') }}"
 
-  - name: rail_alerts
-    description: >
-      One row per alert × route — silver alerts with route name, line, and
-      type. Alert-level detail behind rail_incidents.
-    tests:
-      - unique_combination:
-          columns: [alert_id, route_id]
-    columns:
-      - name: alert_id
-        description: "{{ doc('alert_id') }}"
-      - name: route_id
-        description: "{{ doc('route_id') }}"
-      - name: incident_id
-        description: "{{ doc('incident_id') }}"
-      - name: line_name
-        description: "{{ doc('line_name') }}"
-        tests: [not_null]
-      - name: ingested_at
-        description: "{{ doc('ingested_at') }}"
-
   - name: rail_ridership
     description: >
       One row per service date × line — gated entries, the number of alerts

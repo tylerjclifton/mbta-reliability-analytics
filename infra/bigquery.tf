@@ -113,6 +113,19 @@ resource "google_bigquery_dataset" "gold" {
   location      = var.location
 }
 
+# Sandboxes for local dbt builds (`--target local` writes dev_silver/dev_gold,
+# see transform/macros/generate_schema_name.sql). Tables expire after 7 days so
+# test builds never accumulate; rebuilding recreates them.
+resource "google_bigquery_dataset" "dev" {
+  for_each = toset(["dev_silver", "dev_gold"])
+
+  dataset_id                  = each.key
+  friendly_name               = "Dev ${title(trimprefix(each.key, "dev_"))}"
+  description                 = "Local dbt builds (target local); tables expire after 7 days"
+  location                    = var.location
+  default_table_expiration_ms = 7 * 24 * 60 * 60 * 1000
+}
+
 # ── Bronze tables ─────────────────────────────────────────────────────────────
 
 resource "google_bigquery_table" "bronze" {

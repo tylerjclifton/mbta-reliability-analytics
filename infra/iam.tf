@@ -55,9 +55,9 @@ resource "google_bigquery_dataset_iam_member" "workload" {
 
 # ── Secret and job-level ──────────────────────────────────────────────────────
 
-# Ingest jobs read the MBTA API key (the secret itself is created by hand)
+# Ingest jobs read the MBTA API key (secrets.tf)
 resource "google_secret_manager_secret_iam_member" "ingest_reads_mbta_api_key" {
-  secret_id = "mbta-api-key"
+  secret_id = google_secret_manager_secret.mbta_api_key.secret_id
   role      = "roles/secretmanager.secretAccessor"
   member    = google_service_account.ingest.member
 }

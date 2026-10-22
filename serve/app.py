@@ -489,7 +489,7 @@ year_ago = now - pd.DateOffset(months=12)
 window_start = max(coverage_start, year_ago)
 history = started[started["incident_start_at"] >= window_start]                     # incident × route
 history_events = started_events[started_events["incident_start_at"] >= window_start]  # one per incident
-window_label = ("Last 12 months" if window_start == year_ago
+window_label = ("Trailing 12 months" if window_start == year_ago
                 else f"Since continuous alert tracking began on {fmt_day(coverage_start)}, {coverage_start.year}"
                      " (less than 12 months ago)")
 
@@ -640,7 +640,6 @@ month_days = ridership.groupby(["line_name", "month"])["service_date"].nunique()
 month_days = month_days[month_days["days"] == month_days["month"].dt.days_in_month]
 full_months = ridership.merge(month_days[["line_name", "month"]], on=["line_name", "month"])
 latest_month = full_months["month"].max()
-latest_label = latest_month.strftime("%b %Y")
 year_ago_label = (latest_month - 12).strftime("%b %Y")
 latest_month_name = latest_month.strftime("%B")  # Periods don't take f-string date formats
 
@@ -650,9 +649,9 @@ ridership_year_start = ridership_through - pd.DateOffset(months=12) + pd.Timedel
 
 section(
     "Ridership",
-    f"The 12 months through {ridership_through:%b %Y} — the MBTA publishes fare-gate entries one to two "
-    "months behind. All figures are average entries per day, weekends included; the tiles compare "
-    f"{latest_month_name} with a year earlier.",
+    f"Trailing 12 months, through {ridership_through:%b %Y} — the latest the MBTA has published (it runs "
+    "one to two months behind). All figures are average entries per day, weekends included; the tiles "
+    f"compare {latest_month_name} with a year earlier.",
 )
 
 # Every day except federal holidays — for the "% vs typical" comparisons, where

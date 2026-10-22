@@ -1,13 +1,10 @@
 #!/bin/bash
 # Build and push a component's Docker image to Artifact Registry.
 #
-# Usage:  scripts/build-image.sh <ingest|transform|serve> <version>
-#   e.g.  scripts/build-image.sh ingest v1.0.1
+# Usage:  scripts/build-image.sh <ingest|transform|serve> <tag>
 #
-# Then bump the matching tag in Terraform and apply:
-#   ingest     → local.ingest_image_tag     (infra/cloud-run-jobs.tf)
-#   transform  → local.transform_image_tag  (infra/cloud-run-jobs.tf)
-#   serve      → image                      (infra/cloud-run-services.tf)
+# Normally run by CI/CD (.github/workflows/ci.yml), which builds all three with
+# the commit as the tag and deploys them with `terraform apply -var image_tag=…`.
 
 set -euo pipefail
 

@@ -10,7 +10,6 @@ keys/
 *.tfstate
 *.tfstate.*
 terraform.tfvars
-.terraform.lock.hcl
 
 # Python
 venv/

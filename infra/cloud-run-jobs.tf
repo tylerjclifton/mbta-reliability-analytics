@@ -8,9 +8,6 @@
 locals {
   backend_registry = "${var.location}-docker.pkg.dev/${var.project_id}/backend"
 
-  # Image versions — bump after pushing with scripts/build-image.sh
-  ingest_image_tag    = "v1.1.1"
-  transform_image_tag = "v1.6.2"
 
   # One entry per ingest job. Key = job folder under ingest/ = bronze table
   # name with "-" for "_" (e.g. mbta-alerts → bronze.mbta_alerts).
@@ -74,7 +71,7 @@ resource "google_cloud_run_v2_job" "ingest" {
 
       containers {
         name  = "ingest-${each.key}"
-        image = "${local.backend_registry}/ingest:${local.ingest_image_tag}"
+        image = "${local.backend_registry}/ingest:${var.image_tag}"
         args  = ["${each.key}/main.py"]
 
         env {
@@ -156,7 +153,7 @@ resource "google_cloud_run_v2_job" "transform" {
       max_retries     = 0      # dbt retries BigQuery errors itself; a failed test or freshness check won't pass on retry
       containers {
         name  = "transform"
-        image = "${local.backend_registry}/transform:${local.transform_image_tag}"
+        image = "${local.backend_registry}/transform:${var.image_tag}"
         env {
           name  = "DBT_PROJECT_ID"
           value = var.project_id

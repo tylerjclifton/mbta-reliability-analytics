@@ -33,7 +33,8 @@ locals {
 
     # Identity, logging, and platform plumbing
     iam                    = "iam.googleapis.com"
-    iam_credentials        = "iamcredentials.googleapis.com" # short-lived tokens (Scheduler → Run)
+    iam_credentials        = "iamcredentials.googleapis.com" # short-lived tokens (Scheduler → Run, GitHub → deployer)
+    sts                    = "sts.googleapis.com"            # exchanges GitHub OIDC tokens (deploy.tf)
     logging                = "logging.googleapis.com"
     monitoring             = "monitoring.googleapis.com"
     cloud_resource_manager = "cloudresourcemanager.googleapis.com"

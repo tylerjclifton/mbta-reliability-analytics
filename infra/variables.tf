@@ -9,6 +9,22 @@ variable "location" {
   default     = "us-east1"
 }
 
+# Deployment
+variable "image_tag" {
+  description = <<-EOT
+    Tag of the ingest, transform, and serve images to deploy. CI/CD sets it to
+    the commit being deployed (.github/workflows/ci.yml). No default on purpose:
+    a local plan must name the deployed tag, e.g.
+      terraform plan -var image_tag=$(git rev-parse --short=12 origin/main)
+  EOT
+  type        = string
+}
+
+variable "github_repository" {
+  description = "GitHub repository (owner/name) allowed to deploy via Workload Identity Federation"
+  default     = "tylerjclifton/mbta-reliability-analytics"
+}
+
 # Scheduler configuration
 variable "scheduler_time_zone" {
   description = "Cloud Scheduler time zone for cron jobs"

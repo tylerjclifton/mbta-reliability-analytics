@@ -103,6 +103,7 @@ Each workload runs as its own service account with access granted per dataset (`
 | `dbt-bigquery` | Transform job | Read `bronze`; write `silver` and `gold` |
 | `serve-bigquery` | Dashboard | Read `gold` |
 | `job-scheduler` | Cloud Scheduler | Start the five Cloud Run jobs (`run.invoker` on each job) |
+| `github-deployer` | CI/CD (GitHub Actions) | Build, push, and `terraform apply` — broad by necessity, usable only from this repo's `main` branch |
 
 All four also hold `bigquery.jobUser` (permission to run queries), which grants no data access on its own. Only the APIs the pipeline uses are enabled (`infra/apis.tf`), and Artifact Registry keeps the 5 newest versions of each image.
 
@@ -163,7 +164,7 @@ transform/              dbt Core project
   tests/generic/        unique_combination, accepted_range
 serve/                  Streamlit dashboard (app.py; pure helpers in helpers.py, tested in tests/)
 scripts/build-image.sh  Build + push any component's image
-.github/workflows/      CI: lint, tests, dbt parse, terraform validate
+.github/workflows/      CI/CD: lint, tests, dbt parse, terraform validate; deploy on main
 pyproject.toml          pytest + ruff config
 ```
 
@@ -171,7 +172,7 @@ pyproject.toml          pytest + ruff config
 
 ## Development & Deployment
 
-CI (`.github/workflows/ci.yml`) runs on every push without cloud credentials: ruff + pytest for the Python, `dbt parse` + sqlfluff for the SQL, and `terraform fmt` + `validate` for the infrastructure. The same checks locally:
+CI (`.github/workflows/ci.yml`) runs on every push and pull request without cloud credentials: ruff + pytest for the Python, `dbt parse` + sqlfluff for the SQL, and `terraform fmt` + `validate` for the infrastructure. The same checks locally:
 
 ```bash
 pip install -r requirements.txt
@@ -196,14 +197,24 @@ docker build -t serve:dev serve && docker run --rm -p 8601:8080 \
   -v ~/.config/gcloud:/root/.config/gcloud:ro -e GOOGLE_CLOUD_PROJECT=mbta-reliability-analytics \
   -e GOLD_DATASET=dev_gold serve:dev          # → http://localhost:8601
 
-# Ship a change: build + push the image, bump its tag in Terraform, apply
-scripts/build-image.sh ingest v1.0.1      # or transform / serve
-#   → edit local.ingest_image_tag in infra/cloud-run-jobs.tf
-cd infra && terraform apply
+# Ship a change: merge to main — CI/CD builds, pushes, applies, and runs the
+# transform (see Continuous deployment below). To preview infra changes locally,
+# plan against the deployed tag:
+cd infra && terraform plan -var image_tag=$(git rev-parse --short=12 origin/main)
 
 # Backfill weather (e.g. ~2 years)
 gcloud run jobs execute ingest-noaa-weather --region=us-east1 --update-env-vars LOOKBACK_DAYS=800
 ```
+
+### Continuous deployment
+
+A push to `main` that passes CI deploys automatically (`deploy` job in `.github/workflows/ci.yml`):
+
+1. Build the `ingest`, `transform`, and `serve` images and tag each with the commit (first 12 characters of the SHA)
+2. `terraform apply -var image_tag=<commit>` — every job and the dashboard move to that commit's images
+3. Run the transform once, so model changes are live immediately
+
+GitHub authenticates to Google with **Workload Identity Federation** — a short-lived OIDC token exchanged for the `github-deployer` service account, so no keys exist anywhere. Only workflow runs on this repository's `main` branch are accepted (`infra/deploy.tf`). Rolling back is re-running the deploy for an earlier commit; Artifact Registry keeps the 5 most recent images.
 
 ### Terraform state
 

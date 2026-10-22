@@ -10,6 +10,7 @@
 #   dbt-bigquery   dataViewer    dataEditor    dataEditor    bigquery.user (dataset lookups)
 #   serve-bigquery —             —             dataViewer
 #   job-scheduler  —             —             —             run.invoker on each job
+#   github-deployer  deploys via terraform; broad by necessity (deploy.tf)
 # ══════════════════════════════════════════════════════════════════════════════
 
 # ── Project-level ─────────────────────────────────────────────────────────────

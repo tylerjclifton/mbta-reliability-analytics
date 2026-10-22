@@ -1,11 +1,13 @@
-# Continuous integration: every push and pull request is checked without any
-# cloud credentials — nothing here touches GCP.
+# CI/CD. Every push and pull request runs the checks (no cloud credentials);
+# a push to main that passes them deploys.
 #
 #   python     ruff lint + pytest (ingest jobs, dashboard helpers)
 #   dbt        dbt parse (project compiles) + sqlfluff lint (SQL style)
 #   terraform  fmt check + validate (no backend, no state)
+#   deploy     main only: build + push images tagged with the commit,
+#              terraform apply, then run the transform once
 
-name: CI
+name: CI/CD
 
 on:
   push:
@@ -69,3 +71,55 @@ jobs:
         run: |
           terraform init -backend=false -input=false
           terraform validate
+
+  deploy:
+    name: Deploy (main)
+    needs: [python, dbt, terraform]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    # One deploy at a time; a newer push waits rather than racing an apply
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write   # OIDC token for keyless Google auth (infra/deploy.tf)
+    env:
+      REGION: us-east1
+    steps:
+      - uses: actions/checkout@v4
+
+      # Every image is tagged with the commit it was built from
+      - name: Image tag
+        run: echo "IMAGE_TAG=${GITHUB_SHA::12}" >> "$GITHUB_ENV"
+
+      - name: Authenticate to Google Cloud (Workload Identity Federation)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/558105773739/locations/global/workloadIdentityPools/github/providers/github-oidc
+          service_account: github-deployer@mbta-reliability-analytics.iam.gserviceaccount.com
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Build and push images
+        run: |
+          gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet
+          for component in ingest transform serve; do
+            scripts/build-image.sh "$component" "$IMAGE_TAG"
+          done
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.14.3
+
+      - name: Terraform apply
+        working-directory: infra
+        run: |
+          terraform init -input=false
+          terraform apply -input=false -auto-approve -var "image_tag=$IMAGE_TAG"
+
+      # Rebuild silver/gold now so model changes are live (and fail here, not
+      # silently at the next scheduled run)
+      - name: Run transform
+        run: gcloud run jobs execute transform --region="$REGION" --wait

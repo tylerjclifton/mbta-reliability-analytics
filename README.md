@@ -118,11 +118,11 @@ The three data workloads also hold `bigquery.jobUser` (permission to run queries
 
 ### Cost
 
-The pipeline runs within GCP's free tiers. Query volume is dominated by BigQuery's 10 MB-per-query billing minimum (about 7 GiB/day, or 0.2 TiB/month of the free 1 TiB, measured 2026-10), not by data size, so it stays flat as history grows. A **$5/month budget** on the billing account emails at 50%, 90%, and 100% of actual spend and when spend is forecast to pass $5 (created with `gcloud billing budgets`, outside Terraform, since the CI deployer has no billing access). The budget only alerts; it never stops anything.
+The pipeline runs within GCP's free tiers. Query volume is dominated by BigQuery's 10 MB-per-query billing minimum (about 13 GiB/day, or 0.4 TiB/month of the free 1 TiB, measured 2026-10), not by data size, so it stays flat as history grows. A **$5/month budget** on the billing account emails at 50%, 90%, and 100% of actual spend and when spend is forecast to pass $5 (created with `gcloud billing budgets`, outside Terraform, since the CI deployer has no billing access). The budget only alerts; it never stops anything.
 
 Two hard caps bound what a runaway can cost (`infra/quotas.tf`), without a billing kill switch, which would stop ingest and permanently lose live alerts:
 
-- **BigQuery queries: 50 GiB/day** for the project (~7× normal). Pinned at the cap all month it costs ~$3 past the free tier. Hitting it pauses the transform and dashboard until midnight Pacific (the failed transform sends the usual failure email); ingest keeps loading bronze, so no data is lost. It applies to local dbt builds and console queries too.
+- **BigQuery queries: 200 GiB/day** for the project (~15× normal). Pinned at the cap all month it costs ~$31 past the free tier. It's set this high because enforcement trips well below the set value: at 50 GiB, queries were refused once the day's billed usage reached ~11 GiB (2026-10-23). Hitting it pauses the transform and dashboard until midnight Pacific (the failed transform sends the usual failure email); ingest keeps loading bronze, so no data is lost. It applies to local dbt builds and console queries too.
 - **Dashboard: at most 2 instances** (`infra/cloud-run-services.tf`), so a traffic flood slows the site rather than multiplying the bill.
 
 ---

@@ -24,7 +24,7 @@ locals {
 
     # Cost guardrails (the budget itself lives on the billing account, outside Terraform)
     billing_budgets = "billingbudgets.googleapis.com"
-    cloud_quotas    = "cloudquotas.googleapis.com" # daily BigQuery query cap (quotas.tf)
+    cloud_quotas    = "cloudquotas.googleapis.com" # BigQuery daily query quota (quotas.tf)
 
     # Images + secrets
     artifact_registry = "artifactregistry.googleapis.com" # Docker images

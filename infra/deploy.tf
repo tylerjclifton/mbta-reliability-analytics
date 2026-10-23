@@ -55,7 +55,7 @@ locals {
   deployer_roles = [
     "roles/artifactregistry.admin",               # image repositories + pushing images
     "roles/bigquery.admin",                       # datasets, bronze tables, dataset IAM
-    "roles/cloudquotas.admin",                    # the daily BigQuery query cap (quotas.tf)
+    "roles/cloudquotas.admin",                    # the BigQuery daily query quota (quotas.tf)
     "roles/cloudscheduler.admin",                 # cron triggers
     "roles/iam.serviceAccountAdmin",              # workload service accounts
     "roles/iam.serviceAccountUser",               # attach service accounts to jobs/schedules

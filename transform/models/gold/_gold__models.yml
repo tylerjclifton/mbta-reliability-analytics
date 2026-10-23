@@ -57,8 +57,9 @@ models:
 
   - name: rail_ridership
     description: >
-      One row per service date × line — gated entries, the number of alerts
-      active on the line that day, and that day's weather at Boston Logan.
+      One row per service date × line — gated entries, the number of incidents
+      active on the line that day, its most severe alert effect and whether it
+      was a calm day, and that day's weather at Boston Logan.
     data_tests:
       - unique_combination:
           arguments:
@@ -75,13 +76,21 @@ models:
       - name: most_severe_effect
         description: >
           The most severe effect among incidents active on the line that day —
-          Shuttle, then Suspension, then Delay — or NULL on a calm day. Station
-          closures and service changes are ignored (a long closure would
-          otherwise mark every day).
+          Shuttle, then Suspension, then Delay — or NULL if none of those.
+          Other effects (station closures, service changes) aren't ranked; see
+          is_calm_day for whether the day was undisrupted.
         data_tests:
           - accepted_values:
               arguments:
                 values: ['Shuttle', 'Suspension', 'Delay']
+      - name: is_calm_day
+        description: >
+          True when no incident was active on the line that day other than
+          station closures, which close one stop (often for months) rather than
+          disrupt the line. Any other effect makes the day not calm. Only
+          meaningful once alert tracking had begun — earlier days read as calm
+          because no alerts were recorded.
+        data_tests: [not_null]
       - name: avg_temperature_f
         description: Daily mean temperature at Boston Logan, °F.
         data_tests:

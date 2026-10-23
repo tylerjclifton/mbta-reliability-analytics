@@ -5,12 +5,13 @@
   and that day's weather at Boston Logan, for the dashboard's ridership views.
 
   Alongside the incident count, each day gets its most severe service effect
-  (shuttle buses, then a suspension, then a delay) so the dashboard can compare
-  ridership by effect against calm days.
+  (shuttle buses, then a suspension, then a delay) and whether it was a calm
+  day, so the dashboard can compare ridership by effect against calm days.
 
   Steps:
     1. incident_counts — count distinct incidents active per service date ×
-                         line, and the day's most severe effect
+                         line, the day's most severe effect, and whether it
+                         was calm
     2. final select    — ridership + incident count and effect + weather
 #}
 
@@ -25,13 +26,18 @@ WITH
             d.line_name,
             COUNT(DISTINCT i.incident_id) AS active_incident_count,
             -- The day's most severe service effect, for comparing ridership by
-            -- effect: shuttle buses, then a suspension, then a delay. NULL on
-            -- calm days (station closures and service changes don't count).
+            -- effect: shuttle buses, then a suspension, then a delay. NULL if
+            -- none of those (other effects aren't ranked; see is_calm_day).
             CASE
                 WHEN LOGICAL_OR(i.incident_effect = 'Shuttle') THEN 'Shuttle'
                 WHEN LOGICAL_OR(i.incident_effect = 'Suspension') THEN 'Suspension'
                 WHEN LOGICAL_OR(i.incident_effect = 'Delay') THEN 'Delay'
-            END AS most_severe_effect
+            END AS most_severe_effect,
+            -- Calm: no incident of any kind except station closures, which
+            -- close one stop (often for months) rather than disrupt the line.
+            -- Any other effect, including ones the MBTA hasn't used yet,
+            -- disqualifies the day. Days with no incident count 0 here.
+            COUNTIF(i.incident_effect != 'Station Closure') = 0 AS is_calm_day
         FROM {{ ref('mbta_ridership') }} AS d
         LEFT JOIN {{ ref('rail_incidents') }} AS i
             ON  d.line_name = i.line_name
@@ -50,6 +56,7 @@ SELECT
     d.gated_entries,
     ic.active_incident_count,
     ic.most_severe_effect,
+    ic.is_calm_day,
     w.avg_temperature_f,
     w.max_temperature_f,
     w.min_temperature_f,

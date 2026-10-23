@@ -56,7 +56,7 @@ Each layer is its own BigQuery dataset.
 | Gold table | Grain | Contents |
 |---|---|---|
 | `rail_incidents` | incident × route | One row per real-world event — the MBTA's re-posted/follow-up alerts collapsed (dashboard reads this) |
-| `rail_ridership` | service date × line | Gated entries, active incident count, the day's most severe alert effect, and weather |
+| `rail_ridership` | service date × line | Gated entries, active incident count, the day's most severe alert effect, whether it was a calm day, and weather |
 
 **`silver.mbta_alert_latest` is a table, not a view.** Alert snapshots add ~1 GB/year to bronze, and a view would re-read all of it for every model and test that uses alerts (~9× per transform), outgrowing the free query tier within a year. The incremental table reads only snapshots added since the last run, so cost stays flat; `dbt build --full-refresh` rebuilds it from bronze.
 

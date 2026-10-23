@@ -121,11 +121,11 @@ The pipeline runs within GCP's free tiers. Query volume is dominated by BigQuery
 |---|---|
 | Cloud | GCP (BigQuery, Cloud Run, Cloud Scheduler, Artifact Registry, Secret Manager) |
 | Infrastructure | Terraform (state in GCS: `mbta-reliability-analytics-tfstate`) |
-| Transformation | dbt Core |
+| Transformation | dbt Core 1.12 (supported through July 2027) |
 | Dashboard | Streamlit |
 | CI/CD | GitHub Actions, Workload Identity Federation (keyless) |
 | Containerization | Docker |
-| Languages | Python, SQL (Jinja) |
+| Languages | Python 3.13 (supported through October 2029), SQL (Jinja) |
 
 ---
 

@@ -4,9 +4,10 @@
     Fails with one row per duplicated key combination.
 
     Usage (model-level, in a properties yml):
-      tests:
+      data_tests:
         - unique_combination:
-            columns: [service_date, line_name]
+            arguments:
+              columns: [service_date, line_name]
   -#}
 SELECT
     {{ columns | join(', ') }},

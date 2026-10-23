@@ -7,7 +7,7 @@ testpaths = ["ingest/tests", "serve/tests"]
 addopts = "--import-mode=importlib"
 
 [tool.ruff]
-target-version = "py311"
+target-version = "py313"
 line-length = 120
 extend-exclude = ["transform/target", "transform/dbt_packages"]
 

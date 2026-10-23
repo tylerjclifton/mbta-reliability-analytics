@@ -16,40 +16,45 @@ version: 2
 sources:
   - name: bronze
     schema: bronze
-    loaded_at_field: ingested_at
+    config:
+      loaded_at_field: ingested_at
 
     tables:
       - name: mbta_alerts
         description: >
           15-minute snapshots of the MBTA alerts API (rail routes only).
           Grain: alert × route × ingest run. Column names follow the API.
-        freshness:
-          # Every 15 minutes; a run with no rail alerts writes nothing, so allow slack
-          warn_after: {count: 1, period: hour}
-          error_after: {count: 3, period: hour}
+        config:
+          freshness:
+            # Every 15 minutes; a run with no rail alerts writes nothing, so allow slack
+            warn_after: {count: 1, period: hour}
+            error_after: {count: 3, period: hour}
 
       - name: mbta_routes
         description: >
           Snapshots of the MBTA routes API (rail routes only).
           Grain: route × ingest run.
-        freshness:
-          # Yearly job
-          error_after: {count: 400, period: day}
+        config:
+          freshness:
+            # Yearly job
+            error_after: {count: 400, period: day}
 
       - name: mbta_ridership
         description: >
           Gated station entries per day and line from MBTA ArcGIS open data,
           full published history every run. Grain: service date × line × ingest run.
-        freshness:
-          # Weekly job
-          warn_after: {count: 8, period: day}
-          error_after: {count: 15, period: day}
+        config:
+          freshness:
+            # Weekly job
+            warn_after: {count: 8, period: day}
+            error_after: {count: 15, period: day}
 
       - name: noaa_weather
         description: >
           NOAA GHCN-Daily values for Boston Logan in source units (tenths of °C,
           tenths of mm, mm) with QC flags. Grain: observation date × ingest run.
-        freshness:
-          # Daily job
-          warn_after: {count: 2, period: day}
-          error_after: {count: 4, period: day}
+        config:
+          freshness:
+            # Daily job
+            warn_after: {count: 2, period: day}
+            error_after: {count: 4, period: day}

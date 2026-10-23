@@ -74,8 +74,8 @@ WITH
         FROM {{ this }}
         WHERE STRUCT(alert_id, route) IN (
             SELECT AS STRUCT
-                alert_id,
-                route
+                new_snapshots.alert_id,
+                new_snapshots.route
             FROM new_snapshots
         )
         {%- endif %}

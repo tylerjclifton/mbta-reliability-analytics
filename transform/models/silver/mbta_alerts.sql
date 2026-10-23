@@ -132,7 +132,7 @@ WITH
                     ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
                 ) AS group_latest_end_at
             FROM located
-        )
+        ) AS with_group_end
     ),
 
     -- 6. A running count of new-incident flags numbers the incidents in each
@@ -152,7 +152,7 @@ WITH
                     ORDER BY start_at, alert_id
                 ) AS incident_number
             FROM incident_breaks
-        )
+        ) AS with_incident_number
     )
 
 -- 7. Project conventions: alert_* attributes, `_at` timestamps (UTC),

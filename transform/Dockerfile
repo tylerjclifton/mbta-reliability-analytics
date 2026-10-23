@@ -1,6 +1,6 @@
 # dbt transform job: builds silver views and gold tables, runs their tests,
 # then checks bronze freshness. Built from transform/ (scripts/build-image.sh).
-FROM python:3.11-slim
+FROM python:3.13-slim
 
 # Set the working directory inside the container
 WORKDIR /app

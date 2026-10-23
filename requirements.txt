@@ -5,8 +5,8 @@
 -r serve/requirements.txt
 
 # Linting (config: pyproject.toml, transform/.sqlfluff)
-ruff==0.14.0
-sqlfluff==3.0.3
+ruff==0.17.2
+sqlfluff==4.4.0
 
 # Testing (config: pyproject.toml)
-pytest==8.4.2
+pytest==9.1.1

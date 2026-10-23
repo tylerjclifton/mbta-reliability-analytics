@@ -347,7 +347,7 @@ def load_ridership():
 
     # "% vs typical": entries relative to the median for the same line, weekday,
     # and month — strips out line size, weekday pattern, and seasonality
-    df["weekday"] = df["service_date"].dt.dayofweek
+    df["weekday"] = df["service_date"].dt.day_of_week
     df["month"] = df["service_date"].dt.to_period("M")
     typical = df.groupby(["line_name", "weekday", "month"])["gated_entries"].transform("median")
     df["pct_vs_typical"] = (df["gated_entries"] / typical - 1) * 100
@@ -514,7 +514,7 @@ else:
             # Monday) and the current one — are drawn lighter
             this_week = pd.Timestamp.now(tz=TIMEZONE).tz_localize(None).to_period("W-SUN").start_time
             first_day = window_start.tz_convert(TIMEZONE).tz_localize(None).normalize()
-            first_week = first_day.to_period("W-SUN").start_time if first_day.dayofweek else None
+            first_week = first_day.to_period("W-SUN").start_time if first_day.day_of_week else None
             partial = {this_week, first_week}
             opacity = [0.45 if w in partial else 1.0 for w in weekly.index]
             week_note = {this_week: " (so far)", first_week: " (partial)"}

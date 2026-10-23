@@ -14,18 +14,19 @@ models:
       One row per incident × route — the alerts the MBTA posted for one event,
       collapsed. The dashboard's alert counts, durations, and cause/effect
       breakdowns all read this table.
-    tests:
+    data_tests:
       - unique_combination:
-          columns: [incident_id, route_id]
+          arguments:
+            columns: [incident_id, route_id]
     columns:
       - name: incident_id
         description: "{{ doc('incident_id') }}"
-        tests: [not_null]
+        data_tests: [not_null]
       - name: route_id
         description: "{{ doc('route_id') }}"
       - name: line_name
         description: "{{ doc('line_name') }}"
-        tests: [not_null]
+        data_tests: [not_null]
       - name: incident_cause
         description: Cause shared by the incident's alerts (e.g. "Disabled Train").
       - name: incident_effect
@@ -38,16 +39,17 @@ models:
         description: Highest severity among the incident's alerts (0–10).
       - name: incident_start_at
         description: Earliest start among the incident's alerts (UTC).
-        tests: [not_null]
+        data_tests: [not_null]
       - name: incident_end_at
         description: Latest end among the incident's alerts (UTC); NULL while any is ongoing.
       - name: incident_duration_minutes
         description: Minutes from start to end, or to now while ongoing.
       - name: alert_count
         description: Number of MBTA alerts posted for this incident.
-        tests:
+        data_tests:
           - accepted_range:
-              min_value: 1
+              arguments:
+                min_value: 1
       - name: is_in_feed
         description: True when any of the incident's alerts is still listed by the API.
       - name: ingested_at
@@ -57,9 +59,10 @@ models:
     description: >
       One row per service date × line — gated entries, the number of alerts
       active on the line that day, and that day's weather at Boston Logan.
-    tests:
+    data_tests:
       - unique_combination:
-          columns: [service_date, line_name]
+          arguments:
+            columns: [service_date, line_name]
     columns:
       - name: service_date
         description: "{{ doc('service_date') }}"
@@ -75,12 +78,13 @@ models:
           Shuttle, then Suspension, then Delay — or NULL on a calm day. Station
           closures and service changes are ignored (a long closure would
           otherwise mark every day).
-        tests:
+        data_tests:
           - accepted_values:
-              values: ['Shuttle', 'Suspension', 'Delay']
+              arguments:
+                values: ['Shuttle', 'Suspension', 'Delay']
       - name: avg_temperature_f
         description: Daily mean temperature at Boston Logan, °F.
-        tests:
+        data_tests:
           # Every ridership day should have weather — NOAA runs ahead of the
           # MBTA's ridership publishing. A gap means the weather ingest broke.
           - not_null:

@@ -1,6 +1,6 @@
 # Streamlit dashboard served by Cloud Run (infra/cloud-run-services.tf).
 # Built from serve/ (scripts/build-image.sh serve <version>).
-FROM python:3.11-slim
+FROM python:3.13-slim
 
 # Set the working directory inside the container
 WORKDIR /app

@@ -1,8 +1,4 @@
-# dbt Core and BigQuery adapter
-dbt-core==1.7.8
-dbt-bigquery==1.7.4
-
-# Google Cloud dependencies (explicitly pinned for compatibility)
-protobuf<5,>=4.0.0  # dbt 1.7.8 requires protobuf 4.x
-grpcio-status<1.60.0  # Compatible with protobuf 4.x
-google-cloud-bigquery==3.40.1
+# dbt Core and BigQuery adapter (the adapter brings its own compatible
+# google-cloud-bigquery, protobuf, and grpcio)
+dbt-core==1.12.6
+dbt-bigquery==1.12.1

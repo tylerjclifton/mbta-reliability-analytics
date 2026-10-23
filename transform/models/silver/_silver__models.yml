@@ -17,45 +17,48 @@ models:
       column names) plus first/last seen. Incremental table — the one exception
       to silver-as-views — so the transform reads only new snapshots instead of
       re-reading all of bronze (see model header).
-    tests:
+    data_tests:
       - unique_combination:
-          columns: [alert_id, route]
+          arguments:
+            columns: [alert_id, route]
     columns:
       - name: alert_id
         description: "{{ doc('alert_id') }}"
-        tests: [not_null]
+        data_tests: [not_null]
       - name: route
         description: "{{ doc('route_id') }}"
-        tests: [not_null]
+        data_tests: [not_null]
       - name: first_seen_at
         description: First ingest run that included this alert (UTC).
-        tests: [not_null]
+        data_tests: [not_null]
       - name: last_seen_at
         description: Latest ingest run that included this alert (UTC).
-        tests: [not_null]
+        data_tests: [not_null]
 
   - name: mbta_alerts
     description: >
       One row per service-affecting alert × route: the latest snapshot of each
       MBTA rail alert, with start and end resolved from the snapshot history
       (see model header). Effects in var non_service_alert_effects are excluded.
-    tests:
+    data_tests:
       - unique_combination:
-          columns: [alert_id, route_id]
+          arguments:
+            columns: [alert_id, route_id]
     columns:
       - name: alert_id
         description: "{{ doc('alert_id') }}"
-        tests: [not_null]
+        data_tests: [not_null]
       - name: route_id
         description: "{{ doc('route_id') }}"
-        tests:
+        data_tests:
           - not_null
           - relationships:
-              to: ref('mbta_routes')
-              field: route_id
+              arguments:
+                to: ref('mbta_routes')
+                field: route_id
       - name: incident_id
         description: "{{ doc('incident_id') }}"
-        tests: [not_null]
+        data_tests: [not_null]
       - name: alert_header
         description: Short alert text.
       - name: alert_description
@@ -66,15 +69,16 @@ models:
         description: Effect, title-cased from the MBTA enum (e.g. "Delay", "Shuttle").
       - name: alert_severity
         description: MBTA severity, 0 (least) to 10 (most).
-        tests:
+        data_tests:
           - accepted_range:
-              min_value: 0
-              max_value: 10
+              arguments:
+                min_value: 0
+                max_value: 10
       - name: alert_duration_certainty
         description: Whether MBTA considers the end time Known, Estimated, or Unknown.
       - name: alert_start_at
         description: When the alert took effect (UTC). API start, else when MBTA created the alert.
-        tests: [not_null]
+        data_tests: [not_null]
       - name: alert_end_at
         description: >
           When the alert ended (UTC): whichever came first — the end time the
@@ -87,10 +91,11 @@ models:
         description: Eastern date of alert_end_at; NULL while ongoing.
       - name: alert_duration_minutes
         description: Minutes from start to end, or to now for ongoing alerts.
-        tests:
+        data_tests:
           # The API occasionally publishes an end before the start
           - accepted_range:
-              min_value: 0
+              arguments:
+                min_value: 0
               config:
                 severity: warn
       - name: alert_location_key
@@ -118,16 +123,17 @@ models:
     columns:
       - name: route_id
         description: "{{ doc('route_id') }}"
-        tests: [unique, not_null]
+        data_tests: [unique, not_null]
       - name: route_name
         description: Route display name (e.g. "Green Line B").
       - name: line_name
         description: "{{ doc('line_name') }}"
-        tests:
+        data_tests:
           - not_null
           - accepted_values:
-              # Anchor reused by mbta_ridership.line_name below
-              values: &rail_lines ['Red Line', 'Orange Line', 'Blue Line', 'Green Line']
+              arguments:
+                # Anchor reused by mbta_ridership.line_name below
+                values: &rail_lines ['Red Line', 'Orange Line', 'Blue Line', 'Green Line']
       - name: route_description
         description: MBTA route description (e.g. "Rapid Transit").
       - name: route_type
@@ -143,25 +149,28 @@ models:
 
   - name: mbta_ridership
     description: One row per service date × line — the latest published gated-entry count.
-    tests:
+    data_tests:
       - unique_combination:
-          columns: [service_date, line_name]
+          arguments:
+            columns: [service_date, line_name]
     columns:
       - name: service_date
         description: "{{ doc('service_date') }}"
-        tests: [not_null]
+        data_tests: [not_null]
       - name: line_name
         description: "{{ doc('line_name') }}"
-        tests:
+        data_tests:
           - not_null
           - accepted_values:
-              values: *rail_lines
+              arguments:
+                values: *rail_lines
       - name: gated_entries
         description: Fare-gate entries across all of the line's stations that day (fractional at shared stations).
-        tests:
+        data_tests:
           - not_null
           - accepted_range:
-              min_value: 0
+              arguments:
+                min_value: 0
       - name: ingested_at
         description: "{{ doc('ingested_at') }}"
       - name: ingested_by
@@ -172,33 +181,37 @@ models:
     columns:
       - name: observation_date
         description: "{{ doc('observation_date') }}"
-        tests: [unique, not_null]
+        data_tests: [unique, not_null]
       - name: station_id
         description: GHCN station ID (USW00014739 = Boston Logan International Airport).
       - name: avg_temperature_f
         description: Daily mean temperature, °F, as (max + min) / 2.
       - name: max_temperature_f
         description: Daily maximum temperature, °F.
-        tests:
+        data_tests:
           - accepted_range:
-              min_value: -40
-              max_value: 120
+              arguments:
+                min_value: -40
+                max_value: 120
       - name: min_temperature_f
         description: Daily minimum temperature, °F.
-        tests:
+        data_tests:
           - accepted_range:
-              min_value: -40
-              max_value: 120
+              arguments:
+                min_value: -40
+                max_value: 120
       - name: precipitation_in
         description: Total precipitation, inches, as liquid equivalent (melted snow included).
-        tests:
+        data_tests:
           - accepted_range:
-              min_value: 0
+              arguments:
+                min_value: 0
       - name: snowfall_in
         description: New snowfall depth, inches, before melting.
-        tests:
+        data_tests:
           - accepted_range:
-              min_value: 0
+              arguments:
+                min_value: 0
       - name: ingested_at
         description: "{{ doc('ingested_at') }}"
       - name: ingested_by

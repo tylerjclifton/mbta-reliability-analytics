@@ -5,9 +5,10 @@
 
     Usage (column-level, in a properties yml):
       - name: gated_entries
-        tests:
+        data_tests:
           - accepted_range:
-              min_value: 0
+              arguments:
+                min_value: 0
   -#}
 SELECT *
 FROM {{ model }}

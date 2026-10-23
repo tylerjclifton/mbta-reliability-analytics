@@ -53,16 +53,19 @@ resource "google_service_account_iam_member" "github_deployer_wif" {
 # What `terraform apply` touches, one role per resource family it manages
 locals {
   deployer_roles = [
-    "roles/artifactregistry.admin",          # image repositories + pushing images
-    "roles/bigquery.admin",                  # datasets, bronze tables, dataset IAM
-    "roles/cloudscheduler.admin",            # cron triggers
-    "roles/iam.serviceAccountAdmin",         # workload service accounts
-    "roles/iam.serviceAccountUser",          # attach service accounts to jobs/schedules
-    "roles/iam.workloadIdentityPoolAdmin",   # this file's pool and provider
-    "roles/resourcemanager.projectIamAdmin", # project-level grants (iam.tf)
-    "roles/run.admin",                       # jobs, dashboard service, job IAM
-    "roles/secretmanager.admin",             # the API key secret and its IAM
-    "roles/serviceusage.serviceUsageAdmin",  # enabled APIs (apis.tf)
+    "roles/artifactregistry.admin",               # image repositories + pushing images
+    "roles/bigquery.admin",                       # datasets, bronze tables, dataset IAM
+    "roles/cloudscheduler.admin",                 # cron triggers
+    "roles/iam.serviceAccountAdmin",              # workload service accounts
+    "roles/iam.serviceAccountUser",               # attach service accounts to jobs/schedules
+    "roles/iam.workloadIdentityPoolAdmin",        # this file's pool and provider
+    "roles/logging.configWriter",                 # log-match rules behind the failure alerts
+    "roles/monitoring.alertPolicyEditor",         # failure alerting policies (monitoring.tf)
+    "roles/monitoring.notificationChannelEditor", # the alert email channel
+    "roles/resourcemanager.projectIamAdmin",      # project-level grants (iam.tf)
+    "roles/run.admin",                            # jobs, dashboard service, job IAM
+    "roles/secretmanager.admin",                  # the API key secret and its IAM
+    "roles/serviceusage.serviceUsageAdmin",       # enabled APIs (apis.tf)
   ]
 }
 

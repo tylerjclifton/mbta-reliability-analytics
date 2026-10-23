@@ -8,6 +8,14 @@
 locals {
   backend_registry = "${var.location}-docker.pkg.dev/${var.project_id}/backend"
 
+  # Retries per failed task. Each job also receives its value as MAX_RETRIES, so
+  # only the final attempt's failure report triggers an alert (monitoring.tf).
+  #   ingest     one retry absorbs transient API errors
+  #   transform  none: dbt retries BigQuery errors itself, and a failed test or
+  #              freshness check won't pass on retry
+  ingest_max_retries    = 1
+  transform_max_retries = 0
+
   # One entry per ingest job. Key = job folder under ingest/ = bronze table
   # name with "-" for "_" (e.g. mbta-alerts → bronze.mbta_alerts).
   ingest_jobs = {
@@ -66,13 +74,17 @@ resource "google_cloud_run_v2_job" "ingest" {
     template {
       service_account = google_service_account.ingest.email
       timeout         = each.value.timeout
-      max_retries     = 1 # One retry absorbs transient API errors
+      max_retries     = local.ingest_max_retries
 
       containers {
         name  = "ingest-${each.key}"
         image = "${local.backend_registry}/ingest:${var.image_tag}"
         args  = ["${each.key}/main.py"]
 
+        env {
+          name  = "MAX_RETRIES"
+          value = tostring(local.ingest_max_retries)
+        }
         env {
           name  = "BQ_PROJECT_ID"
           value = var.project_id
@@ -134,10 +146,14 @@ resource "google_cloud_run_v2_job" "transform" {
     template {
       service_account = google_service_account.dbt_bigquery.email
       timeout         = "600s" # 10 minutes for dbt to complete
-      max_retries     = 0      # dbt retries BigQuery errors itself; a failed test or freshness check won't pass on retry
+      max_retries     = local.transform_max_retries
       containers {
         name  = "transform"
         image = "${local.backend_registry}/transform:${var.image_tag}"
+        env {
+          name  = "MAX_RETRIES"
+          value = tostring(local.transform_max_retries)
+        }
         env {
           name  = "DBT_PROJECT_ID"
           value = var.project_id

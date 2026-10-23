@@ -193,7 +193,7 @@ CI (`.github/workflows/ci.yml`) runs on every push and pull request without clou
 pip install -r requirements.txt
 
 # The same checks CI runs
-ruff check ingest serve && pytest                                      # Python
+ruff check ingest serve transform && pytest                            # Python
 (cd transform && dbt parse --profiles-dir . && sqlfluff lint models)   # SQL
 (cd infra && terraform fmt -check -recursive && terraform validate)    # Terraform
 

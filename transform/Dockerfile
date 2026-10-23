@@ -12,9 +12,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the dbt project (models, macros, tests, profiles)
 COPY . .
 
-# 1. `dbt build` — models + tests in DAG order; a failing test skips everything
-#    downstream of it, so bad data never reaches gold
-# 2. `dbt source freshness` — fails the run if an ingest job has stopped
-#    writing to bronze (thresholds in models/bronze/_bronze__sources.yml)
-# Uses the gcp target (attached service account, no keyfile).
-CMD ["sh", "-c", "dbt build --profiles-dir . --target gcp && dbt source freshness --profiles-dir . --target gcp"]
+# dbt build, then dbt source freshness; on failure, logs a failure report that
+# emails an alert (see run.py)
+CMD ["python", "run.py"]

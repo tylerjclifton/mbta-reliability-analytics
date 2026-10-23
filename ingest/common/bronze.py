@@ -15,13 +15,18 @@ Conventions:
   - A job lives in ingest/<job>/main.py and writes to bronze.<job> with "-"
     replaced by "_" (e.g. ingest/mbta-alerts → bronze.mbta_alerts).
   - Bronze is append-only: jobs never update or delete rows.
+  - A job that fails — through fail() or an uncaught exception — logs one
+    structured failure report (report_failure()), which the job's alerting
+    policy emails (infra/monitoring.tf).
 """
 
 # Import standard libraries
 import datetime
+import json
 import logging
 import os
 import sys
+import traceback
 
 # Import third party libraries
 import pandas
@@ -40,10 +45,41 @@ RUN_STARTED_AT = datetime.datetime.now(datetime.timezone.utc)
 JOB_NAME = os.path.basename(os.path.dirname(os.path.abspath(sys.argv[0])))
 
 
+def report_failure(summary, details=''):
+    """
+    Log this run's failure as one structured entry (contract: infra/monitoring.tf).
+
+    Cloud Run reads a JSON line on stdout as a structured log entry. Only the
+    task's final attempt reports event "job_failed" at ERROR, which emails an
+    alert; an attempt Cloud Run will retry logs "attempt_failed" at WARNING, so
+    a transient error the retry absorbs sends nothing. CLOUD_RUN_TASK_ATTEMPT
+    (0-based) is set by Cloud Run; MAX_RETRIES by Terraform.
+    """
+    is_final_attempt = int(os.getenv('CLOUD_RUN_TASK_ATTEMPT', '0')) >= int(os.getenv('MAX_RETRIES', '0'))
+    print(json.dumps({
+        'severity': 'ERROR' if is_final_attempt else 'WARNING',
+        'event':    'job_failed' if is_final_attempt else 'attempt_failed',
+        'job':      f"ingest-{JOB_NAME}",
+        'message':  f"{summary}\n\n{details}".strip(),
+    }), flush=True)
+
+
 def fail(message):
-    """Log an error and exit non-zero so Cloud Run marks the execution failed."""
-    logging.error(message)
+    """Report a failure and exit non-zero so Cloud Run marks the execution failed."""
+    report_failure(message)
     sys.exit(1)
+
+
+def _report_uncaught_exception(exc_type, exc_value, exc_traceback):
+    """Report any exception a job didn't handle, with its traceback, then exit as usual."""
+    details = ''.join(traceback.format_exception(exc_type, exc_value, exc_traceback))
+    report_failure(f"{exc_type.__name__}: {exc_value}", details)
+    sys.__excepthook__(exc_type, exc_value, exc_traceback)
+
+
+# Every job imports this module, so this covers unexpected errors in any job
+# (a changed API response, a shaping bug) as well as the fail() paths
+sys.excepthook = _report_uncaught_exception
 
 
 def fetch(url, params=None, headers=None, timeout=60):

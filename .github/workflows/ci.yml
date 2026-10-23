@@ -1,7 +1,7 @@
 # CI/CD. Every push and pull request runs the checks (no cloud credentials);
 # a push to main that passes them deploys.
 #
-#   python     ruff lint + pytest (ingest jobs, dashboard helpers)
+#   python     ruff lint (ingest, dashboard, transform entrypoint) + pytest
 #   dbt        dbt parse (project compiles) + sqlfluff lint (SQL style)
 #   terraform  fmt check + validate (no backend, no state)
 #   deploy     main only: build + push images tagged with the commit,
@@ -30,7 +30,7 @@ jobs:
       - name: Install
         run: pip install -r ingest/requirements.txt pytest==9.1.1 ruff==0.17.2
       - name: Lint
-        run: ruff check ingest serve
+        run: ruff check ingest serve transform
       - name: Test
         run: pytest
 

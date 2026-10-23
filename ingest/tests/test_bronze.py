@@ -2,6 +2,8 @@
 Tests for ingest/common/bronze.py — the shared fetch and append-to-bronze helpers.
 """
 
+import json
+import sys
 from types import SimpleNamespace
 
 import pandas as pd
@@ -67,3 +69,50 @@ def test_fetch_exits_on_http_error(monkeypatch):
         bronze.fetch("https://example.test")
 
     assert exit_info.value.code == 1
+
+
+# ── Failure reports (the alerting contract in infra/monitoring.tf) ────────────
+
+def last_report(capsys):
+    """The structured failure report a job printed to stdout."""
+    return json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+
+
+def test_fail_on_final_attempt_reports_job_failed(monkeypatch, capsys):
+    monkeypatch.setenv("CLOUD_RUN_TASK_ATTEMPT", "1")
+    monkeypatch.setenv("MAX_RETRIES", "1")
+
+    with pytest.raises(SystemExit):
+        bronze.fail("Request to https://example.test returned HTTP 503")
+
+    report = last_report(capsys)
+    assert report["severity"] == "ERROR"
+    assert report["event"] == "job_failed"
+    assert report["job"].startswith("ingest-")
+    assert report["message"] == "Request to https://example.test returned HTTP 503"
+
+
+def test_fail_before_a_retry_only_warns(monkeypatch, capsys):
+    # Cloud Run will retry, so this attempt must not trigger an alert email
+    monkeypatch.setenv("CLOUD_RUN_TASK_ATTEMPT", "0")
+    monkeypatch.setenv("MAX_RETRIES", "1")
+
+    with pytest.raises(SystemExit):
+        bronze.fail("Request to https://example.test returned HTTP 503")
+
+    report = last_report(capsys)
+    assert report["severity"] == "WARNING"
+    assert report["event"] == "attempt_failed"
+
+
+def test_uncaught_exception_reports_traceback(monkeypatch, capsys):
+    monkeypatch.setattr(bronze.sys, "__excepthook__", lambda *args: None)
+    try:
+        {}["data"]
+    except KeyError as error:
+        sys.excepthook(type(error), error, error.__traceback__)
+
+    report = last_report(capsys)
+    assert report["event"] == "job_failed"
+    assert report["message"].startswith("KeyError: 'data'")
+    assert "Traceback (most recent call last)" in report["message"]

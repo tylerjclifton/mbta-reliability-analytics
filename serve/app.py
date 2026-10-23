@@ -159,6 +159,9 @@ div[class*="st-key-card_"] {{ background: {CARD}; border: 1px solid {BORDER}; bo
 .inc .meta  {{ color: {MUTED}; font-size: 0.78rem; margin-top: 0.3rem; }}
 .empty {{ color: {MUTED}; font-size: 0.9rem; padding: 0.5rem 0 1rem; }}
 
+/* First-load message while the data queries run */
+.loading {{ color: {MUTED}; font-size: 0.95rem; }}
+
 /* Line filter pills: a colored dot per line, in LINES order */
 .st-key-line_filter button p::before {{ content: ""; display: inline-block; width: 8px; height: 8px;
             border-radius: 50%; margin-right: 0.45rem; vertical-align: 1px; background: var(--dot); }}
@@ -374,8 +377,18 @@ def load_ridership():
     return df
 
 
+# A visitor's first load waits several seconds on the BigQuery queries with
+# nothing on screen, which reads as a broken page; say it's loading until the
+# dashboard replaces it. Later reruns (line filter clicks)
+# keep the previous page visible instead, so the message only shows once.
+loading = st.empty()
+if "loaded" not in st.session_state:
+    loading.markdown('<div class="loading">Loading the latest MBTA data…</div>', unsafe_allow_html=True)
+
 incidents_all = load_incidents()
 ridership_all = load_ridership()
+loading.empty()
+st.session_state["loaded"] = True
 
 now = pd.Timestamp.now(tz="UTC")
 
@@ -768,12 +781,16 @@ with impact_col:
             impact = (impact.assign(effect_order=impact["effect"].map(IMPACT_EFFECTS.index),
                                     line_order=impact["line_name"].map(selected_lines.index))
                       .sort_values(["effect_order", "line_order"]))
-            # One row per bar, plus a bold heading row (no bar) above each effect's group
+            # One row per bar, plus a heading row (no bar) above each effect's group.
+            # Headings sit flush left in the label column and line names stay
+            # right-aligned against the axis, so lines read as indented under them.
             impact["row"] = impact["effect"] + " · " + impact["line_name"]
-            rows, row_labels = [], []
+            rows, row_labels, headings = [], [], []
             for effect, group in impact.groupby("effect_order", sort=True):
+                headings.append(IMPACT_EFFECTS[effect])
                 rows += [IMPACT_EFFECTS[effect]] + list(group["row"])
-                row_labels += [f"<b>{IMPACT_EFFECTS[effect]}</b>"] + list(group["line_name"])
+                row_labels += [""] + list(group["line_name"])  # heading drawn as an annotation below
+            label_width = 124  # px for the label column; fits "Suspension" and "Orange Line"
             fig = go.Figure(go.Bar(
                 x=impact["pct"], y=impact["row"],
                 orientation="h",
@@ -786,13 +803,21 @@ with impact_col:
                 hoverinfo="text",
             ))
             style(fig, height=max(180, 30 * len(rows) + 30))
-            # Room past the longest bar for its label, at phone width too
-            span = max(impact["pct"].abs().max(), 2) * 1.8
-            fig.update_xaxes(range=[-span, span], ticksuffix="%", zeroline=True, zerolinecolor=AXIS,
+            # Axis fits the bars (0 always in view) with room past each end for
+            # its label; a symmetric axis left too little room at phone width
+            low, high = min(impact["pct"].min(), 0), max(impact["pct"].max(), 0)
+            pad = max(high - low, 4) * 0.8
+            fig.update_xaxes(range=[low - pad, high + pad], ticksuffix="%", zeroline=True, zerolinecolor=AXIS,
                              zerolinewidth=1)
+            # Fixed label column (not automargin) so headings can be pinned to its left edge
+            fig.update_layout(margin_l=label_width)
             fig.update_yaxes(categoryorder="array", categoryarray=rows, tickvals=rows, ticktext=row_labels,
-                             range=[len(rows) - 0.5, -0.5], gridcolor="rgba(0,0,0,0)",
+                             range=[len(rows) - 0.5, -0.5], gridcolor="rgba(0,0,0,0)", automargin=False,
                              tickfont=dict(color=INK_2, size=12))
+            for heading in headings:
+                fig.add_annotation(text=f"<b>{heading}</b>", x=0, xref="paper", xanchor="left",
+                                   xshift=-label_width, y=heading, yref="y", showarrow=False,
+                                   font=dict(color=INK, size=12))
             show(fig)
         st.caption("0% = that line's calm days (no incident other than a station closure), same day of the week. Each "
                    "day counts under its most severe alert: shuttle buses, then a suspension, then a delay. "

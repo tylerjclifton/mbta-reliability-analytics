@@ -25,7 +25,7 @@ locals {
   # to project conventions happens in silver.
   bronze_tables = {
     mbta_alerts = {
-      description = "Hourly snapshots of the MBTA alerts API (rail routes only). Grain: alert × route × ingest run."
+      description = "15-minute snapshots of the MBTA alerts API (rail routes only). Grain: alert × route × ingest run."
       clustering  = ["alert_id", "route"]
       columns = [
         { name = "alert_id", type = "STRING", description = "MBTA alert ID" },

@@ -34,6 +34,8 @@ MBTA Ridership   ──┘         ↑              │  bronze → silver → g
                                             └─────────────────────────────────────────┘
 ```
 
+Everything is defined in Terraform and deployed by GitHub Actions on every push to `main`.
+
 ### Medallion layers
 
 Each layer is its own BigQuery dataset.
@@ -105,7 +107,11 @@ Each workload runs as its own service account with access granted per dataset (`
 | `job-scheduler` | Cloud Scheduler | Start the five Cloud Run jobs (`run.invoker` on each job) |
 | `github-deployer` | CI/CD (GitHub Actions) | Build, push, and `terraform apply` — broad by necessity, usable only from this repo's `main` branch |
 
-All four also hold `bigquery.jobUser` (permission to run queries), which grants no data access on its own. Only the APIs the pipeline uses are enabled (`infra/apis.tf`), and Artifact Registry keeps the 5 newest versions of each image.
+The three data workloads also hold `bigquery.jobUser` (permission to run queries), which grants no data access on its own. The MBTA API key lives in Secret Manager (`infra/secrets.tf`; Terraform owns the secret, the value is added by hand). Only the APIs the pipeline uses are enabled (`infra/apis.tf`), and Artifact Registry keeps the 5 newest versions of each image.
+
+### Cost
+
+The pipeline runs within GCP's free tiers. Query volume is dominated by BigQuery's 10 MB-per-query billing minimum (about 0.4 TiB/month of the free 1 TiB), not by data size, so it stays flat as history grows. A **$5/month budget** on the billing account emails at 50%, 90%, and 100% of actual spend and when spend is forecast to pass $5 (created with `gcloud billing budgets`, outside Terraform, since the CI deployer has no billing access).
 
 ---
 
@@ -113,10 +119,11 @@ All four also hold `bigquery.jobUser` (permission to run queries), which grants 
 
 | Category | Technology |
 |---|---|
-| Cloud | GCP (BigQuery, Cloud Run, Cloud Scheduler, Artifact Registry) |
+| Cloud | GCP (BigQuery, Cloud Run, Cloud Scheduler, Artifact Registry, Secret Manager) |
 | Infrastructure | Terraform (state in GCS: `mbta-reliability-analytics-tfstate`) |
 | Transformation | dbt Core |
 | Dashboard | Streamlit |
+| CI/CD | GitHub Actions, Workload Identity Federation (keyless) |
 | Containerization | Docker |
 | Languages | Python, SQL (Jinja) |
 
@@ -146,13 +153,20 @@ The alert-effect and weather charts use **% vs typical**: a day's entries vs the
 
 ```
 infra/                  Terraform — all GCP infrastructure
-  bigquery.tf           Datasets + bronze table schemas (single source of truth)
-  cloud-run-jobs.tf     Ingest jobs (one per source) + transform job, image versions
+  bigquery.tf           Datasets (incl. dev sandboxes) + bronze table schemas (single source of truth)
+  cloud-run-jobs.tf     Ingest jobs (one per source) + transform job
+  cloud-run-services.tf Dashboard service + tylerclifton.com domain mapping
   cloud-scheduler.tf    Cron triggers
+  iam.tf                Per-workload access (service-accounts.tf defines the accounts)
+  deploy.tf             GitHub Actions deploy identity (Workload Identity Federation)
+  secrets.tf            MBTA API key secret
+  apis.tf               Enabled Google APIs
+  artifact-registry.tf  Image repositories + cleanup policy
+  cloud-storage.tf      Terraform state bucket
 ingest/                 One shared image for every ingest job
   common/bronze.py      Shared fetch + append-to-bronze helpers
   tests/                Job tests against canned API responses
-  mbta-alerts/          MBTA service alert snapshots (hourly)
+  mbta-alerts/          MBTA service alert snapshots (every 15 minutes)
   mbta-routes/          MBTA route metadata snapshots (yearly)
   mbta-ridership/       ArcGIS gated entries, full history (weekly)
   noaa-weather/         NOAA GHCN-Daily for Boston Logan (daily)
@@ -163,7 +177,7 @@ transform/              dbt Core project
   macros/               keep_latest_version, null_if_failed_ghcn_qc
   tests/generic/        unique_combination, accepted_range
 serve/                  Streamlit dashboard (app.py; pure helpers in helpers.py, tested in tests/)
-scripts/build-image.sh  Build + push any component's image
+scripts/build-image.sh  Build + push a component's image (used by CI/CD)
 .github/workflows/      CI/CD: lint, tests, dbt parse, terraform validate; deploy on main
 pyproject.toml          pytest + ruff config
 ```
@@ -172,18 +186,16 @@ pyproject.toml          pytest + ruff config
 
 ## Development & Deployment
 
-CI (`.github/workflows/ci.yml`) runs on every push and pull request without cloud credentials: ruff + pytest for the Python, `dbt parse` + sqlfluff for the SQL, and `terraform fmt` + `validate` for the infrastructure. The same checks locally:
-
-```bash
-pip install -r requirements.txt
-ruff check ingest serve && pytest                        # Python
-(cd transform && dbt parse --profiles-dir . && sqlfluff lint models)   # SQL
-(cd infra && terraform fmt -check -recursive && terraform validate)    # Terraform
-```
+CI (`.github/workflows/ci.yml`) runs on every push and pull request without cloud credentials: ruff + pytest for the Python, `dbt parse` + sqlfluff for the SQL, and `terraform fmt` + `validate` for the infrastructure.
 
 ```bash
 # Local environment (all components + dev tools)
 pip install -r requirements.txt
+
+# The same checks CI runs
+ruff check ingest serve && pytest                                      # Python
+(cd transform && dbt parse --profiles-dir . && sqlfluff lint models)   # SQL
+(cd infra && terraform fmt -check -recursive && terraform validate)    # Terraform
 
 # Run an ingest job locally (writes to the real bronze table)
 PYTHONPATH=ingest python ingest/noaa-weather/main.py
@@ -215,6 +227,8 @@ A push to `main` that passes CI deploys automatically (`deploy` job in `.github/
 3. Run the transform once, so model changes are live immediately
 
 GitHub authenticates to Google with **Workload Identity Federation** — a short-lived OIDC token exchanged for the `github-deployer` service account, so no keys exist anywhere. Only workflow runs on this repository's `main` branch are accepted (`infra/deploy.tf`). Rolling back is re-running the deploy for an earlier commit; Artifact Registry keeps the 5 most recent images.
+
+The deploy identity can't create itself, so `infra/deploy.tf` was applied once from a workstation (`terraform apply -var image_tag=<deployed tag>`); every apply since runs in CI.
 
 ### Terraform state
 

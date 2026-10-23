@@ -36,22 +36,6 @@ resource "google_cloud_scheduler_job" "ingest" {
   }
 }
 
-# Existing triggers were individual resources before the for_each refactor.
-# (The old NWS trigger has no successor here: its name changes, so the
-# noaa-weather trigger is created fresh and the NWS one is destroyed.)
-moved {
-  from = google_cloud_scheduler_job.ingest_alerts
-  to   = google_cloud_scheduler_job.ingest["mbta-alerts"]
-}
-moved {
-  from = google_cloud_scheduler_job.ingest_routes
-  to   = google_cloud_scheduler_job.ingest["mbta-routes"]
-}
-moved {
-  from = google_cloud_scheduler_job.ingest_ridership
-  to   = google_cloud_scheduler_job.ingest["mbta-ridership"]
-}
-
 # ── Transform trigger ─────────────────────────────────────────────────────────
 
 resource "google_cloud_scheduler_job" "transform" {

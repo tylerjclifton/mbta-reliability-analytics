@@ -102,33 +102,3 @@ resource "google_project_iam_member" "service_agent" {
   role    = each.value.role
   member  = each.value.member
 }
-
-# Pre-refactor addresses of the service-agent grants kept above
-moved {
-  from = google_project_iam_member.cloud_run_service_agent["roles/run.serviceAgent"]
-  to   = google_project_iam_member.service_agent["cloud_run"]
-}
-moved {
-  from = google_project_iam_member.artifact_registry_service_agent["roles/artifactregistry.serviceAgent"]
-  to   = google_project_iam_member.service_agent["artifact_registry"]
-}
-moved {
-  from = google_project_iam_member.cloud_scheduler["roles/cloudscheduler.serviceAgent"]
-  to   = google_project_iam_member.service_agent["cloud_scheduler"]
-}
-moved {
-  from = google_project_iam_member.google_apis_service_agent["roles/editor"]
-  to   = google_project_iam_member.service_agent["google_apis"]
-}
-moved {
-  from = google_project_iam_member.serve_bigquery["roles/bigquery.jobUser"]
-  to   = google_project_iam_member.workload["serve_job_user"]
-}
-moved {
-  from = google_project_iam_member.dbt_bigquery["roles/bigquery.jobUser"]
-  to   = google_project_iam_member.workload["dbt_job_user"]
-}
-moved {
-  from = google_project_iam_member.dbt_bigquery["roles/bigquery.user"]
-  to   = google_project_iam_member.workload["dbt_user"]
-}

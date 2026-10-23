@@ -8,7 +8,6 @@
 locals {
   backend_registry = "${var.location}-docker.pkg.dev/${var.project_id}/backend"
 
-
   # One entry per ingest job. Key = job folder under ingest/ = bronze table
   # name with "-" for "_" (e.g. mbta-alerts → bronze.mbta_alerts).
   ingest_jobs = {
@@ -119,21 +118,6 @@ resource "google_cloud_run_v2_job" "ingest" {
       }
     }
   }
-}
-
-# Existing jobs were individual resources before the for_each refactor; these
-# keep Terraform updating them in place instead of destroying and recreating.
-moved {
-  from = google_cloud_run_v2_job.ingest_mbta_alerts
-  to   = google_cloud_run_v2_job.ingest["mbta-alerts"]
-}
-moved {
-  from = google_cloud_run_v2_job.ingest_mbta_routes
-  to   = google_cloud_run_v2_job.ingest["mbta-routes"]
-}
-moved {
-  from = google_cloud_run_v2_job.ingest_mbta_ridership
-  to   = google_cloud_run_v2_job.ingest["mbta-ridership"]
 }
 
 # ── Transform job ─────────────────────────────────────────────────────────────

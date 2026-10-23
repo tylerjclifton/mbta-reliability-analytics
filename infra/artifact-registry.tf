@@ -41,12 +41,3 @@ resource "google_artifact_registry_repository" "repo" {
     }
   }
 }
-
-moved {
-  from = google_artifact_registry_repository.backend
-  to   = google_artifact_registry_repository.repo["backend"]
-}
-moved {
-  from = google_artifact_registry_repository.frontend
-  to   = google_artifact_registry_repository.repo["frontend"]
-}

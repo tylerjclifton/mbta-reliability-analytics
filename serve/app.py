@@ -9,7 +9,7 @@ Layout:
   1. Header + line filter
   2. Service status    — KPIs, incidents happening now, planned work coming up
   3. Incident patterns — when, where, why, and how long (since alert tracking began)
-  4. Ridership         — per-line KPIs, monthly trend, incident impact, day of week
+  4. Ridership         — per-line KPIs, monthly trend, ridership by alert effect, day of week
   5. Weather           — rain, snow, and temperature vs. typical ridership
   6. Footer            — sources, cadence, method notes
 
@@ -376,7 +376,7 @@ tracking_start = incidents_all["ingested_at"].min()
 # 2026). Coverage starts at the first incident after the last such gap, measured
 # from the start of tracking and over incidents that have already begun (gaps
 # between future planned work don't count). Before it, an empty day would read
-# as "no disruption" when it's really no data.
+# as a quiet day when it's really no data.
 _now = pd.Timestamp.now(tz="UTC")
 _starts = incidents_all.loc[incidents_all["incident_start_at"].between(tracking_start, _now), "incident_start_at"]
 _starts = pd.concat([pd.Series([tracking_start]), _starts]).sort_values().reset_index(drop=True)

@@ -1,3 +1,11 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# Terraform settings — Google provider (pinned) and remote state
+#
+# State lives in the GCS bucket defined in cloud-storage.tf (see README,
+# Terraform state). Backend blocks can't read variables, so the bucket name is
+# written out here.
+# ══════════════════════════════════════════════════════════════════════════════
+
 terraform {
   required_providers {
     google = {

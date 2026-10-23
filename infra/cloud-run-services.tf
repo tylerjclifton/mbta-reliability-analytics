@@ -1,4 +1,9 @@
-# Streamlit dashboard served publicly via Cloud Run
+# ══════════════════════════════════════════════════════════════════════════════
+# Cloud Run service — the Streamlit dashboard (serve/), public at tylerclifton.com
+#
+# Scales to zero between visits; a cold start on the first request is fine.
+# ══════════════════════════════════════════════════════════════════════════════
+
 resource "google_cloud_run_v2_service" "serve" {
   name     = "serve"
   location = var.location

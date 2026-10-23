@@ -189,7 +189,7 @@ pyproject.toml          pytest + ruff config
 CI (`.github/workflows/ci.yml`) runs on every push and pull request without cloud credentials: ruff + pytest for the Python, `dbt parse` + sqlfluff for the SQL, and `terraform fmt` + `validate` for the infrastructure.
 
 ```bash
-# Local environment (all components + dev tools)
+# Local environment (Python 3.13, as in the images; all components + dev tools)
 pip install -r requirements.txt
 
 # The same checks CI runs

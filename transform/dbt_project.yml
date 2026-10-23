@@ -1,22 +1,19 @@
-name: 'mbta_reliability_analytics'  # project name for this dbt project
-version: '1.0.0'  # project version
-config-version: 2  # dbt config version
+# ══════════════════════════════════════════════════════════════════════════════
+# dbt project — medallion transforms from bronze to the dashboard's gold tables
+#
+# Run by the transform job (Dockerfile): `dbt build`, then `dbt source freshness`.
+# Connection settings live in profiles.yml.
+# ══════════════════════════════════════════════════════════════════════════════
 
-# Profile to use for dbt runs
+name: 'mbta_reliability_analytics'
+version: '1.0.0'
+config-version: 2
 profile: 'mbta_reliability_analytics'
 
-# File and folder locations
-model-paths: ["models"]  # where dbt models are stored
-# analysis-paths: ["analyses"]  # (optional) where analysis files are stored
-test-paths: ["tests"]  # where dbt tests are stored
-# seed-paths: ["seeds"]  # (optional) where seed files are stored
-macro-paths: ["macros"]  # where dbt macros are stored
-# snapshot-paths: ["snapshots"]  # (optional) where snapshots are stored
-
-# Directories to be removed by `dbt clean`
-clean-targets:
-  - "target"  # dbt build artifacts
-  - "dbt_packages"  # dbt package dependencies
+model-paths: ["models"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+clean-targets: ["target", "dbt_packages"]
 
 # Project-wide variables
 vars:

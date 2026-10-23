@@ -1,5 +1,5 @@
 # ══════════════════════════════════════════════════════════════════════════════
-# Variables — project settings, deployment, schedules, and Google service agents
+# Variables — project, deployment, schedules, alerting, and Google service agents
 #
 # Everything has a default except image_tag, which CI/CD sets on every deploy.
 # ══════════════════════════════════════════════════════════════════════════════
@@ -80,6 +80,14 @@ variable "serve_domain" {
   description = "Canonical domain for the Streamlit dashboard"
   type        = string
   default     = "tylerclifton.com"
+}
+
+# ── Alerting ──────────────────────────────────────────────────────────────────
+
+variable "alert_email" {
+  description = "Address that receives pipeline failure alerts (monitoring.tf)"
+  type        = string
+  default     = "tylerjclifton@outlook.com"
 }
 
 # ── Google service agents ─────────────────────────────────────────────────────

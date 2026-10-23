@@ -66,7 +66,7 @@ Each layer is its own BigQuery dataset.
 
 ### Data quality
 
-The transform job runs `dbt build` then `dbt source freshness`:
+The transform job (`transform/run.py`) runs `dbt build` then `dbt source freshness`:
 
 - **Grain tests** — every silver view and gold table is unique on its key
 - **Join tests** — line names are one of the four rail lines; every alert's route exists in routes
@@ -76,6 +76,13 @@ The transform job runs `dbt build` then `dbt source freshness`:
 - **Freshness** — fails the run if an ingest job stops writing to bronze (thresholds per source in `transform/models/bronze/_bronze__sources.yml`)
 
 A failing test skips everything downstream of it, so bad data never reaches gold.
+
+### Alerting
+
+Failures email `alert_email` (`infra/variables.tf`) — never successful runs (`infra/monitoring.tf`):
+
+- **`<job> failed`** — any job (ingest or transform) whose execution fails. The email carries the job's own error report: the exception and traceback for an ingest job; dbt's failure summary (failed tests, stale sources, or the error) for the transform. Ingest jobs retry once, and only the final attempt reports, so a blip the retry absorbs sends nothing. While a job keeps failing, at most one email every 6 hours.
+- **`transform hasn't succeeded in 3 hours`** — backstop for failures a job can't report itself (timeout, out of memory, never started). An ingest job failing that way surfaces through the transform's freshness check.
 
 ---
 
@@ -159,6 +166,7 @@ infra/                  Terraform — all GCP infrastructure
   cloud-scheduler.tf    Cron triggers
   iam.tf                Per-workload access (service-accounts.tf defines the accounts)
   deploy.tf             GitHub Actions deploy identity (Workload Identity Federation)
+  monitoring.tf         Failure alert emails
   secrets.tf            MBTA API key secret
   apis.tf               Enabled Google APIs
   artifact-registry.tf  Image repositories + cleanup policy
@@ -171,6 +179,7 @@ ingest/                 One shared image for every ingest job
   mbta-ridership/       ArcGIS gated entries, full history (weekly)
   noaa-weather/         NOAA GHCN-Daily for Boston Logan (daily)
 transform/              dbt Core project
+  run.py                Job entrypoint: dbt build + freshness, failure reports
   models/bronze/        Source declarations + freshness thresholds
   models/silver/        Per-source views + tests
   models/gold/          Dashboard tables (rail_incidents, rail_ridership) + tests

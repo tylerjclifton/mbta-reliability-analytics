@@ -22,6 +22,9 @@ locals {
     cloud_scheduler = "cloudscheduler.googleapis.com" # cron triggers
     cloud_trace     = "cloudtrace.googleapis.com"     # required by Cloud Scheduler
 
+    # Cost guardrail (the budget itself lives on the billing account, outside Terraform)
+    billing_budgets = "billingbudgets.googleapis.com"
+
     # Images + secrets
     artifact_registry = "artifactregistry.googleapis.com" # Docker images
     secret_manager    = "secretmanager.googleapis.com"    # MBTA API key

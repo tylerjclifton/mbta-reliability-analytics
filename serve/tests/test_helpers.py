@@ -1,11 +1,21 @@
 """
-Tests for serve/helpers.py — dashboard formatting and incident shaping.
+Tests for serve/helpers.py — dashboard formatting, incident shaping, and the
+ridership-vs-calm-days comparison.
 """
 
 import pandas as pd
 import pytest
 
-from helpers import fmt_count, fmt_duration, fmt_pct, join_routes, one_row_per_incident, strip_route_prefix
+from helpers import (
+    effect_vs_calm,
+    fmt_count,
+    fmt_duration,
+    fmt_pct,
+    join_routes,
+    one_row_per_incident,
+    pct_vs_calm,
+    strip_route_prefix,
+)
 
 
 @pytest.mark.parametrize("minutes, expected", [
@@ -54,3 +64,46 @@ def test_one_row_per_incident_collapses_branches():
     assert len(out) == 2
     assert out.loc["9", "route_name"] == "Green Line B · C"
     assert out.loc["7", "route_name"] == "Red Line"
+
+
+def ridership_days(rows):
+    """Line-days for the calm-day comparisons: (line, weekday, entries, effect or None)."""
+    df = pd.DataFrame(rows, columns=["line_name", "weekday", "gated_entries", "effect"])
+    return df.assign(is_calm=df["effect"].isna())
+
+
+def test_pct_vs_calm_ignores_disrupted_days_in_the_baseline():
+    # Calm Mondays at 100; the shutdown Mondays at 50 must not drag the baseline down
+    df = ridership_days([("Red Line", 0, 100, None)] * 2 + [("Red Line", 0, 50, "Shuttle")] * 5)
+
+    assert pct_vs_calm(df, min_calm_days=2).tolist() == [0, 0, -50, -50, -50, -50, -50]
+
+
+def test_pct_vs_calm_compares_like_weekdays_and_lines():
+    df = ridership_days([
+        ("Red Line", 0, 100, None), ("Red Line", 0, 100, None),     # Monday baseline 100
+        ("Red Line", 5, 40, None), ("Red Line", 5, 40, None),       # Saturday baseline 40
+        ("Blue Line", 0, 20, None), ("Blue Line", 0, 20, None),     # Blue's own baseline 20
+        ("Red Line", 5, 30, "Delay"), ("Blue Line", 0, 10, "Delay"),
+    ])
+
+    assert pct_vs_calm(df, min_calm_days=2).iloc[-2:].tolist() == [-25, -50]
+
+
+def test_pct_vs_calm_needs_enough_calm_days():
+    df = ridership_days([("Red Line", 0, 100, None), ("Red Line", 0, 60, "Shuttle")])
+
+    assert pct_vs_calm(df, min_calm_days=2).isna().all()
+
+
+def test_effect_vs_calm_reports_only_lines_with_enough_days():
+    df = ridership_days(
+        [("Red Line", 0, 100, None)] * 3 + [("Red Line", 0, 80, "Shuttle")] * 3
+        + [("Blue Line", 0, 100, None)] * 3 + [("Blue Line", 0, 80, "Shuttle")] * 2  # too few shuttle days
+    )
+    df = df.assign(pct_vs_calm=pct_vs_calm(df, min_calm_days=3))
+
+    out = effect_vs_calm(df, ["Shuttle"], min_days=3)
+
+    assert out[["line_name", "effect", "days", "calm_days"]].values.tolist() == [["Red Line", "Shuttle", 3, 3]]
+    assert out["pct"].iloc[0] == pytest.approx(-20)

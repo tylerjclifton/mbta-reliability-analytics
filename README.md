@@ -144,7 +144,7 @@ Dark theme; official MBTA line colors for every line-level visual, a neutral vio
 
 **Incident patterns** — incidents per week, by line, by cause and effect, median duration by cause, cause mix by line (heatmap)
 
-**Ridership** — per-line average entries per day with year-over-year change; 24-month trend; ridership by alert effect (delay, suspension, shuttle) vs calm days; day of week
+**Ridership** — per-line average entries per day with year-over-year change; 24-month trend; ridership by alert effect (delay, suspension, shuttle) vs each line's calm days; day of week
 
 **Weather** — ridership on rainy, snowy, and unusually cold/warm days vs normal-weather days
 
@@ -152,7 +152,9 @@ Ridership figures are **average entries per day**, weekends included. Time windo
 
 Incident history counts from when alert coverage became continuous (detected as the first incident after the last 14-day gap — the pre-October pipeline missed June 8 – July 1, 2026), so missing data never reads as a quiet day.
 
-The alert-effect and weather charts use **% vs typical**: a day's entries vs the median for the same line, day of week, and month (federal holidays excluded), so line size, weekends, and seasons don't skew them.
+The weather charts use **% vs typical**: a day's entries vs the median for the same line, day of week, and month (federal holidays excluded), so line size, weekends, and seasons don't skew them.
+
+The alert-effect chart uses **% vs calm days** instead: a day's entries vs the median of that line's calm days (no incident other than a station closure, which closes one stop rather than disrupting the line) on the same day of week, over the trailing 12 months of alert tracking. A monthly median would absorb a month-long shutdown into its own baseline. Bars appear only once a line has enough calm days to compare with (10 days per bar, 4 calm days per weekday), so the chart fills in by itself as alert history grows.
 
 ---
 

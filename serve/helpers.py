@@ -1,5 +1,6 @@
 """
-Pure helpers for the dashboard — formatting and incident shaping.
+Pure helpers for the dashboard — formatting, incident shaping, and the
+ridership-vs-calm-days comparison.
 
 Kept out of app.py (which starts Streamlit when imported) so they can be unit
 tested; see serve/tests/test_helpers.py.
@@ -60,6 +61,47 @@ def join_routes(route_names):
     if len(names) > 1 and all(n.startswith("Green Line ") for n in names):
         return "Green Line " + " · ".join(n.removeprefix("Green Line ") for n in names)
     return ", ".join(names)
+
+
+def pct_vs_calm(days, min_calm_days):
+    """
+    Each day's gated entries vs the median of its line's calm days on the same
+    weekday, in percent (−20 = a fifth fewer entries than a calm day).
+
+    `days` needs line_name, weekday, gated_entries, and is_calm (gold's
+    is_calm_day: no incident other than a station closure that day).
+    Comparing like weekdays removes the weekend pattern;
+    pooling calm days only keeps shutdowns out of the baseline, however long
+    they run. A line × weekday with fewer than `min_calm_days` calm days has
+    no trustworthy baseline yet, so its days come back NaN.
+    """
+    calm = days[days["is_calm"]].groupby(["line_name", "weekday"])["gated_entries"]
+    keys = pd.MultiIndex.from_frame(days[["line_name", "weekday"]])
+    baseline = calm.median().where(calm.size() >= min_calm_days).reindex(keys).to_numpy()
+    return (days["gated_entries"] / baseline - 1) * 100
+
+
+def effect_vs_calm(days, effects, min_days):
+    """
+    Per line × effect: how far ridership on days with that effect ran from the
+    line's calm days. Expects pct_vs_calm and effect (the day's most severe
+    effect) columns. `pct` is re-expressed relative to the calm days' own
+    average, so calm days sit at exactly 0%. A line × effect needs `min_days`
+    scored days, and its line `min_days` scored calm days, to be reported.
+    """
+    scored = days.dropna(subset=["pct_vs_calm"])
+    calm = scored[scored["is_calm"]].groupby("line_name")["pct_vs_calm"].agg(mean_calm="mean", size_calm="size")
+    hit = (scored[scored["effect"].isin(effects)].groupby(["line_name", "effect"])["pct_vs_calm"]
+           .agg(["mean", "size"]).reset_index())
+    out = hit.join(calm, on="line_name")
+    out = out[(out["size"] >= min_days) & (out["size_calm"] >= min_days)]
+    return pd.DataFrame({
+        "line_name": out["line_name"],
+        "effect":    out["effect"],
+        "pct":       ((1 + out["mean"] / 100) / (1 + out["mean_calm"] / 100) - 1) * 100,
+        "days":      out["size"],
+        "calm_days": out["size_calm"],
+    }).reset_index(drop=True)
 
 
 def one_row_per_incident(df):

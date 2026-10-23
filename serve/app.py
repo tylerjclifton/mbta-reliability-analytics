@@ -22,9 +22,14 @@ Counting unit is the incident (gold.rail_incidents): one real-world event the
 MBTA may have posted as several alerts. An alert ends at its posted end time or
 when it leaves the MBTA feed, whichever comes first (silver.mbta_alerts).
 
-Ridership comparisons use "% vs typical": a day's gated entries relative to the
+Weather comparisons use "% vs typical": a day's gated entries relative to the
 median for the same line, weekday, and month. That removes line size, the
 weekday/weekend pattern, and seasonality, so what's left is the day's own effect.
+
+Ridership by alert effect uses "% vs calm days" instead: a day's entries relative
+to the median of its line's calm days (no incident other than a station closure)
+on the same weekday, over the trailing 12 months of alert tracking. A monthly median
+would absorb a month-long shutdown into its own baseline; calm days can't.
 """
 
 import os
@@ -36,7 +41,18 @@ import streamlit as st
 from google.cloud import bigquery
 from pandas.tseries.holiday import USFederalHolidayCalendar
 
-from helpers import TIMEZONE, esc, fmt_count, fmt_day, fmt_duration, fmt_pct, one_row_per_incident, strip_route_prefix
+from helpers import (
+    TIMEZONE,
+    effect_vs_calm,
+    esc,
+    fmt_count,
+    fmt_day,
+    fmt_duration,
+    fmt_pct,
+    one_row_per_incident,
+    pct_vs_calm,
+    strip_route_prefix,
+)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Design tokens
@@ -340,7 +356,7 @@ def load_ridership():
     df = get_client().query(f"""
         SELECT
             service_date, line_name, gated_entries, active_incident_count,
-            most_severe_effect, avg_temperature_f, precipitation_in, snowfall_in
+            most_severe_effect, is_calm_day, avg_temperature_f, precipitation_in, snowfall_in
         FROM `{PROJECT_ID}.{GOLD_DATASET}.rail_ridership`
     """).to_dataframe()
     df["service_date"] = pd.to_datetime(df["service_date"])
@@ -654,9 +670,9 @@ section(
     f"compare {latest_month_name} with a year earlier.",
 )
 
-# Every day except federal holidays — for the "% vs typical" comparisons, where
-# a holiday isn't a typical day for its weekday. Each day is compared with its
-# own weekday (see load_ridership), so weekends are included like-for-like.
+# Every day except federal holidays — for the "% vs typical" and "% vs calm
+# days" comparisons, where a holiday isn't a typical day for its weekday. Each
+# day is compared with its own weekday, so weekends are included like-for-like.
 ordinary_days = ridership[~ridership["is_holiday"]]
 
 # ── Per-line KPIs: average entries per day in the latest month, year over year ──
@@ -716,58 +732,75 @@ with st.container(key="card_monthly"):
 
 impact_col, dow_col = st.columns(2, gap="medium")
 
-# ── Ridership by alert effect (replaces the old dual-axis chart) ─────────────
+# ── Ridership by alert effect ─────────────────────────────────────────────────
+# Each line is compared only with its own calm days: no incident other than a
+# station closure that day (gold.rail_ridership). Comparing with calm days rather
+# than a monthly median keeps a month-long shutdown out of its own baseline. The
+# thresholds hold bars back until there's enough data to trust; the chart
+# fills in by itself as alert history grows, with no change needed here.
+IMPACT_EFFECTS = ["Delay", "Suspension", "Shuttle"]
+MIN_CALM_WEEKDAYS = 4   # calm days of the same weekday needed before a day can be scored
+MIN_IMPACT_DAYS = 10    # scored days needed for a bar, both with the effect and calm
+
 with impact_col:
     with st.container(key="card_impact"):
+        # Only days since continuous alert tracking began can be called calm;
+        # before that, a day with no alerts on record may just be missing data
         tracking_day = coverage_start.tz_convert(TIMEZONE).tz_localize(None).normalize()
         impact_start = max(tracking_day, ridership_year_start)
         card_title("Ridership by alert effect",
-                   "Compared with calm days"
+                   "Each line vs its own calm days"
                    + ("" if impact_start == ridership_year_start
                       else f" · since continuous alert tracking began {fmt_day(coverage_start)}"))
         tracked = ordinary_days[ordinary_days["service_date"] >= impact_start]
-        if tracked.empty:
-            st.markdown('<div class="empty">Not enough overlapping data yet.</div>', unsafe_allow_html=True)
+        # Days that are neither calm nor one of IMPACT_EFFECTS (e.g. only a
+        # service change) sit out of both sides of the comparison
+        tracked = tracked.assign(effect=tracked["most_severe_effect"], is_calm=tracked["is_calm_day"])
+        tracked = tracked.assign(pct_vs_calm=pct_vs_calm(tracked, MIN_CALM_WEEKDAYS))
+        impact = effect_vs_calm(tracked, IMPACT_EFFECTS, MIN_IMPACT_DAYS)
+        waiting = [line for line in selected_lines if line not in set(impact["line_name"])]
+
+        if impact.empty:
+            st.markdown('<div class="empty">Not enough calm days to compare yet. Bars appear here as alert '
+                        'history builds.</div>', unsafe_allow_html=True)
         else:
-            # Each line-day counts under its most severe effect (gold.rail_ridership);
-            # pooled across the selected lines, since one line alone has too few
-            # shuttle or suspension days to trust. Calm days are the baseline.
-            effects = ["Delay", "Suspension", "Shuttle"]
-            by_effect = (tracked.assign(effect=tracked["most_severe_effect"].fillna("Calm"))
-                         .groupby("effect")
-                         .agg(pct=("pct_vs_typical", "mean"), days=("service_date", "size")))
-            rows = []
-            if "Calm" in by_effect.index:
-                calm = by_effect.loc["Calm"]
-                for effect in effects:
-                    if effect in by_effect.index:
-                        hit = by_effect.loc[effect]
-                        diff = ((1 + hit["pct"] / 100) / (1 + calm["pct"] / 100) - 1) * 100
-                        rows.append((effect, diff, int(hit["days"])))
-            if not rows:
-                st.markdown('<div class="empty">Not enough calm days to compare yet.</div>', unsafe_allow_html=True)
-            else:
-                fig = go.Figure(go.Bar(
-                    x=[diff for _, diff, _ in rows], y=[effect for effect, *_ in rows], orientation="h",
-                    marker=dict(color=ACCENT, cornerradius=4),
-                    text=[LABEL_GAP + fmt_pct(diff) + LABEL_GAP for _, diff, _ in rows], textposition="outside",
-                    textfont=dict(color=INK_2, size=11), cliponaxis=False,
-                    hovertext=[f"{effect}: {fmt_pct(diff)} vs calm days<br>{days} line-days"
-                               f" · {int(calm['days'])} calm line-days"
-                               for effect, diff, days in rows],
-                    hoverinfo="text",
-                ))
-                style(fig, height=230)
-                # Room past the longest bar for its label, at phone width too
-                span = max([abs(diff) for _, diff, _ in rows] + [2]) * 1.8
-                fig.update_xaxes(range=[-span, span], ticksuffix="%", zeroline=True, zerolinecolor=AXIS,
-                                 zerolinewidth=1)
-                fig.update_yaxes(autorange="reversed", gridcolor="rgba(0,0,0,0)",
-                                 tickfont=dict(color=INK_2, size=12))
-                show(fig)
-                st.caption("0% = calm days. Each day counts under its most severe alert: shuttle buses, then a "
-                           "suspension, then a delay. Delays rarely last long enough to move a day's total; "
-                           "shuttle riders skip the fare gates entirely. Holidays excluded.")
+            # Grouped by effect, lines in filter order within each group
+            impact = (impact.assign(effect_order=impact["effect"].map(IMPACT_EFFECTS.index),
+                                    line_order=impact["line_name"].map(selected_lines.index))
+                      .sort_values(["effect_order", "line_order"]))
+            # One row per bar, plus a bold heading row (no bar) above each effect's group
+            impact["row"] = impact["effect"] + " · " + impact["line_name"]
+            rows, row_labels = [], []
+            for effect, group in impact.groupby("effect_order", sort=True):
+                rows += [IMPACT_EFFECTS[effect]] + list(group["row"])
+                row_labels += [f"<b>{IMPACT_EFFECTS[effect]}</b>"] + list(group["line_name"])
+            fig = go.Figure(go.Bar(
+                x=impact["pct"], y=impact["row"],
+                orientation="h",
+                marker=dict(color=[LINE_COLORS[line] for line in impact["line_name"]], cornerradius=4),
+                text=[LABEL_GAP + fmt_pct(p) + LABEL_GAP for p in impact["pct"]], textposition="outside",
+                textfont=dict(color=INK_2, size=11), cliponaxis=False,
+                hovertext=[f"{line} · {effect}: {fmt_pct(p)} vs calm days<br>{days} days · {calm} calm days"
+                           for line, effect, p, days, calm in zip(impact["line_name"], impact["effect"], impact["pct"],
+                                                                  impact["days"], impact["calm_days"], strict=True)],
+                hoverinfo="text",
+            ))
+            style(fig, height=max(180, 30 * len(rows) + 30))
+            # Room past the longest bar for its label, at phone width too
+            span = max(impact["pct"].abs().max(), 2) * 1.8
+            fig.update_xaxes(range=[-span, span], ticksuffix="%", zeroline=True, zerolinecolor=AXIS,
+                             zerolinewidth=1)
+            fig.update_yaxes(categoryorder="array", categoryarray=rows, tickvals=rows, ticktext=row_labels,
+                             range=[len(rows) - 0.5, -0.5], gridcolor="rgba(0,0,0,0)",
+                             tickfont=dict(color=INK_2, size=12))
+            show(fig)
+        st.caption("0% = that line's calm days (no incident other than a station closure), same day of the week. Each "
+                   "day counts under its most severe alert: shuttle buses, then a suspension, then a delay. "
+                   "Shuttle riders skip the fare gates; a suspension may cover only part of a line or day. "
+                   f"Bars appear once a line has {MIN_IMPACT_DAYS} days of an effect and {MIN_IMPACT_DAYS} calm "
+                   f"days, each compared with at least {MIN_CALM_WEEKDAYS} calm days of the same weekday. "
+                   "Holidays excluded."
+                   + (f" Still collecting: {', '.join(waiting)}." if waiting else ""))
 
 # ── Day of week ───────────────────────────────────────────────────────────────
 with dow_col:
@@ -861,8 +894,9 @@ st.markdown("""
   effect, and station, posted in close succession). Notices and facility issues (elevators,
   parking) are excluded. An alert ends at the end time the MBTA posted or when it leaves the MBTA's
   feed, whichever comes first. Ridership figures are averages per day, weekends and holidays
-  included. "% vs typical" compares a day to the median for the same line, day of week, and month;
-  the ~10 federal holidays a year are left out of those comparisons only, since a holiday isn't a
-  typical day for its weekday.
+  included. The weather charts compare a day to the median for the same line, day of week, and
+  month; the alert-effect chart compares it to that line's calm days (no incident other than a
+  station closure) on the same day of week. The ~10 federal holidays a year are left out of those
+  comparisons only, since a holiday isn't a typical day for its weekday.
 </div>
 """, unsafe_allow_html=True)

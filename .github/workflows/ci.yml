@@ -22,8 +22,8 @@ jobs:
     name: Python (lint + tests)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.13"   # matches the Docker images
           cache: pip
@@ -41,8 +41,8 @@ jobs:
       run:
         working-directory: transform
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
           cache: pip
@@ -61,8 +61,8 @@ jobs:
       run:
         working-directory: infra
     steps:
-      - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
+      - uses: actions/checkout@v7
+      - uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: 1.14.3
       - name: Format
@@ -88,19 +88,19 @@ jobs:
     env:
       REGION: us-east1
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Every image is tagged with the commit it was built from
       - name: Image tag
         run: echo "IMAGE_TAG=${GITHUB_SHA::12}" >> "$GITHUB_ENV"
 
       - name: Authenticate to Google Cloud (Workload Identity Federation)
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: projects/558105773739/locations/global/workloadIdentityPools/github/providers/github-oidc
           service_account: github-deployer@mbta-reliability-analytics.iam.gserviceaccount.com
 
-      - uses: google-github-actions/setup-gcloud@v2
+      - uses: google-github-actions/setup-gcloud@v3
 
       - name: Build and push images
         run: |
@@ -109,7 +109,7 @@ jobs:
             scripts/build-image.sh "$component" "$IMAGE_TAG"
           done
 
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: 1.14.3
 

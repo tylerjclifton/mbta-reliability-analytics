@@ -7,6 +7,7 @@ values, paginated responses) handled.
 """
 
 import datetime
+import json
 
 import pandas as pd
 import pytest
@@ -61,6 +62,55 @@ def test_alerts_empty_feed_writes_nothing(run_job):
     df = run_job("mbta-alerts", [{"data": []}])
 
     assert df.empty
+
+
+def test_alerts_raw_keeps_each_alert_whole(run_job):
+    """The raw table gets one row per alert — not per route — with nothing dropped."""
+    green = alert("1", ["Green-B", "Green-C"])
+    green["attributes"]["informed_entity"][0]["stop"] = "70145"
+    green["attributes"]["active_period"].append({"start": "2026-10-28T08:00:00-04:00", "end": None})
+
+    raw = run_job("mbta-alerts", [{"data": [green, alert("2", ["Red"])]}], table_id="mbta_alerts_raw")
+
+    assert raw["alert_id"].tolist() == ["1", "2"]
+    assert json.loads(raw["alert_json"].iloc[0]) == green  # stops and every active period survive
+
+
+# ── mbta-stops ────────────────────────────────────────────────────────────────
+
+def stop(stop_id, name, location_type, parent=None, platform=None):
+    """One stop in the MBTA V3 API's JSON:API shape."""
+    return {
+        "id": stop_id,
+        "attributes": {"name": name, "location_type": location_type, "platform_name": platform,
+                       "latitude": 42.35, "longitude": -71.1, "vehicle_type": None},
+        "relationships": {"parent_station": {"data": {"id": parent, "type": "stop"} if parent else None}},
+    }
+
+
+def stops_body(stations, children):
+    return {"data": stations, "included": children}
+
+
+def test_stops_keep_stations_and_children_per_route(run_job):
+    bu = stop("place-bucen", "Boston University Central", 1)
+    platform = stop("70145", "Boston University Central", 0, parent="place-bucen", platform="Boston College")
+    others = [stops_body([], [])] * 6  # the remaining six routes return nothing
+
+    df = run_job("mbta-stops", [stops_body([bu], [platform])] + others)
+
+    assert df["route_id"].tolist() == ["Red", "Red"]  # first route requested
+    assert df["stop_id"].tolist() == ["place-bucen", "70145"]
+    assert pd.isna(df["parent_station_id"].iloc[0])  # stations have no parent
+    assert df["parent_station_id"].iloc[1] == "place-bucen"
+    assert df["platform_name"].iloc[1] == "Boston College"
+
+
+def test_stops_missing_enum_stays_null(run_job):
+    df = run_job("mbta-stops", [stops_body([stop("place-x", "X", 1)], [])] * 7)
+
+    assert str(df["vehicle_type"].dtype) == "Int64"
+    assert df["vehicle_type"].isna().all()
 
 
 # ── mbta-ridership ────────────────────────────────────────────────────────────

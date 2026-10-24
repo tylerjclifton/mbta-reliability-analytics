@@ -13,7 +13,9 @@ instead of silently creating a mismatched table.
 
 Conventions:
   - A job lives in ingest/<job>/main.py and writes to bronze.<job> with "-"
-    replaced by "_" (e.g. ingest/mbta-alerts → bronze.mbta_alerts).
+    replaced by "_" (e.g. ingest/mbta-alerts → bronze.mbta_alerts). A job that
+    also writes a second table names it with table_id (mbta-alerts also writes
+    bronze.mbta_alerts_raw).
   - Bronze is append-only: jobs never update or delete rows.
   - A job that fails — through fail() or an uncaught exception — logs one
     structured failure report (report_failure()), which the job's alerting
@@ -95,12 +97,13 @@ def fetch(url, params=None, headers=None, timeout=60):
     return response
 
 
-def append_to_bronze(df: pandas.DataFrame):
+def append_to_bronze(df: pandas.DataFrame, table_id=None):
     """
-    Append a DataFrame to this job's bronze table, adding the audit columns.
+    Append a DataFrame to a bronze table, adding the audit columns.
 
     The target comes from BQ_PROJECT_ID / BQ_DATASET_ID / BQ_TABLE_ID (set by
-    Terraform), falling back to the naming convention for local runs.
+    Terraform), falling back to the naming convention for local runs. Pass
+    table_id to write a table other than the job's own, in the same dataset.
     """
     if df.empty:
         logging.info("No rows to write")
@@ -109,7 +112,7 @@ def append_to_bronze(df: pandas.DataFrame):
     # Resolve the target table
     project_id = os.getenv('BQ_PROJECT_ID', 'mbta-reliability-analytics')
     dataset_id = os.getenv('BQ_DATASET_ID', 'bronze')
-    table_id   = os.getenv('BQ_TABLE_ID', JOB_NAME.replace('-', '_'))
+    table_id   = table_id or os.getenv('BQ_TABLE_ID', JOB_NAME.replace('-', '_'))
     table_ref  = f"{project_id}.{dataset_id}.{table_id}"
 
     # Stamp the audit columns shared by every bronze table

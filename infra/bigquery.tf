@@ -10,8 +10,10 @@
 #   gold    dbt tables the dashboard reads, rebuilt every transform run.
 #
 # Naming: tables are `<source>_<entity>` and keep the same name in bronze and
-# silver; the dataset says which layer. Columns ending `_at` are TIMESTAMPs,
-# `_date` are DATEs. Every bronze table ends with the same two audit columns.
+# silver; the dataset says which layer. A `_raw` suffix marks a table holding
+# the source's records whole, as JSON, rather than chosen columns. Columns
+# ending `_at` are TIMESTAMPs, `_date` are DATEs. Every bronze table ends with
+# the same two audit columns.
 # ══════════════════════════════════════════════════════════════════════════════
 
 locals {
@@ -40,6 +42,38 @@ locals {
         { name = "severity", type = "INTEGER", description = "MBTA severity, 0 (least) to 10 (most)" },
         { name = "created_at", type = "TIMESTAMP", description = "When MBTA created the alert" },
         { name = "updated_at", type = "TIMESTAMP", description = "When MBTA last updated the alert" },
+      ]
+    }
+
+    mbta_alerts_raw = {
+      description = "15-minute snapshots of the MBTA alerts API (rail routes only), each alert's full JSON as returned — including the stops it affects and every active period, which bronze.mbta_alerts drops. Started 2026-10-24. Grain: alert × ingest run."
+      clustering  = ["alert_id"]
+      columns = [
+        { name = "alert_id", type = "STRING", description = "MBTA alert ID" },
+        { name = "alert_json", type = "STRING", description = "The alert's JSON:API object exactly as returned (id, attributes, relationships), compact JSON" },
+      ]
+    }
+
+    mbta_stops = {
+      description = "Weekly snapshots of the MBTA stops API: each rail route's stations plus the stops inside them (platforms, entrances, nodes). Grain: stop × route × ingest run."
+      clustering  = ["stop_id", "route_id"]
+      columns = [
+        { name = "route_id", type = "STRING", description = "MBTA route whose stations were requested; a station and its child stops repeat for each route serving it" },
+        { name = "stop_id", type = "STRING", description = "MBTA stop ID: a station (place-…) or a stop inside one (platform, entrance, node)" },
+        { name = "stop_name", type = "STRING", description = "Stop name; platforms carry their station's name" },
+        { name = "location_type", type = "INTEGER", description = "GTFS location type: 0 = platform, 1 = station, 2 = entrance, 3 = node, 4 = boarding area" },
+        { name = "parent_station_id", type = "STRING", description = "Station a child stop belongs to; NULL for stations" },
+        { name = "platform_name", type = "STRING", description = "Platform's direction or destination (e.g. Boston College); NULL for non-platforms" },
+        { name = "platform_code", type = "STRING", description = "Platform code, where posted" },
+        { name = "description", type = "STRING", description = "MBTA stop description" },
+        { name = "latitude", type = "FLOAT", description = "WGS84 latitude" },
+        { name = "longitude", type = "FLOAT", description = "WGS84 longitude" },
+        { name = "municipality", type = "STRING", description = "City or town" },
+        { name = "address", type = "STRING", description = "Street address, where posted" },
+        { name = "on_street", type = "STRING", description = "Street the stop is on, where posted" },
+        { name = "at_street", type = "STRING", description = "Cross street, where posted" },
+        { name = "vehicle_type", type = "INTEGER", description = "GTFS route type served: 0 = light rail, 1 = heavy rail" },
+        { name = "wheelchair_boarding", type = "INTEGER", description = "GTFS accessibility: 0 = no info, 1 = accessible, 2 = not accessible" },
       ]
     }
 

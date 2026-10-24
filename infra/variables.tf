@@ -62,6 +62,12 @@ variable "ridership_ingestion_schedule" {
   default     = "0 6 * * 1"
 }
 
+variable "stops_ingestion_schedule" {
+  description = "Cron for MBTA stops ingestion. Weekly (Mondays 6:30AM ET); stations rarely change, and a new or renamed platform is picked up within a week."
+  type        = string
+  default     = "30 6 * * 1"
+}
+
 variable "routes_ingestion_schedule" {
   description = "Cron for MBTA routes ingestion. Yearly on Jan 1; routes rarely change."
   type        = string

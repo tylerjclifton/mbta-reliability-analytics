@@ -24,13 +24,23 @@ locals {
       uses_mbta_api_key = true
       memory            = "512Mi"
       timeout           = "600s"
-      env               = {}
+      env = {
+        # Second table: each alert's full JSON (ingest/mbta-alerts/main.py)
+        BQ_RAW_TABLE_ID = google_bigquery_table.bronze["mbta_alerts_raw"].table_id
+      }
     }
     "mbta-routes" = {
       schedule          = var.routes_ingestion_schedule
       uses_mbta_api_key = true
       memory            = "512Mi"
       timeout           = "600s"
+      env               = {}
+    }
+    "mbta-stops" = {
+      schedule          = var.stops_ingestion_schedule
+      uses_mbta_api_key = true
+      memory            = "512Mi"
+      timeout           = "600s" # Seven requests, one per route
       env               = {}
     }
     "mbta-ridership" = {

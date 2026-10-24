@@ -36,22 +36,25 @@ class FakeResponse:
 @pytest.fixture
 def run_job(monkeypatch):
     """
-    run_job(job, responses) → DataFrame passed to append_to_bronze (or None).
+    run_job(job, responses, table_id=None) → DataFrame passed to append_to_bronze (or None).
 
     `responses` is a list of bodies returned by successive HTTP GETs.
+    `table_id` picks which write to return for a job that writes two tables:
+    None is the job's own table, anything else the table_id it passed.
     """
 
-    def _run(job, responses):
+    def _run(job, responses, table_id=None):
         import common.bronze as bronze
 
         bodies = iter(responses)
         captured = {}
         monkeypatch.setattr(bronze.requests, "get", lambda *a, **k: FakeResponse(next(bodies)))
-        monkeypatch.setattr(bronze, "append_to_bronze", lambda df: captured.setdefault("df", df))
+        monkeypatch.setattr(bronze, "append_to_bronze",
+                            lambda df, table_id=None: captured.setdefault(table_id, df))
 
         script = INGEST_DIR / job / "main.py"
         with mock.patch.object(sys, "argv", [str(script)]):
             runpy.run_path(str(script), run_name="__main__")
-        return captured.get("df")
+        return captured.get(table_id)
 
     return _run

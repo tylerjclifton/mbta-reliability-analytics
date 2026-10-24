@@ -50,6 +50,12 @@ def test_append_adds_audit_columns_and_appends(fake_bigquery):
     assert load.df["ingested_by"].str.startswith("ingest-").all()
 
 
+def test_append_to_another_table_in_the_same_dataset(fake_bigquery):
+    bronze.append_to_bronze(pd.DataFrame({"alert_id": ["1"]}), table_id="mbta_alerts_raw")
+
+    assert fake_bigquery[0].table_ref == "proj.bronze.mbta_alerts_raw"
+
+
 def test_append_loads_against_the_live_table_schema(fake_bigquery):
     bronze.append_to_bronze(pd.DataFrame({"alert_id": ["1"]}))
 

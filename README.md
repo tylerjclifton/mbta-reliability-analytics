@@ -10,12 +10,13 @@ A full-stack data engineering project tracking MBTA rail reliability, ridership,
 
 ## What It Does
 
-Ingests data from four sources on an automated schedule, transforms it through a medallion architecture, and serves a live analytics dashboard.
+Ingests data from five sources on an automated schedule, transforms it through a medallion architecture, and serves a live analytics dashboard.
 
 | Source | Data | Schedule | Each run pulls |
 |---|---|---|---|
 | MBTA Alerts API | Service alerts (delays, suspensions, closures) | Every 15 minutes | Current live feed (snapshot) |
 | MBTA Routes API | Route metadata (names, types, colors) | Yearly — Jan 1 | Full route list (snapshot) |
+| MBTA Stops API | Stations and their platforms, with coordinates | Weekly — Mondays 6:30AM ET | Every rail station and the stops inside it (snapshot) |
 | NOAA GHCN-Daily | Daily temperature, precipitation, snowfall at Boston Logan | Daily — 6AM ET | Last 10 days (NOAA revises recent days) |
 | MBTA ArcGIS Open Data | Gated station entries by line | Weekly — Mondays 6AM ET | Full published history (catches revisions) |
 
@@ -27,7 +28,8 @@ The dbt transform runs hourly at :35.
 
 ```
 MBTA Alerts API  ──┐
-MBTA Routes API  ──┤                        ┌─────────────────────────────────────────┐
+MBTA Routes API  ──┤
+MBTA Stops API   ──┤                        ┌─────────────────────────────────────────┐
 NOAA GHCN-Daily  ──┼──► Cloud Run Jobs ──►  │  BigQuery                               │──► Streamlit
 MBTA Ridership   ──┘         ↑              │  bronze → silver → gold                 │
                       Cloud Scheduler       │            └─ dbt Core ─┘               │
@@ -49,6 +51,8 @@ Each layer is its own BigQuery dataset.
 | Bronze / silver table | Grain (silver) | How bronze grows |
 |---|---|---|
 | `mbta_alerts` | alert × route | 15-minute snapshot of the live feed — the only record of alerts once they end |
+| `mbta_alerts_raw` | bronze only (for now) | The same 15-minute snapshots, each alert's full JSON (below) |
+| `mbta_stops` | bronze only (for now) | Weekly snapshot of every rail station and its platforms, entrances, and nodes |
 | `mbta_routes` | route | Yearly snapshot |
 | `mbta_ridership` | service date × line | Full history re-pulled weekly; silver keeps the latest value, so MBTA revisions win |
 | `noaa_weather` | observation date | Last 10 days re-pulled daily; silver keeps the latest value |
@@ -59,6 +63,8 @@ Each layer is its own BigQuery dataset.
 | `rail_ridership` | service date × line | Gated entries, active incident count, the day's most severe alert effect, whether it was a calm day, and weather |
 
 **`silver.mbta_alert_latest` is a table, not a view.** Alert snapshots add ~1 GB/year to bronze, and a view would re-read all of it for every model and test that uses alerts (~9× per transform), outgrowing the free query tier within a year. The incremental table reads only snapshots added since the last run, so cost stays flat; `dbt build --full-refresh` rebuilds it from bronze.
+
+**Raw alerts.** `bronze.mbta_alerts` keeps only the fields chosen when it was built, and drops the rest: the stops each alert affects, every active period after the first, and attributes like `lifecycle`. Since 2026-10-24 the alerts job also writes each alert's full JSON to `bronze.mbta_alerts_raw` (~2.6 GB/year). Alerts that ended before then have no raw record, since the API never returns them again. Once the raw table has enough history, silver will read it directly and `bronze.mbta_alerts` will be frozen and renamed `mbta_alerts_legacy`.
 
 **Alert end times.** An alert ends at whichever comes first: the end time the MBTA posted (an estimate, usually rounded to the hour) or when it left the feed (midway between the last 15-minute run that saw it and the next). Since July 2026, 82% of alerts left the feed before their posted end.
 
@@ -188,6 +194,7 @@ ingest/                 One shared image for every ingest job
   tests/                Job tests against canned API responses
   mbta-alerts/          MBTA service alert snapshots (every 15 minutes)
   mbta-routes/          MBTA route metadata snapshots (yearly)
+  mbta-stops/           MBTA station and platform snapshots (weekly)
   mbta-ridership/       ArcGIS gated entries, full history (weekly)
   noaa-weather/         NOAA GHCN-Daily for Boston Logan (daily)
 transform/              dbt Core project

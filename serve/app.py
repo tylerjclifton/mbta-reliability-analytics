@@ -435,13 +435,14 @@ ridership_through = ridership_all["service_date"].max()
 # Ridership gets no dot: the MBTA publishes it monthly, weeks after the month ends.
 alerts_freshness = freshness(alerts_updated, pd.Timestamp.now(tz="UTC"))
 alerts_note = {"fresh": "", "late": " · running behind", "stale": " · may be out of date"}[alerts_freshness]
+alerts_status = f'Alerts updated {alerts_updated.tz_convert(TIMEZONE).strftime("%b %-d, %-I:%M %p ET")}{alerts_note}'
 
 st.markdown(f"""
 <div class="hero">
   <h1>MBTA Reliability &amp; Ridership</h1>
   <p>Service incidents, ridership, and weather across Boston's Red, Orange, Blue, and Green Lines.</p>
   <div class="status">
-    <span class="dot {alerts_freshness}">Alerts updated {alerts_updated.tz_convert(TIMEZONE).strftime("%b %-d, %-I:%M %p ET")}{alerts_note}</span>
+    <span class="dot {alerts_freshness}">{alerts_status}</span>
     <span>Ridership through {ridership_through.strftime("%b %-d, %Y")}</span>
   </div>
 </div>

@@ -49,6 +49,7 @@ from helpers import (
     fmt_day,
     fmt_duration,
     fmt_pct,
+    freshness,
     one_row_per_incident,
     pct_vs_calm,
     strip_route_prefix,
@@ -120,8 +121,12 @@ html, body, .stMarkdown, .stMarkdown *, .stCaption *, .st-key-line_filter button
 .hero p  {{ color: {INK_2}; font-size: 1.05rem; margin: 0 0 1rem; max-width: 54rem; }}
 .status  {{ display: inline-flex; flex-wrap: wrap; gap: 0.35rem 1rem; color: {MUTED};
             font-size: 0.8rem; margin-bottom: 1.25rem; }}
-.status .live::before {{ content: ""; display: inline-block; width: 7px; height: 7px;
-            border-radius: 50%; background: #0ca30c; margin-right: 0.4rem; vertical-align: 1px; }}
+/* Alerts status dot, colored by freshness() — late and stale also say so in text */
+.status .dot::before {{ content: ""; display: inline-block; width: 7px; height: 7px;
+            border-radius: 50%; margin-right: 0.4rem; vertical-align: 1px; }}
+.status .fresh::before {{ background: #0ca30c; }}
+.status .late::before  {{ background: #e5a50a; }}
+.status .stale::before {{ background: #e5484d; }}
 
 /* Section headers */
 .section {{ margin: 3.25rem 0 1rem; }}
@@ -426,12 +431,17 @@ coverage_start = _after_gap.iloc[-1] if len(_after_gap) else tracking_start
 alerts_updated = incidents_all["ingested_at"].max()
 ridership_through = ridership_all["service_date"].max()
 
+# Status dot: green on the hourly cadence, amber/red (with a note) when it falls behind.
+# Ridership gets no dot: the MBTA publishes it monthly, weeks after the month ends.
+alerts_freshness = freshness(alerts_updated, pd.Timestamp.now(tz="UTC"))
+alerts_note = {"fresh": "", "late": " · running behind", "stale": " · may be out of date"}[alerts_freshness]
+
 st.markdown(f"""
 <div class="hero">
   <h1>MBTA Reliability &amp; Ridership</h1>
   <p>Service incidents, ridership, and weather across Boston's Red, Orange, Blue, and Green Lines.</p>
   <div class="status">
-    <span class="live">Alerts updated {alerts_updated.tz_convert(TIMEZONE).strftime("%b %-d, %-I:%M %p ET")}</span>
+    <span class="dot {alerts_freshness}">Alerts updated {alerts_updated.tz_convert(TIMEZONE).strftime("%b %-d, %-I:%M %p ET")}{alerts_note}</span>
     <span>Ridership through {ridership_through.strftime("%b %-d, %Y")}</span>
   </div>
 </div>

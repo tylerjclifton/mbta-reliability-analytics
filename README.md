@@ -84,6 +84,8 @@ Failures email `alert_email` (`infra/variables.tf`) — never successful runs (`
 - **`<job> failed`** — any job (ingest or transform) whose execution fails. The email carries the job's own error report: the exception and traceback for an ingest job; dbt's failure summary (failed tests, stale sources, or the error) for the transform. Ingest jobs retry once, and only the final attempt reports, so a blip the retry absorbs sends nothing. While a job keeps failing, at most one email every 6 hours.
 - **`transform hasn't succeeded in 3 hours`** — backstop for failures a job can't report itself (timeout, out of memory, never started). An ingest job failing that way surfaces through the transform's freshness check.
 
+The dashboard shows visitors the same thing: the dot beside "Alerts updated" is green while alerts are under 2 hours old, amber with "running behind" at 2–6 hours (hourly runs missed), and red with "may be out of date" beyond that (`serve/helpers.py`, `freshness`).
+
 ---
 
 ## Conventions

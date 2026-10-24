@@ -1,6 +1,6 @@
 """
-Pure helpers for the dashboard — formatting, incident shaping, and the
-ridership-vs-calm-days comparison.
+Pure helpers for the dashboard — formatting, data freshness, incident shaping,
+and the ridership-vs-calm-days comparison.
 
 Kept out of app.py (which starts Streamlit when imported) so they can be unit
 tested; see serve/tests/test_helpers.py.
@@ -12,6 +12,11 @@ import pandas as pd
 
 # MBTA service dates and alert times are shown in Eastern time
 TIMEZONE = "America/New_York"
+
+# How old the alerts data can get before the header's status dot changes. Normally
+# it's at most ~75 minutes old: gold rebuilds hourly and the page caches 15 minutes.
+FRESH_HOURS = 2  # older: at least one hourly transform was missed
+STALE_HOURS = 6  # older: the pipeline has been down for a while
 
 
 def fmt_duration(minutes):
@@ -43,6 +48,16 @@ def fmt_pct(x, decimals=1):
 def fmt_day(ts):
     """Oct 19"""
     return ts.tz_convert(TIMEZONE).strftime("%b %-d")
+
+
+def freshness(updated_at, now):
+    """"fresh" · "late" · "stale": how far the alerts data has fallen behind its hourly refresh."""
+    age_hours = (now - updated_at).total_seconds() / 3600
+    if age_hours <= FRESH_HOURS:
+        return "fresh"
+    if age_hours <= STALE_HOURS:
+        return "late"
+    return "stale"
 
 
 def esc(text):

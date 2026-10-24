@@ -1,6 +1,6 @@
 """
-Tests for serve/helpers.py — dashboard formatting, incident shaping, and the
-ridership-vs-calm-days comparison.
+Tests for serve/helpers.py — dashboard formatting, data freshness, incident
+shaping, and the ridership-vs-calm-days comparison.
 """
 
 import pandas as pd
@@ -11,6 +11,7 @@ from helpers import (
     fmt_count,
     fmt_duration,
     fmt_pct,
+    freshness,
     join_routes,
     one_row_per_incident,
     pct_vs_calm,
@@ -38,6 +39,19 @@ def test_fmt_count(n, expected):
 def test_fmt_pct_uses_a_true_minus_sign():
     assert fmt_pct(-6.42) == "−6.4%"
     assert fmt_pct(2.1) == "+2.1%"
+
+
+@pytest.mark.parametrize("age_hours, expected", [
+    (0.5, "fresh"),
+    (2, "fresh"),    # boundary: a missed run or two is still on time
+    (2.5, "late"),
+    (6, "late"),
+    (6.5, "stale"),
+    (48, "stale"),
+])
+def test_freshness_by_age(age_hours, expected):
+    now = pd.Timestamp("2026-10-23 22:00", tz="UTC")
+    assert freshness(now - pd.Timedelta(hours=age_hours), now) == expected
 
 
 def test_strip_route_prefix_only_strips_line_names():

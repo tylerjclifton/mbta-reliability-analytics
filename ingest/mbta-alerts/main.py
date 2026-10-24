@@ -17,8 +17,9 @@ alerts, and silver uses the last run an alert was seen in to tell when it ended
 Each alert is stored whole rather than as chosen columns, so new questions
 never depend on what this script happened to keep. Splitting alerts into one
 row per route happens in silver (mbta_alerts__base). Until 2026-10-24 this job
-wrote only chosen columns to bronze.mbta_alerts, which dropped the stops each
-alert affects and more; that table is kept, frozen, as history (decision 0002).
+wrote only chosen columns to a table now named bronze.mbta_alerts_legacy, which
+dropped the stops each alert affects and more; it's kept, frozen, as history
+(decision 0002).
 """
 
 # Import standard libraries
@@ -56,6 +57,6 @@ logging.info(f"{len(rows)} rail alerts in feed")
 
 # ── Write ─────────────────────────────────────────────────────────────────────
 
-# The table isn't the job's default name (mbta_alerts is the frozen history),
-# so it's named explicitly; Terraform sets the same value
+# The table isn't the job's default name (mbta_alerts), so it's named
+# explicitly; Terraform sets the same value
 append_to_bronze(pandas.DataFrame(rows), table_id=os.getenv('BQ_TABLE_ID', 'mbta_alerts_raw'))

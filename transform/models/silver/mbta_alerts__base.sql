@@ -8,7 +8,7 @@
 
   Two bronze tables feed it, split at var alerts_raw_capture_start
   (2026-10-24 14:11 UTC):
-    - before it, bronze.mbta_alerts: the frozen shaped table, which the ingest
+    - before it, bronze.mbta_alerts_legacy: the frozen shaped table, which the ingest
       wrote directly at alert × route grain
     - from it on, bronze.mbta_alerts_raw: each alert's full JSON, split here
       into one row per rail route with the same rules the ingest used (one row
@@ -90,7 +90,7 @@ WITH
             created_at                                                              AS alert_created_at,
             updated_at                                                              AS alert_updated_at,
             ingested_at
-        FROM {{ source('bronze', 'mbta_alerts') }}
+        FROM {{ source('bronze', 'mbta_alerts_legacy') }}
         WHERE
             ingested_at < TIMESTAMP '{{ capture_start }}'
             {%- if processed_through %}

@@ -13,8 +13,8 @@ instead of silently creating a mismatched table.
 
 Conventions:
   - A job lives in ingest/<job>/main.py and writes to bronze.<job> with "-"
-    replaced by "_" (e.g. ingest/mbta-alerts → bronze.mbta_alerts). A job that
-    also writes a second table names it with table_id (mbta-alerts also writes
+    replaced by "_" (e.g. ingest/mbta-stops → bronze.mbta_stops). A job whose
+    table is named otherwise passes table_id (mbta-alerts writes
     bronze.mbta_alerts_raw).
   - Bronze is append-only: jobs never update or delete rows.
   - A job that fails — through fail() or an uncaught exception — logs one

@@ -3,7 +3,7 @@
 
   The latest full JSON of every alert in bronze.mbta_alerts_raw, plus when it
   was first and last seen. A cleaned copy of the source: models that need what
-  bronze.mbta_alerts drops (the stops an alert affects, see
+  bronze.mbta_alerts_legacy dropped (the stops an alert affects, see
   silver.mbta_alerts__stations) read this table.
 
   Incremental for the same reason as silver.mbta_alerts__base: the raw table

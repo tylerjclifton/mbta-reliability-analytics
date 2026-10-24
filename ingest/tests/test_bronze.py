@@ -34,7 +34,7 @@ def fake_bigquery(monkeypatch):
     monkeypatch.setattr(bronze.bigquery, "Client", FakeClient)
     monkeypatch.setenv("BQ_PROJECT_ID", "proj")
     monkeypatch.setenv("BQ_DATASET_ID", "bronze")
-    monkeypatch.setenv("BQ_TABLE_ID", "mbta_alerts")
+    monkeypatch.setenv("BQ_TABLE_ID", "mbta_stops")
     return FakeClient.loads
 
 
@@ -42,7 +42,7 @@ def test_append_adds_audit_columns_and_appends(fake_bigquery):
     bronze.append_to_bronze(pd.DataFrame({"alert_id": ["1", "2"]}))
 
     load = fake_bigquery[0]
-    assert load.table_ref == "proj.bronze.mbta_alerts"
+    assert load.table_ref == "proj.bronze.mbta_stops"
     assert load.job_config.write_disposition == "WRITE_APPEND"
     # Every row in a run shares one timestamp — silver depends on it
     assert load.df["ingested_at"].nunique() == 1

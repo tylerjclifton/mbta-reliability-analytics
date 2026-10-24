@@ -27,7 +27,7 @@ locals {
       memory            = "512Mi"
       timeout           = "600s"
       env               = {}
-      # Writes each alert's full JSON; bronze.mbta_alerts is the frozen history
+      # Writes each alert's full JSON; bronze.mbta_alerts_legacy is the frozen history
       # it used to write (decision 0002)
       bronze_table = "mbta_alerts_raw"
     }

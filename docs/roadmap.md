@@ -2,11 +2,6 @@
 
 Planned work, roughly in order, with why. Move an item to a [decision record](decisions/) once it's decided, and delete it once it's done.
 
-## Next
-
-### Rename the frozen alerts table ([0002](decisions/0002-raw-alert-capture.md))
-The cutover is done: the ingest writes only `bronze.mbta_alerts_raw`, and nothing writes `bronze.mbta_alerts`. Remaining: rename it `bronze.mbta_alerts_legacy` (`ALTER TABLE … RENAME` plus Terraform import/removed blocks), with its date range in the description. Never delete it.
-
 ## Later
 
 - **MBTA estimate accuracy model** (~January 2027). Are the MBTA's posted end times any good, and can a model beat them? This needs months of 15-minute snapshots (they began 2026-10-21). Early sign, from only 5 alerts: estimates sit ~2 hours out while delays clear in ~30 minutes.

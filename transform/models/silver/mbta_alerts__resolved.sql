@@ -37,7 +37,7 @@ WITH
             MAX(run_at) OVER ()                 AS latest_run_at
         FROM (
             SELECT TIMESTAMP_TRUNC(ingested_at, MINUTE) AS run_at
-            FROM {{ source('bronze', 'mbta_alerts') }}
+            FROM {{ source('bronze', 'mbta_alerts_legacy') }}
             UNION DISTINCT
             SELECT TIMESTAMP_TRUNC(ingested_at, MINUTE) AS run_at
             FROM {{ source('bronze', 'mbta_alerts_raw') }}

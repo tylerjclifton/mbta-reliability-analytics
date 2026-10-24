@@ -7,10 +7,12 @@
 #
 # Both authenticate with method: oauth (no keyfile) and read the real bronze.
 #
-# maximum_bytes_billed (10 GiB, ~$0.06) fails any single query that would bill
+# maximum_bytes_billed (50 GiB, ~$0.30) fails any single query that would bill
 # more, the cost guardrail for the transform (infra/quotas.tf says why it isn't
-# a project-wide daily cap). The largest table, bronze.mbta_alerts, was 6 MiB
-# in 2026-10 and grows ~0.6 MiB/day, so a full scan stays far under it.
+# a project-wide daily cap). Sized for the biggest query the transform can
+# run: a full rebuild of silver.mbta_alerts__base, which reads every raw alert
+# snapshot. bronze.mbta_alerts_raw grows ~2.6 GB/year, so that stays under the
+# limit for ~19 years; hourly incremental runs read only new snapshots (KBs).
 # ══════════════════════════════════════════════════════════════════════════════
 
 mbta_reliability_analytics:
@@ -25,7 +27,7 @@ mbta_reliability_analytics:
       threads: 4
       job_execution_timeout_seconds: 300
       priority: interactive
-      maximum_bytes_billed: 10737418240  # 10 GiB per query (see header)
+      maximum_bytes_billed: 53687091200  # 50 GiB per query (see header)
 
     gcp:
       type: bigquery
@@ -36,4 +38,4 @@ mbta_reliability_analytics:
       threads: 4
       job_execution_timeout_seconds: 300
       priority: interactive
-      maximum_bytes_billed: 10737418240  # 10 GiB per query (see header)
+      maximum_bytes_billed: 53687091200  # 50 GiB per query (see header)

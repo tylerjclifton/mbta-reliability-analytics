@@ -27,8 +27,8 @@ locals {
   # One entry per bronze table. Column names follow the source system; renaming
   # to project conventions happens in silver.
   bronze_tables = {
-    mbta_alerts = {
-      description = "15-minute snapshots of the MBTA alerts API (rail routes only). Grain: alert × route × ingest run."
+    mbta_alerts_legacy = {
+      description = "FROZEN — never written since 2026-10-24, never delete. 15-minute snapshots of the MBTA alerts API (rail routes only) as the old ingest shaped them, 2026-06-07 to 2026-10-24; mbta_alerts_raw replaced it (decision 0002). Grain: alert × route × ingest run."
       clustering  = ["alert_id", "route"]
       columns = [
         { name = "alert_id", type = "STRING", description = "MBTA alert ID" },
@@ -47,7 +47,7 @@ locals {
     }
 
     mbta_alerts_raw = {
-      description = "15-minute snapshots of the MBTA alerts API (rail routes only), each alert's full JSON as returned — including the stops it affects and every active period, which bronze.mbta_alerts drops. Started 2026-10-24. Grain: alert × ingest run."
+      description = "15-minute snapshots of the MBTA alerts API (rail routes only), each alert's full JSON as returned — including the stops it affects and every active period, which the legacy table dropped. Started 2026-10-24. Grain: alert × ingest run."
       clustering  = ["alert_id"]
       columns = [
         { name = "alert_id", type = "STRING", description = "MBTA alert ID" },
@@ -184,4 +184,13 @@ resource "google_bigquery_table" "bronze" {
   lifecycle {
     prevent_destroy = true
   }
+}
+
+# The frozen shaped alerts table was renamed in BigQuery from mbta_alerts to
+# mbta_alerts_legacy (ALTER TABLE … RENAME, 2026-10-24), since a rename in
+# Terraform alone would delete and recreate it. This adopts the renamed table
+# without touching it. Idempotent: once it's in state, this is a no-op.
+import {
+  to = google_bigquery_table.bronze["mbta_alerts_legacy"]
+  id = "projects/${var.project_id}/datasets/bronze/tables/mbta_alerts_legacy"
 }

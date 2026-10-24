@@ -20,12 +20,13 @@ sources:
       loaded_at_field: ingested_at
 
     tables:
-      - name: mbta_alerts
+      - name: mbta_alerts_legacy
         description: >
           Frozen: 15-minute snapshots of the MBTA alerts API (rail routes only)
-          as the ingest used to shape them, June 2026 until the raw cutover.
-          No longer written (decision 0002); silver reads it only for history
-          before var alerts_raw_capture_start. Grain: alert × route × ingest run.
+          as the old ingest shaped them, 2026-06-07 to 2026-10-24. Never written
+          since the raw cutover; never delete (decision 0002). Silver reads it
+          only for history before var alerts_raw_capture_start.
+          Grain: alert × route × ingest run.
         # No freshness check: nothing writes it anymore
 
       - name: mbta_alerts_raw

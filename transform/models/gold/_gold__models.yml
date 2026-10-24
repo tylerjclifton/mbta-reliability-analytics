@@ -52,6 +52,101 @@ models:
                 min_value: 1
       - name: is_in_feed
         description: True when any of the incident's alerts is still listed by the API.
+      - name: stations_affected
+        description: >
+          Distinct stations the incident's alerts name on this route. NULL when
+          none of its alerts was captured raw (before 2026-10-24), so unknown;
+          0 when they were but named no stations, as with most line-wide delays.
+        data_tests:
+          - accepted_range:
+              arguments:
+                min_value: 0
+      - name: ingested_at
+        description: "{{ doc('ingested_at') }}"
+
+  - name: rail_incident_stations
+    description: >
+      One row per incident × route × station the incident's alerts name, with
+      the station's coordinates and the incident's details — the dashboard's
+      map. Covers incidents since raw alert capture began (2026-10-24) whose
+      alerts name stations.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [incident_id, route_id, station_id]
+    columns:
+      - name: incident_id
+        description: "{{ doc('incident_id') }}"
+        data_tests: [not_null]
+      - name: route_id
+        description: "{{ doc('route_id') }}"
+        data_tests: [not_null]
+      - name: station_id
+        description: "{{ doc('station_id') }}"
+        data_tests: [not_null]
+      - name: route_name
+        description: Route display name (e.g. "Green Line B").
+      - name: line_name
+        description: "{{ doc('line_name') }}"
+        data_tests: [not_null]
+      - name: station_name
+        description: Station name.
+        data_tests:
+          # NULL only for a stop the stops reference doesn't know yet
+          - not_null:
+              config:
+                severity: warn
+      - name: station_latitude
+        description: Station latitude (WGS84).
+      - name: station_longitude
+        description: Station longitude (WGS84).
+      - name: affects_both_directions
+        description: True when service at the station is affected both ways.
+      - name: direction_destination
+        description: >
+          When one direction is affected, the terminal it runs toward (e.g.
+          "Boston College" for outbound C branch trains); NULL when both are.
+      - name: incident_cause
+        description: Cause shared by the incident's alerts.
+      - name: incident_effect
+        description: Effect shared by the incident's alerts (e.g. "Shuttle").
+      - name: incident_header
+        description: Short text of the incident's most recent alert.
+      - name: incident_start_at
+        description: Earliest start among the incident's alerts (UTC).
+      - name: incident_end_at
+        description: Latest end among the incident's alerts (UTC); NULL while any is ongoing.
+      - name: is_in_feed
+        description: True when any of the incident's alerts is still listed by the API.
+      - name: ingested_at
+        description: "{{ doc('ingested_at') }}"
+
+  - name: rail_stations
+    description: >
+      One row per station × line: every rail station's name and coordinates,
+      once per line it serves — the map's backdrop.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [station_id, line_name]
+    columns:
+      - name: station_id
+        description: "{{ doc('station_id') }}"
+        data_tests: [not_null]
+      - name: line_name
+        description: "{{ doc('line_name') }}"
+        data_tests: [not_null]
+      - name: station_name
+        description: Station name.
+        data_tests: [not_null]
+      - name: station_latitude
+        description: Station latitude (WGS84).
+        data_tests: [not_null]
+      - name: station_longitude
+        description: Station longitude (WGS84).
+        data_tests: [not_null]
+      - name: is_wheelchair_accessible
+        description: True/False per the MBTA; NULL when it has no information.
       - name: ingested_at
         description: "{{ doc('ingested_at') }}"
 

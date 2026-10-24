@@ -1,17 +1,19 @@
 """
 Serve: MBTA Reliability & Ridership dashboard (Streamlit)
 
-Reads:      gold.rail_incidents, gold.rail_ridership (cached for 15 minutes)
+Reads:      gold.rail_incidents, gold.rail_incident_stations, gold.rail_stations,
+            gold.rail_ridership (cached for 15 minutes)
 Deployed:   Cloud Run service `serve` (infra/cloud-run-services.tf), public at
             tylerclifton.com
 
 Layout:
   1. Header + line filter
   2. Service status    — KPIs, incidents happening now, planned work coming up
-  3. Incident patterns — when, where, why, and how long (since alert tracking began)
-  4. Ridership         — per-line KPIs, monthly trend, ridership by alert effect, day of week
-  5. Weather           — rain, snow, and temperature vs. typical ridership
-  6. Footer            — sources, cadence, method notes
+  3. Stations affected — map of stations hit right now, most-affected stations
+  4. Incident patterns — when, where, why, and how long (since alert tracking began)
+  5. Ridership         — per-line KPIs, monthly trend, ridership by alert effect, day of week
+  6. Weather           — rain, snow, and temperature vs. typical ridership
+  7. Footer            — sources, cadence, method notes
 
 Time windows: every section covers the trailing 12 months, stated in its
 subtitle. Two exceptions, also labeled: the monthly ridership trend shows 24
@@ -366,6 +368,33 @@ def load_incidents():
     return df
 
 
+# Station lists come from the alerts' raw JSON (bronze.mbta_alerts_raw), captured
+# since this date; incidents that ended earlier have no stations
+STATION_TRACKING_START = pd.Timestamp("2026-10-24", tz=TIMEZONE)
+
+
+@st.cache_data(ttl=900, show_spinner=False)
+def load_incident_stations():
+    df = get_client().query(f"""
+        SELECT
+            incident_id, station_id, route_name, line_name, station_name,
+            station_latitude, station_longitude, affects_both_directions, direction_destination,
+            incident_effect, incident_start_at, incident_end_at
+        FROM `{PROJECT_ID}.{GOLD_DATASET}.rail_incident_stations`
+    """).to_dataframe()
+    for col in ["incident_start_at", "incident_end_at"]:
+        df[col] = pd.to_datetime(df[col], utc=True)
+    return df
+
+
+@st.cache_data(ttl=900, show_spinner=False)
+def load_stations():
+    return get_client().query(f"""
+        SELECT station_id, line_name, station_name, station_latitude, station_longitude
+        FROM `{PROJECT_ID}.{GOLD_DATASET}.rail_stations`
+    """).to_dataframe()
+
+
 @st.cache_data(ttl=900, show_spinner=False)
 def load_ridership():
     df = get_client().query(f"""
@@ -398,6 +427,8 @@ if "loaded" not in st.session_state:
     loading.markdown('<div class="loading">Loading the latest MBTA data…</div>', unsafe_allow_html=True)
 
 incidents_all = load_incidents()
+incident_stations_all = load_incident_stations()
+stations_all = load_stations()
 ridership_all = load_ridership()
 loading.empty()
 st.session_state["loaded"] = True
@@ -454,6 +485,8 @@ selected_lines = st.pills(
 ) or LINES  # Nothing selected → show everything rather than an empty page
 
 incidents = incidents_all[incidents_all["line_name"].isin(selected_lines)]
+incident_stations = incident_stations_all[incident_stations_all["line_name"].isin(selected_lines)]
+stations = stations_all[stations_all["line_name"].isin(selected_lines)]
 ridership = ridership_all[ridership_all["line_name"].isin(selected_lines)]
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -528,7 +561,132 @@ with next_col:
         )
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 3. Incident patterns
+# 3. Stations affected
+# ══════════════════════════════════════════════════════════════════════════════
+
+# Trailing 12 months — or since station tracking began, while that's more recent
+stations_window_start = max(STATION_TRACKING_START, now - pd.DateOffset(months=12))
+stations_window_label = (
+    "Trailing 12 months" if stations_window_start > STATION_TRACKING_START
+    else f"Since station tracking began on {fmt_day(STATION_TRACKING_START)}, {STATION_TRACKING_START.year}"
+)
+
+section(
+    "Stations affected",
+    "Stations named in the selected lines' incident alerts. Most delays are line-wide and name no station.",
+)
+
+
+
+def station_markers(hits, planned=False):
+    """
+    One marker per station × line, listing every incident in `hits` affecting
+    it (with its start date when `planned`).
+    """
+    detail = [
+        f"{route}: {effect}" + ("" if both else f" (toward {dest})")
+        + (f" · starts {fmt_day(start)}" if planned else "")
+        for route, effect, both, dest, start in zip(
+            hits["route_name"], hits["incident_effect"], hits["affects_both_directions"],
+            hits["direction_destination"], hits["incident_start_at"], strict=True)
+    ]
+    return (hits.assign(detail=detail).groupby(["station_id", "line_name"], as_index=False)
+            .agg(station_name=("station_name", "first"), lat=("station_latitude", "first"),
+                 lon=("station_longitude", "first"), detail=("detail", lambda x: "<br>".join(sorted(set(x))))))
+
+
+# Incidents affecting stations right now, and planned ones starting within 30 days
+active_hits = incident_stations[
+    (incident_stations["incident_start_at"] <= now)
+    & (incident_stations["incident_end_at"].isna() | (incident_stations["incident_end_at"] >= now))
+]
+planned_hits = incident_stations[incident_stations["incident_start_at"].between(now, now + pd.Timedelta(days=30))]
+
+
+def station_map(backdrop, markers, height=460):
+    """Every station as a faint dot in its line's color; affected stations large, ringed, and labeled."""
+    fig = go.Figure()
+    for line in LINES:
+        bg = backdrop[backdrop["line_name"] == line]
+        hit = markers[markers["line_name"] == line]
+        color = LINE_COLORS[line]
+        if len(bg):
+            fig.add_trace(go.Scattermap(
+                lat=bg["station_latitude"], lon=bg["station_longitude"], mode="markers",
+                marker=dict(size=6, color=color, opacity=0.45),
+                hovertext=bg["station_name"] + " · " + line, hoverinfo="text",
+            ))
+        if len(hit):
+            # A soft ring under each affected station, then the station itself
+            # with its name (Blue Line's color is low-contrast, so never color alone)
+            fig.add_trace(go.Scattermap(
+                lat=hit["lat"], lon=hit["lon"], mode="markers",
+                marker=dict(size=24, color=color, opacity=0.3), hoverinfo="skip",
+            ))
+            fig.add_trace(go.Scattermap(
+                lat=hit["lat"], lon=hit["lon"], mode="markers+text",
+                marker=dict(size=12, color=color, opacity=1),
+                text=hit["station_name"], textposition="top right",
+                textfont=dict(color=INK, size=11, family=FONT),
+                hovertext="<b>" + hit["station_name"] + "</b><br>" + hit["detail"], hoverinfo="text",
+            ))
+    fig.update_layout(
+        height=height,
+        margin=dict(l=0, r=0, t=0, b=0),
+        paper_bgcolor="rgba(0,0,0,0)",
+        showlegend=False,
+        hoverlabel=dict(bgcolor="#1c2027", bordercolor=BORDER, font=dict(family=FONT, color=INK, size=12)),
+        # Downtown Boston, zoomed to fit Alewife through Braintree and Riverside
+        map=dict(style="carto-darkmatter", center=dict(lat=42.335, lon=-71.09), zoom=10.3),
+    )
+    return fig
+
+
+map_col, rank_col = st.columns([3, 2], gap="medium")
+
+with map_col:
+    with st.container(key="card_station_map"):
+        view = st.segmented_control(
+            "Map view", ["Right now", "Planned · next 30 days"], default="Right now",
+            key="station_view", label_visibility="collapsed",
+        ) or "Right now"  # Clicking the selected option clears it; fall back to the default
+        planned = view != "Right now"
+        hits = planned_hits if planned else active_hits
+        markers = station_markers(hits, planned=planned)
+        n_stations = markers["station_id"].nunique()
+        n_incidents = hits["incident_id"].nunique()
+        card_title(
+            "Planned work, next 30 days" if planned else "Affected right now",
+            (f"{n_stations} station{'s' if n_stations != 1 else ''} · "
+             f"{n_incidents} incident{'s' if n_incidents != 1 else ''} · hover a station for details")
+            if n_stations else ("No planned work naming stations" if planned else "No stations affected right now"),
+        )
+        show(station_map(stations, markers))
+
+with rank_col:
+    with st.container(key="card_station_rank"):
+        # Incidents active at any point in the window that have started; an
+        # incident counts once per station however many branches it covered
+        window_hits = incident_stations[
+            (incident_stations["incident_start_at"] <= now)
+            & (incident_stations["incident_end_at"].isna()
+               | (incident_stations["incident_end_at"] >= stations_window_start))
+        ]
+        ranked = (window_hits.groupby("station_name")["incident_id"].nunique()
+                  .sort_values(ascending=False).head(10))
+        card_title("Most affected stations", f"{stations_window_label}. Incidents naming each station.")
+        if ranked.empty:
+            st.markdown('<div class="empty">No station-level incidents yet on the selected lines.</div>',
+                        unsafe_allow_html=True)
+        else:
+            show(ranked_bars(
+                ranked.index.tolist(), ranked.tolist(),
+                [f"{n}" for n in ranked],
+                [f"{station}<br>{n} incident{'s' if n != 1 else ''}" for station, n in ranked.items()],
+            ))
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 4. Incident patterns
 # ══════════════════════════════════════════════════════════════════════════════
 
 # Trailing 12 months — or since alert tracking began, while that's more recent
@@ -674,7 +832,7 @@ else:
             show(fig)
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 4. Ridership
+# 5. Ridership
 # ══════════════════════════════════════════════════════════════════════════════
 
 if ridership.empty:
@@ -866,7 +1024,7 @@ with dow_col:
         show(fig)
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 5. Weather
+# 6. Weather
 # ══════════════════════════════════════════════════════════════════════════════
 
 section(
@@ -924,12 +1082,12 @@ with temp_col:
         st.caption("Daily mean temperature, (high + low) / 2, in °F")
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 6. Footer
+# 7. Footer
 # ══════════════════════════════════════════════════════════════════════════════
 
 st.markdown("""
 <div class="footer">
-  <b>Sources</b> · MBTA V3 API (alerts, routes) · MBTA Gated Station Entries (ArcGIS Open Data) ·
+  <b>Sources</b> · MBTA V3 API (alerts, routes, stops) · MBTA Gated Station Entries (ArcGIS Open Data) ·
   NOAA GHCN-Daily, Boston Logan (USW00014739)<br>
   <b>Refresh</b> · Page data hourly, from alerts checked every 15 minutes · Weather daily
   (NOAA posts ~3 days behind) · Ridership weekly (MBTA posts ~1–2 months behind)<br>

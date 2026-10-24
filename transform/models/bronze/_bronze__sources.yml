@@ -30,6 +30,28 @@ sources:
             warn_after: {count: 1, period: hour}
             error_after: {count: 3, period: hour}
 
+      - name: mbta_alerts_raw
+        description: >
+          The same 15-minute snapshots as mbta_alerts, each alert's full JSON as
+          the API returned it, including the stops it affects. Started
+          2026-10-24. Grain: alert × ingest run.
+        config:
+          freshness:
+            # Written by the same run as mbta_alerts
+            warn_after: {count: 1, period: hour}
+            error_after: {count: 3, period: hour}
+
+      - name: mbta_stops
+        description: >
+          Snapshots of the MBTA stops API: each rail route's stations plus the
+          platforms, entrances, and nodes inside them.
+          Grain: stop × route × ingest run.
+        config:
+          freshness:
+            # Weekly job
+            warn_after: {count: 8, period: day}
+            error_after: {count: 15, period: day}
+
       - name: mbta_routes
         description: >
           Snapshots of the MBTA routes API (rail routes only).

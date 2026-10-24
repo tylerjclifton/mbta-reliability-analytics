@@ -45,26 +45,30 @@ Each layer is its own BigQuery dataset.
 | Layer | Stored as | Written by | Role |
 |---|---|---|---|
 | `bronze` | Append-only tables (Terraform-managed, deletion-protected) | Ingest jobs | Raw history. Each run appends a new version of every record it saw; rows are never updated or deleted, so nothing depends on a source keeping its own history |
-| `silver` | Views (one incremental table, below) | dbt | Latest version of each record per source, cleaned and typed (alert start/end resolution, unit conversion, QC filtering) |
+| `silver` | Views (two incremental tables, below) | dbt | Latest version of each record per source, cleaned and typed (alert start/end resolution, unit conversion, QC filtering) |
 | `gold` | Tables, rebuilt hourly | dbt | Cross-source joins served to the dashboard |
 
 | Bronze / silver table | Grain (silver) | How bronze grows |
 |---|---|---|
 | `mbta_alerts` | alert × route | 15-minute snapshot of the live feed — the only record of alerts once they end |
-| `mbta_alerts_raw` | bronze only (for now) | The same 15-minute snapshots, each alert's full JSON (below) |
-| `mbta_stops` | bronze only (for now) | Weekly snapshot of every rail station and its platforms, entrances, and nodes |
+| `mbta_alerts_raw` → `mbta_alert_raw_latest`, `mbta_alert_stops` | alert; alert × route × station | The same 15-minute snapshots, each alert's full JSON (below) |
+| `mbta_stops` | stop × route | Weekly snapshot of every rail station and its platforms, entrances, and nodes; silver maps each to its station |
 | `mbta_routes` | route | Yearly snapshot |
 | `mbta_ridership` | service date × line | Full history re-pulled weekly; silver keeps the latest value, so MBTA revisions win |
 | `noaa_weather` | observation date | Last 10 days re-pulled daily; silver keeps the latest value |
 
 | Gold table | Grain | Contents |
 |---|---|---|
-| `rail_incidents` | incident × route | One row per real-world event — the MBTA's re-posted/follow-up alerts collapsed (dashboard reads this) |
+| `rail_incidents` | incident × route | One row per real-world event — the MBTA's re-posted/follow-up alerts collapsed (dashboard reads this), with how many stations it names |
+| `rail_incident_stations` | incident × route × station | The stations each incident names, with coordinates and direction, for the map |
+| `rail_stations` | station × line | Every rail station's coordinates, the map's backdrop |
 | `rail_ridership` | service date × line | Gated entries, active incident count, the day's most severe alert effect, whether it was a calm day, and weather |
 
-**`silver.mbta_alert_latest` is a table, not a view.** Alert snapshots add ~1 GB/year to bronze, and a view would re-read all of it for every model and test that uses alerts (~9× per transform), outgrowing the free query tier within a year. The incremental table reads only snapshots added since the last run, so cost stays flat; `dbt build --full-refresh` rebuilds it from bronze.
+**`silver.mbta_alert_latest` and `silver.mbta_alert_raw_latest` are tables, not views.** Alert snapshots add ~1 GB/year to `bronze.mbta_alerts` and ~2.6 GB/year to `bronze.mbta_alerts_raw`, and a view would re-read all of it for every model and test that uses alerts (~9× per transform), outgrowing the free query tier within a year. The incremental tables read only snapshots added since the last run, so cost stays flat; `dbt build --full-refresh` rebuilds them from bronze.
 
 **Raw alerts.** `bronze.mbta_alerts` keeps only the fields chosen when it was built, and drops the rest: the stops each alert affects, every active period after the first, and attributes like `lifecycle`. Since 2026-10-24 the alerts job also writes each alert's full JSON to `bronze.mbta_alerts_raw` (~2.6 GB/year). Alerts that ended before then have no raw record, since the API never returns them again. Once the raw table has enough history, silver will read it directly and `bronze.mbta_alerts` will be frozen and renamed `mbta_alerts_legacy`.
+
+**Alerts → stations.** Alerts name the stops they affect, mostly by platform and direction. `silver.mbta_alert_stops` unpacks that list from the raw JSON and rolls platforms up to their station using `silver.mbta_stops`, one row per alert × route × station. It sits beside `silver.mbta_alerts` instead of changing its alert × route grain. Shuttles, suspensions, and station closures name their stations; most delays are line-wide and name none. `gold.rail_incidents.stations_affected` is NULL for incidents from before raw capture began (unknown) and 0 for ones that named no stations.
 
 **Alert end times.** An alert ends at whichever comes first: the end time the MBTA posted (an estimate, usually rounded to the hour) or when it left the feed (midway between the last 15-minute run that saw it and the next). Since July 2026, 82% of alerts left the feed before their posted end.
 
@@ -157,6 +161,8 @@ Dark theme; official MBTA line colors for every line-level visual, a neutral vio
 
 **Service status** — KPIs (active now, planned in 30 days, last 30 days vs prior, median duration); incidents happening now and planned work coming up, one card per incident
 
+**Stations affected** — a map of the stations hit right now or by planned work in the next 30 days (ringed and labeled, with each incident on hover), and the most-affected stations since station tracking began
+
 **Incident patterns** — incidents per week, by line, by cause and effect, median duration by cause, cause mix by line (heatmap)
 
 **Ridership** — per-line average entries per day with year-over-year change; 24-month trend; ridership by alert effect (delay, suspension, shuttle) vs each line's calm days; day of week
@@ -201,7 +207,7 @@ transform/              dbt Core project
   run.py                Job entrypoint: dbt build + freshness, failure reports
   models/bronze/        Source declarations + freshness thresholds
   models/silver/        Per-source views + tests
-  models/gold/          Dashboard tables (rail_incidents, rail_ridership) + tests
+  models/gold/          Dashboard tables (rail_incidents, rail_incident_stations, rail_stations, rail_ridership) + tests
   macros/               keep_latest_version, null_if_failed_ghcn_qc
   tests/generic/        unique_combination, accepted_range
 serve/                  Streamlit dashboard (app.py; pure helpers in helpers.py, tested in tests/)

@@ -35,6 +35,61 @@ models:
         description: Latest ingest run that included this alert (UTC).
         data_tests: [not_null]
 
+  - name: mbta_alert_raw_latest
+    description: >
+      One row per alert ever captured raw: its latest full JSON plus first/last
+      seen. Incremental table like mbta_alert_latest (see model header). Raw
+      capture began 2026-10-24.
+    columns:
+      - name: alert_id
+        description: "{{ doc('alert_id') }}"
+        data_tests: [unique, not_null]
+      - name: alert_json
+        description: The alert's latest JSON:API object, exactly as the API returned it.
+        data_tests: [not_null]
+      - name: first_seen_at
+        description: First ingest run that included this alert (UTC).
+        data_tests: [not_null]
+      - name: last_seen_at
+        description: Latest ingest run that included this alert (UTC).
+        data_tests: [not_null]
+
+  - name: mbta_alert_stops
+    description: >
+      One row per alert × rail route × station the alert names. A bridge table
+      beside mbta_alerts (which stays alert × route): platforms roll up to
+      their station. Alerts naming no stops (most delays) have no rows.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [alert_id, route_id, station_id]
+    columns:
+      - name: alert_id
+        description: "{{ doc('alert_id') }}"
+        data_tests: [not_null]
+      - name: route_id
+        description: "{{ doc('route_id') }}"
+        data_tests: [not_null]
+      - name: station_id
+        description: "{{ doc('station_id') }}"
+        data_tests:
+          - not_null
+          # A stop the stops reference doesn't know keeps its own ID; flag it,
+          # since the next weekly stops run usually fills it in
+          - relationships:
+              arguments:
+                to: ref('mbta_stops')
+                field: station_id
+              config:
+                severity: warn
+      - name: affects_both_directions
+        description: True when the alert affects the station in both directions (or names no direction).
+        data_tests: [not_null]
+      - name: direction_id
+        description: >
+          The one direction affected (0 or 1, indexing the route's
+          route_destinations); NULL when both are.
+
   - name: mbta_alerts
     description: >
       One row per service-affecting alert × route: the latest snapshot of each
@@ -142,6 +197,64 @@ models:
         description: Route hex color without the leading #.
       - name: route_destinations
         description: Terminal stations, as a stringified list.
+      - name: ingested_at
+        description: "{{ doc('ingested_at') }}"
+      - name: ingested_by
+        description: "{{ doc('ingested_by') }}"
+
+  - name: mbta_stops
+    description: >
+      One row per stop × route: every rail station and the stops inside it
+      (platforms, entrances, nodes), each mapped to its station. A station and
+      its child stops repeat for each route serving it.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [stop_id, route_id]
+    columns:
+      - name: stop_id
+        description: MBTA stop ID — a station (place-…) or a stop inside one (platform, entrance, node).
+        data_tests: [not_null]
+      - name: route_id
+        description: "Route whose stations were requested. {{ doc('route_id') }}"
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('mbta_routes')
+                field: route_id
+      - name: station_id
+        description: "{{ doc('station_id') }} A station's own row has station_id = stop_id."
+        data_tests: [not_null]
+      - name: station_name
+        description: Station name (child stops carry their station's name).
+      - name: stop_type
+        description: Platform, Station, Entrance, Node, or Boarding Area (GTFS location_type).
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['Platform', 'Station', 'Entrance', 'Node', 'Boarding Area']
+      - name: stop_platform_name
+        description: A platform's direction or destination (e.g. "Boston College"); NULL otherwise.
+      - name: stop_latitude
+        description: WGS84 latitude.
+        data_tests:
+          # Greater Boston; a value outside means a bad coordinate
+          - accepted_range:
+              arguments:
+                min_value: 42.0
+                max_value: 42.7
+      - name: stop_longitude
+        description: WGS84 longitude.
+        data_tests:
+          - accepted_range:
+              arguments:
+                min_value: -71.4
+                max_value: -70.8
+      - name: stop_municipality
+        description: City or town.
+      - name: is_wheelchair_accessible
+        description: True/False per the MBTA; NULL when it has no information.
       - name: ingested_at
         description: "{{ doc('ingested_at') }}"
       - name: ingested_by

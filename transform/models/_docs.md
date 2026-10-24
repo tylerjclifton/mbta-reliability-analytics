@@ -16,6 +16,10 @@ MBTA alert ID. One alert can apply to several routes.
 MBTA route ID: `Red`, `Orange`, `Blue`, or a Green Line branch (`Green-B` … `Green-E`).
 {% enddocs %}
 
+{% docs station_id %}
+MBTA station ID (e.g. `place-pktrm`, Park Street). Alerts name platforms; they roll up to this station. See silver.mbta_stops.
+{% enddocs %}
+
 {% docs line_name %}
 Rail line: `Red Line`, `Orange Line`, `Blue Line`, or `Green Line` (all branches). Ridership is reported at this level.
 {% enddocs %}

@@ -38,7 +38,7 @@ WITH
             -- Any other effect, including ones the MBTA hasn't used yet,
             -- disqualifies the day. Days with no incident count 0 here.
             COUNTIF(i.incident_effect != 'Station Closure') = 0 AS is_calm_day
-        FROM {{ ref('mbta_ridership') }} AS d
+        FROM {{ ref('mbta_ridership__base') }} AS d
         LEFT JOIN {{ ref('rail_incidents') }} AS i
             ON  d.line_name = i.line_name
             AND d.service_date BETWEEN i.incident_start_date
@@ -64,9 +64,9 @@ SELECT
     w.snowfall_in,
     d.ingested_at               AS ridership_ingested_at,
     w.ingested_at               AS weather_ingested_at
-FROM {{ ref('mbta_ridership') }} AS d
+FROM {{ ref('mbta_ridership__base') }} AS d
 INNER JOIN incident_counts AS ic
     ON  d.service_date = ic.service_date
     AND d.line_name = ic.line_name
-LEFT JOIN {{ ref('noaa_weather') }} AS w
+LEFT JOIN {{ ref('noaa_weather__base') }} AS w
     ON d.service_date = w.observation_date

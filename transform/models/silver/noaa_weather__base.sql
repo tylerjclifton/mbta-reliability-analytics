@@ -1,5 +1,5 @@
 {#
-  silver.noaa_weather — one row per observation date
+  silver.noaa_weather__base — one row per observation date
 
   Latest GHCN-Daily values for Boston Logan, quality-checked and converted
   from NOAA's metric source units to US units.

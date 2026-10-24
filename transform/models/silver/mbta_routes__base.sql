@@ -1,5 +1,5 @@
 {#
-  silver.mbta_routes — one row per route
+  silver.mbta_routes__base — one row per route
 
   Latest snapshot of each rail route, plus the line it belongs to. Alerts are
   reported per route (Green-B, Green-C, ...) but ridership per line (Green Line),

@@ -1,5 +1,5 @@
 {#
-  silver.mbta_stops — one row per stop × route
+  silver.mbta_stops__base — one row per stop × route
 
   Latest snapshot of every rail station and the stops inside it (platforms,
   entrances, walkway nodes), each mapped to its station. Alerts name the stops

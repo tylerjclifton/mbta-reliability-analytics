@@ -60,7 +60,7 @@ WITH
             ANY_VALUE(station_name)   AS station_name,
             ANY_VALUE(stop_latitude)  AS station_latitude,
             ANY_VALUE(stop_longitude) AS station_longitude
-        FROM {{ ref('mbta_stops') }}
+        FROM {{ ref('mbta_stops__base') }}
         WHERE stop_type = 'Station'
         GROUP BY station_id
     )
@@ -93,5 +93,5 @@ INNER JOIN {{ ref('rail_incidents') }} AS i
         AND st.route_id = i.route_id
 LEFT JOIN stations AS s
     ON st.station_id = s.station_id
-LEFT JOIN {{ ref('mbta_routes') }} AS r
+LEFT JOIN {{ ref('mbta_routes__base') }} AS r
     ON st.route_id = r.route_id

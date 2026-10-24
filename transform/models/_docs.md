@@ -17,7 +17,7 @@ MBTA route ID: `Red`, `Orange`, `Blue`, or a Green Line branch (`Green-B` â€¦ `G
 {% enddocs %}
 
 {% docs station_id %}
-MBTA station ID (e.g. `place-pktrm`, Park Street). Alerts name platforms; they roll up to this station. See silver.mbta_stops.
+MBTA station ID (e.g. `place-pktrm`, Park Street). Alerts name platforms; they roll up to this station. See silver.mbta_stops__base.
 {% enddocs %}
 
 {% docs line_name %}
@@ -33,5 +33,5 @@ Day the weather values summarize: midnight to midnight local standard time (1amâ
 {% enddocs %}
 
 {% docs incident_id %}
-One real-world event the MBTA may have posted as several alerts (updates, "earlier disabled train" follow-ups). Alerts share an incident when they have the same route, cause, effect, and location and follow on within 2 hours (6 hours for "earlier"/"residual" follow-ups). The value is the incident's first alert ID. See silver.mbta_alerts.
+One real-world event the MBTA may have posted as several alerts (updates, "earlier disabled train" follow-ups). Alerts share an incident when they have the same route, cause, effect, and location and follow on within 2 hours (6 hours for "earlier"/"residual" follow-ups). The value is the incident's first alert ID. See silver.mbta_alerts__base.
 {% enddocs %}

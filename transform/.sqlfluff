@@ -24,7 +24,7 @@ load_macros_from_path = macros
 # Values the models read through var(); kept in sync with dbt_project.yml
 local_timezone = America/New_York
 # Empty (falsy), like dbt's parse phase: skips run_query() blocks that need a
-# live warehouse (the incremental silver/mbta_alerts.sql and mbta_alerts_raw.sql)
+# live warehouse (the incremental silver/mbta_alerts__base.sql and mbta_alerts_raw__base.sql)
 execute =
 
 [sqlfluff:rules:convention.quoted_literals]

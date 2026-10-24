@@ -22,8 +22,8 @@ WITH
             s.is_wheelchair_accessible,
             r.line_name,
             s.ingested_at
-        FROM {{ ref('mbta_stops') }} AS s
-        INNER JOIN {{ ref('mbta_routes') }} AS r
+        FROM {{ ref('mbta_stops__base') }} AS s
+        INNER JOIN {{ ref('mbta_routes__base') }} AS r
             ON s.route_id = r.route_id
         WHERE s.stop_type = 'Station'
     )

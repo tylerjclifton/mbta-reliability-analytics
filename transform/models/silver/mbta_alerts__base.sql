@@ -1,5 +1,5 @@
 {#
-  silver.mbta_alerts — one row per alert × route
+  silver.mbta_alerts__base — one row per alert × route
 
   The latest snapshot of every alert ever seen in bronze.mbta_alerts, renamed
   to project conventions, plus when it was first and last seen. A cleaned copy

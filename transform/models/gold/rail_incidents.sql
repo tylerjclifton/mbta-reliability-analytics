@@ -30,7 +30,7 @@ WITH
             r.line_name,
             r.route_type
         FROM {{ ref('mbta_alerts__incidents') }} AS a
-        LEFT JOIN {{ ref('mbta_routes') }} AS r
+        LEFT JOIN {{ ref('mbta_routes__base') }} AS r
             ON a.route_id = r.route_id
     ),
 
@@ -42,7 +42,7 @@ WITH
             LOGICAL_OR(raw.alert_id IS NOT NULL) AS has_stop_data,
             COUNT(DISTINCT s.station_id)         AS station_count
         FROM {{ ref('mbta_alerts__incidents') }} AS a
-        LEFT JOIN {{ ref('mbta_alerts_raw') }} AS raw
+        LEFT JOIN {{ ref('mbta_alerts_raw__base') }} AS raw
             ON a.alert_id = raw.alert_id
         LEFT JOIN {{ ref('mbta_alerts__stations') }} AS s
             ON

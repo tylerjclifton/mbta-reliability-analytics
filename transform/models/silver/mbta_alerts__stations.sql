@@ -9,7 +9,7 @@
   The MBTA lists stops mostly by platform (often one per direction); those
   roll up to their station here, with whether the alert affects one direction
   or both. Alerts that name no stops (most delays are line-wide) have no rows.
-  Covers every effect, like silver.mbta_alerts_raw; gold joins it to
+  Covers every effect, like silver.mbta_alerts_raw__base; gold joins it to
   silver.mbta_alerts__incidents, which keeps only service-affecting alerts.
 
   Raw capture started 2026-10-24, so earlier alerts have no rows here either;
@@ -31,7 +31,7 @@ WITH
             JSON_VALUE(entity, '$.route')                          AS route_id,
             JSON_VALUE(entity, '$.stop')                           AS stop_id,
             SAFE_CAST(JSON_VALUE(entity, '$.direction_id') AS INT64) AS direction_id
-        FROM {{ ref('mbta_alerts_raw') }} AS a
+        FROM {{ ref('mbta_alerts_raw__base') }} AS a
         CROSS JOIN UNNEST(JSON_QUERY_ARRAY(a.alert_json, '$.attributes.informed_entity')) AS entity
         WHERE JSON_VALUE(entity, '$.stop') IS NOT NULL
     ),
@@ -41,7 +41,7 @@ WITH
         SELECT DISTINCT
             stop_id,
             station_id
-        FROM {{ ref('mbta_stops') }}
+        FROM {{ ref('mbta_stops__base') }}
     )
 
 -- 3. One row per alert × rail route × station. A stop missing from the stops
@@ -60,7 +60,7 @@ SELECT
         ANY_VALUE(e.direction_id)
     )                                                                AS direction_id
 FROM entities AS e
-INNER JOIN {{ ref('mbta_routes') }} AS r
+INNER JOIN {{ ref('mbta_routes__base') }} AS r
     ON e.route_id = r.route_id
 LEFT JOIN stop_station AS s
     ON e.stop_id = s.stop_id

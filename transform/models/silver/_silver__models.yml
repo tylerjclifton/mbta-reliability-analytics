@@ -1,16 +1,16 @@
 version: 2
 
 # ══════════════════════════════════════════════════════════════════════════════
-# Silver — two kinds of model, told apart by name
+# Silver — every model is <bronze table>__<step>, so each source's models
+# sort together and the name says what the model is
 #
-#   Cleaned copies   named exactly like their bronze table (mbta_alerts,
-#                    mbta_stops, …): the latest version of each record,
-#                    renamed and typed, no business rules. Views, except the
-#                    two incremental alert tables (see their headers).
-#   Logic steps      <cleaned copy>__<what the step produces>, e.g.
-#                    mbta_alerts__incidents: one business rule each, built
-#                    from that cleaned copy (plus others as needed). Views.
-#                    The shared prefix sorts each source's steps together.
+#   __base           the cleaned copy (mbta_alerts__base, mbta_stops__base, …):
+#                    the latest version of each record, renamed and typed, no
+#                    business rules. Views, except the two incremental alert
+#                    tables (see their headers).
+#   __<step>         one business rule, named for what it produces
+#                    (mbta_alerts__resolved, mbta_alerts__incidents), built
+#                    from __base models or earlier steps. Views.
 #
 # Tests run in `dbt build` before gold is rebuilt; an error-severity failure
 # skips everything downstream, so bad data never reaches the dashboard.
@@ -23,7 +23,7 @@ models:
 
   # ── Cleaned copies ──────────────────────────────────────────────────────────
 
-  - name: mbta_alerts
+  - name: mbta_alerts__base
     description: >
       One row per alert × route ever seen: the latest snapshot, renamed to
       project conventions (enum values as the API sends them), plus first/last
@@ -67,10 +67,10 @@ models:
         description: Latest ingest run that included this alert (UTC).
         data_tests: [not_null]
 
-  - name: mbta_alerts_raw
+  - name: mbta_alerts_raw__base
     description: >
       One row per alert ever captured raw: its latest full JSON plus first/last
-      seen. Incremental table like mbta_alerts (see model header). Raw capture
+      seen. Incremental table like mbta_alerts__base (see model header). Raw capture
       began 2026-10-24.
     columns:
       - name: alert_id
@@ -86,7 +86,7 @@ models:
         description: Latest ingest run that included this alert (UTC).
         data_tests: [not_null]
 
-  - name: mbta_routes
+  - name: mbta_routes__base
     description: One row per rail route — the latest snapshot, plus the line it belongs to.
     columns:
       - name: route_id
@@ -100,7 +100,7 @@ models:
           - not_null
           - accepted_values:
               arguments:
-                # Anchor reused by mbta_ridership.line_name below
+                # Anchor reused by mbta_ridership__base.line_name below
                 values: &rail_lines ['Red Line', 'Orange Line', 'Blue Line', 'Green Line']
       - name: route_description
         description: MBTA route description (e.g. "Rapid Transit").
@@ -115,7 +115,7 @@ models:
       - name: ingested_by
         description: "{{ doc('ingested_by') }}"
 
-  - name: mbta_stops
+  - name: mbta_stops__base
     description: >
       One row per stop × route: every rail station and the stops inside it
       (platforms, entrances, nodes), each mapped to its station. A station and
@@ -134,7 +134,7 @@ models:
           - not_null
           - relationships:
               arguments:
-                to: ref('mbta_routes')
+                to: ref('mbta_routes__base')
                 field: route_id
       - name: station_id
         description: "{{ doc('station_id') }} A station's own row has station_id = stop_id."
@@ -173,7 +173,7 @@ models:
       - name: ingested_by
         description: "{{ doc('ingested_by') }}"
 
-  - name: mbta_ridership
+  - name: mbta_ridership__base
     description: One row per service date × line — the latest published gated-entry count.
     data_tests:
       - unique_combination:
@@ -202,7 +202,7 @@ models:
       - name: ingested_by
         description: "{{ doc('ingested_by') }}"
 
-  - name: noaa_weather
+  - name: noaa_weather__base
     description: One row per observation date — quality-checked daily weather at Boston Logan, in US units.
     columns:
       - name: observation_date
@@ -249,7 +249,7 @@ models:
     description: >
       One row per service-affecting alert × route, with when it really started
       and ended and whether it's still in the feed (see model header). Effects
-      in var non_service_alert_effects are excluded. Enums as in mbta_alerts.
+      in var non_service_alert_effects are excluded. Enums as in mbta_alerts__base.
     data_tests:
       - unique_combination:
           arguments:
@@ -290,7 +290,7 @@ models:
           - not_null
           - relationships:
               arguments:
-                to: ref('mbta_routes')
+                to: ref('mbta_routes__base')
                 field: route_id
       - name: incident_id
         description: "{{ doc('incident_id') }}"
@@ -379,7 +379,7 @@ models:
           # since the next weekly stops run usually fills it in
           - relationships:
               arguments:
-                to: ref('mbta_stops')
+                to: ref('mbta_stops__base')
                 field: station_id
               config:
                 severity: warn

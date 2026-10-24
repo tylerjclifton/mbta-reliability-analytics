@@ -54,7 +54,7 @@ WITH
                 a.last_seen_at,
                 INTERVAL LEAST(DIV(TIMESTAMP_DIFF(r.next_run_at, r.run_at, SECOND), 2), 30 * 60) SECOND
             )                          AS left_feed_at
-        FROM {{ ref('mbta_alerts') }} AS a
+        FROM {{ ref('mbta_alerts__base') }} AS a
         INNER JOIN runs AS r
             ON TIMESTAMP_TRUNC(a.last_seen_at, MINUTE) = r.run_at
         -- Exempt from the length rule: the line is only long once the effect list is rendered

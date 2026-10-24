@@ -3,7 +3,7 @@
 
   An incident is one real-world event (a disabled train, a signal problem, a
   planned shutdown) that the MBTA may have posted as several alerts; grouping
-  rules live in silver.mbta_alerts. The dashboard counts, times, and
+  rules live in silver.alert_incidents. The dashboard counts, times, and
   categorizes incidents so a re-posted event isn't counted twice.
 
   stations_affected counts the stations the incident's alerts name. It needs
@@ -29,7 +29,7 @@ WITH
             r.route_name,
             r.line_name,
             r.route_type
-        FROM {{ ref('mbta_alerts') }} AS a
+        FROM {{ ref('alert_incidents') }} AS a
         LEFT JOIN {{ ref('mbta_routes') }} AS r
             ON a.route_id = r.route_id
     ),
@@ -41,10 +41,10 @@ WITH
             a.route_id,
             LOGICAL_OR(raw.alert_id IS NOT NULL) AS has_stop_data,
             COUNT(DISTINCT s.station_id)         AS station_count
-        FROM {{ ref('mbta_alerts') }} AS a
-        LEFT JOIN {{ ref('mbta_alert_raw_latest') }} AS raw
+        FROM {{ ref('alert_incidents') }} AS a
+        LEFT JOIN {{ ref('mbta_alerts_raw') }} AS raw
             ON a.alert_id = raw.alert_id
-        LEFT JOIN {{ ref('mbta_alert_stops') }} AS s
+        LEFT JOIN {{ ref('alert_stations') }} AS s
             ON
                 a.alert_id = s.alert_id
                 AND a.route_id = s.route_id

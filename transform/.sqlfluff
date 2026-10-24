@@ -24,12 +24,12 @@ load_macros_from_path = macros
 # Values the models read through var(); kept in sync with dbt_project.yml
 local_timezone = America/New_York
 # Empty (falsy), like dbt's parse phase: skips run_query() blocks that need a
-# live warehouse (silver/mbta_alert_latest.sql)
+# live warehouse (the incremental silver/mbta_alerts.sql and mbta_alerts_raw.sql)
 execute =
 
 [sqlfluff:rules:convention.quoted_literals]
 # Single quotes for string literals; double quotes only where the string itself
-# contains a single quote (e.g. the location regex in silver/mbta_alerts.sql)
+# contains a single quote (e.g. the location regex in silver/alert_incidents.sql)
 preferred_quoted_literal_style = single_quotes
 
 [sqlfluff:rules:capitalisation.keywords]

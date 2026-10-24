@@ -1,11 +1,12 @@
 {#
-  silver.mbta_alert_raw_latest — one row per alert
+  silver.mbta_alerts_raw — one row per alert
 
   The latest full JSON of every alert in bronze.mbta_alerts_raw, plus when it
-  was first and last seen. Models that need what bronze.mbta_alerts drops (the
-  stops an alert affects, see silver.mbta_alert_stops) read this table.
+  was first and last seen. A cleaned copy of the source: models that need what
+  bronze.mbta_alerts drops (the stops an alert affects, see
+  silver.alert_stations) read this table.
 
-  Incremental for the same reason as silver.mbta_alert_latest: the raw table
+  Incremental for the same reason as silver.mbta_alerts: the raw table
   gains a full snapshot every 15 minutes (~2.6 GB/year), and a view would
   re-read all of it on every transform. Each run reads only the snapshots added
   since the last one; `dbt build --full-refresh` rebuilds it from bronze.

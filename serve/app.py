@@ -22,7 +22,7 @@ available days (snowstorms are too rare for a single winter).
 
 Counting unit is the incident (gold.rail_incidents): one real-world event the
 MBTA may have posted as several alerts. An alert ends at its posted end time or
-when it leaves the MBTA feed, whichever comes first (silver.mbta_alerts).
+when it leaves the MBTA feed, whichever comes first (silver.alerts_resolved).
 
 Weather comparisons use "% vs typical": a day's gated entries relative to the
 median for the same line, weekday, and month. That removes line size, the

@@ -13,5 +13,6 @@ One short file per decision that shaped this project: the situation, what was de
 | [0007](0007-dashboard-scales-to-zero.md) | The dashboard scales to zero; cold starts are acceptable | Accepted |
 | [0008](0008-build-for-the-end-state.md) | Build metrics for the end state, with data thresholds | Accepted |
 | [0009](0009-runtime-versions.md) | dbt 1.12 and Python 3.13; dbt v2 skipped for now | Accepted |
+| [0010](0010-silver-naming-and-materialization.md) | Silver: cleaned copies named like bronze, logic steps named for their output; views unless too costly to recompute | Accepted |
 
 **Adding one:** copy the shape of an existing file, take the next number, add a row here. Don't rewrite an old record when a decision changes; add a new one and mark the old one "Superseded by 00NN".

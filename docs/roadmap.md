@@ -4,20 +4,6 @@ Planned work, roughly in order, with why. Move an item to a [decision record](de
 
 ## Next
 
-### Restructure silver with clear names
-Silver mixes three kinds of models with nothing in their names to tell them apart:
-- typed copies of one source (`mbta_routes`, `mbta_stops`, `mbta_ridership`, `noaa_weather`)
-- incremental "latest version" tables (`mbta_alert_latest`, `mbta_alert_raw_latest`)
-- multi-step business logic (`mbta_alerts` with 7 steps, and `mbta_alert_stops`)
-
-The plan:
-- Name models by role.
-- Split `mbta_alerts` into "resolve start/end" and "group into incidents," so each step can be queried and tested.
-- Keep gold names, since the dashboard reads them.
-- Prove it's a pure refactor: gold must come out identical before and after.
-
-**Open:** the naming scheme (see the conversation of 2026-10-24). Record the choice as a decision.
-
 ### Raw alert cutover ([0002](decisions/0002-raw-alert-capture.md))
 Once `bronze.mbta_alerts_raw` has a few weeks of history (mid-November 2026 or later):
 1. Reconcile: raw unpacked to alert × route matches `bronze.mbta_alerts` for the same runs.

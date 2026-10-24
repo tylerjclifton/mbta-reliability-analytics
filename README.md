@@ -47,17 +47,23 @@ Each layer is its own BigQuery dataset.
 | Layer | Stored as | Written by | Role |
 |---|---|---|---|
 | `bronze` | Append-only tables (Terraform-managed, deletion-protected) | Ingest jobs | Raw history. Each run appends a new version of every record it saw; rows are never updated or deleted, so nothing depends on a source keeping its own history |
-| `silver` | Views (two incremental tables, below) | dbt | Latest version of each record per source, cleaned and typed (alert start/end resolution, unit conversion, QC filtering) |
+| `silver` | Views (two incremental tables, below) | dbt | **Cleaned copies** of each source (latest version, renamed and typed, unit conversion, QC filtering), named like their bronze table, and **logic steps** (alert start/end, incident grouping, stations), named for what they produce |
 | `gold` | Tables, rebuilt hourly | dbt | Cross-source joins served to the dashboard |
 
-| Bronze / silver table | Grain (silver) | How bronze grows |
+| Bronze table = silver cleaned copy | Grain (silver) | How bronze grows |
 |---|---|---|
 | `mbta_alerts` | alert × route | 15-minute snapshot of the live feed — the only record of alerts once they end |
-| `mbta_alerts_raw` → `mbta_alert_raw_latest`, `mbta_alert_stops` | alert; alert × route × station | The same 15-minute snapshots, each alert's full JSON (below) |
+| `mbta_alerts_raw` | alert | The same 15-minute snapshots, each alert's full JSON (below) |
 | `mbta_stops` | stop × route | Weekly snapshot of every rail station and its platforms, entrances, and nodes; silver maps each to its station |
 | `mbta_routes` | route | Yearly snapshot |
 | `mbta_ridership` | service date × line | Full history re-pulled weekly; silver keeps the latest value, so MBTA revisions win |
 | `noaa_weather` | observation date | Last 10 days re-pulled daily; silver keeps the latest value |
+
+| Silver logic step | Grain | What it produces |
+|---|---|---|
+| `alerts_resolved` | alert × route | Service-affecting alerts with their real start and end, and whether they're still in the feed |
+| `alert_incidents` | alert × route | The incident each alert belongs to, with readable labels and durations (gold reads this) |
+| `alert_stations` | alert × route × station | Which stations each alert affects, and in which direction |
 
 | Gold table | Grain | Contents |
 |---|---|---|
@@ -66,15 +72,15 @@ Each layer is its own BigQuery dataset.
 | `rail_stations` | station × line | Every rail station's coordinates, the map's backdrop |
 | `rail_ridership` | service date × line | Gated entries, active incident count, the day's most severe alert effect, whether it was a calm day, and weather |
 
-**`silver.mbta_alert_latest` and `silver.mbta_alert_raw_latest` are tables, not views.** Alert snapshots add ~1 GB/year to `bronze.mbta_alerts` and ~2.6 GB/year to `bronze.mbta_alerts_raw`, and a view would re-read all of it for every model and test that uses alerts (~9× per transform), outgrowing the free query tier within a year. The incremental tables read only snapshots added since the last run, so cost stays flat; `dbt build --full-refresh` rebuilds them from bronze.
+**`silver.mbta_alerts` and `silver.mbta_alerts_raw` are tables, not views.** Everything else in silver is a view, recomputed every run ([0010](docs/decisions/0010-silver-naming-and-materialization.md)). Alert snapshots add ~1 GB/year to `bronze.mbta_alerts` and ~2.6 GB/year to `bronze.mbta_alerts_raw`, and a view would re-read all of it for every model and test that uses alerts (~9× per transform), outgrowing the free query tier within a year. The incremental tables read only snapshots added since the last run, so cost stays flat; `dbt build --full-refresh` rebuilds them from bronze.
 
 **Raw alerts.** `bronze.mbta_alerts` keeps only the fields chosen when it was built, and drops the rest: the stops each alert affects, every active period after the first, and attributes like `lifecycle`. Since 2026-10-24 the alerts job also writes each alert's full JSON to `bronze.mbta_alerts_raw` (~2.6 GB/year). Alerts that ended before then have no raw record, since the API never returns them again. Once the raw table has enough history, silver will read it directly and `bronze.mbta_alerts` will be frozen and renamed `mbta_alerts_legacy`.
 
-**Alerts → stations.** Alerts name the stops they affect, mostly by platform and direction. `silver.mbta_alert_stops` unpacks that list from the raw JSON and rolls platforms up to their station using `silver.mbta_stops`, one row per alert × route × station. It sits beside `silver.mbta_alerts` instead of changing its alert × route grain. Shuttles, suspensions, and station closures name their stations; most delays are line-wide and name none. `gold.rail_incidents.stations_affected` is NULL for incidents from before raw capture began (unknown) and 0 for ones that named no stations.
+**Alerts → stations.** Alerts name the stops they affect, mostly by platform and direction. `silver.alert_stations` unpacks that list from the raw JSON and rolls platforms up to their station using `silver.mbta_stops`, one row per alert × route × station. It sits beside the alert × route models instead of changing their grain. Shuttles, suspensions, and station closures name their stations; most delays are line-wide and name none. `gold.rail_incidents.stations_affected` is NULL for incidents from before raw capture began (unknown) and 0 for ones that named no stations.
 
 **Alert end times.** An alert ends at whichever comes first: the end time the MBTA posted (an estimate, usually rounded to the hour) or when it left the feed (midway between the last 15-minute run that saw it and the next). Since July 2026, 82% of alerts left the feed before their posted end.
 
-**Alerts → incidents.** The MBTA often posts several alerts for one event (an update, or "delays due to an earlier disabled train at JFK/UMass"). `silver.mbta_alerts` groups them: same route, cause, effect, and station named in the header, starting within 2 hours of the previous alert's end (6 hours for "earlier"/"residual" follow-ups). Alerts that don't affect train service (notices, elevator/parking issues — `non_service_alert_effects` in `dbt_project.yml`) are excluded in silver; bronze keeps them.
+**Alerts → incidents.** The MBTA often posts several alerts for one event (an update, or "delays due to an earlier disabled train at JFK/UMass"). `silver.alert_incidents` groups them: same route, cause, effect, and station named in the header, starting within 2 hours of the previous alert's end (6 hours for "earlier"/"residual" follow-ups). Alerts that don't affect train service (notices, elevator/parking issues — `non_service_alert_effects` in `dbt_project.yml`) are excluded in silver; bronze keeps them.
 
 ### Data quality
 
@@ -105,7 +111,8 @@ The dashboard shows visitors the same thing: the dot beside "Alerts updated" is 
 | Thing | Convention | Example |
 |---|---|---|
 | Datasets | Medallion layer | `bronze`, `silver`, `gold` |
-| Bronze / silver tables | `<source>_<entity>`, same name in both layers | `mbta_alerts` |
+| Bronze tables and silver cleaned copies | `<source>_<entity>`, same name in both layers | `mbta_alerts` |
+| Silver logic steps | Named for what they produce | `alert_incidents` |
 | Gold tables | `<domain>_<entity>` | `rail_ridership` |
 | Ingest jobs | `ingest/<source>-<entity>/main.py` → `bronze.<source>_<entity>` | `ingest/noaa-weather` → `bronze.noaa_weather` |
 | Bronze columns | Source system's names, plus audit columns | `route_or_line`, `tmax` |
@@ -208,7 +215,7 @@ ingest/                 One shared image for every ingest job
 transform/              dbt Core project
   run.py                Job entrypoint: dbt build + freshness, failure reports
   models/bronze/        Source declarations + freshness thresholds
-  models/silver/        Per-source views + tests
+  models/silver/        Cleaned copies + logic steps + tests
   models/gold/          Dashboard tables (rail_incidents, rail_incident_stations, rail_stations, rail_ridership) + tests
   macros/               keep_latest_version, null_if_failed_ghcn_qc
   tests/generic/        unique_combination, accepted_range

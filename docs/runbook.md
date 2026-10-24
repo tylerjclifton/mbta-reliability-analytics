@@ -29,7 +29,7 @@ gcloud run jobs execute ingest-noaa-weather --region us-east1 --update-env-vars 
 
 ## Rebuild an incremental silver table
 
-`silver.mbta_alert_latest` and `silver.mbta_alert_raw_latest` only read new snapshots each run. If their logic changes in a way that needs history reprocessed, rebuild them from bronze (cheap: a few MB):
+`silver.mbta_alerts` and `silver.mbta_alerts_raw` only read new snapshots each run. If their logic changes in a way that needs history reprocessed, rebuild them from bronze (cheap: a few MB):
 
 ```bash
 cd transform

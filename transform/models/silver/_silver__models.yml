@@ -1,33 +1,64 @@
 version: 2
 
 # ══════════════════════════════════════════════════════════════════════════════
-# Silver — latest version of each record per source, cleaned and typed (views)
+# Silver — two kinds of model, told apart by name
+#
+#   Cleaned copies   named exactly like their bronze table (mbta_alerts,
+#                    mbta_stops, …): the latest version of each record,
+#                    renamed and typed, no business rules. Views, except the
+#                    two incremental alert tables (see their headers).
+#   Logic steps      named for what they produce (alerts_resolved,
+#                    alert_incidents, alert_stations): one business rule each,
+#                    built from cleaned copies or earlier steps. Views.
 #
 # Tests run in `dbt build` before gold is rebuilt; an error-severity failure
 # skips everything downstream, so bad data never reaches the dashboard.
-#   unique_combination / unique + not_null  → the view's grain holds
+#   unique_combination / unique + not_null  → the model's grain holds
 #   accepted_values / relationships         → keys join cleanly across sources
 #   accepted_range                          → values are physically plausible
 # ══════════════════════════════════════════════════════════════════════════════
 
 models:
-  - name: mbta_alert_latest
+
+  # ── Cleaned copies ──────────────────────────────────────────────────────────
+
+  - name: mbta_alerts
     description: >
-      One row per alert × route ever seen: the latest snapshot's fields (bronze
-      column names) plus first/last seen. Incremental table — the one exception
-      to silver-as-views — so the transform reads only new snapshots instead of
-      re-reading all of bronze (see model header).
+      One row per alert × route ever seen: the latest snapshot, renamed to
+      project conventions (enum values as the API sends them), plus first/last
+      seen. Incremental table, so the transform reads only new snapshots
+      instead of re-reading all of bronze (see model header).
     data_tests:
       - unique_combination:
           arguments:
-            columns: [alert_id, route]
+            columns: [alert_id, route_id]
     columns:
       - name: alert_id
         description: "{{ doc('alert_id') }}"
         data_tests: [not_null]
-      - name: route
+      - name: route_id
         description: "{{ doc('route_id') }}"
         data_tests: [not_null]
+      - name: posted_start_at
+        description: Start the MBTA posted (UTC); NULL when unset (the API's epoch placeholder).
+      - name: posted_end_at
+        description: End the MBTA posted (UTC), an estimate usually on the hour; NULL when unset.
+      - name: alert_duration_certainty
+        description: MBTA enum (KNOWN, ESTIMATED, UNKNOWN).
+      - name: alert_header
+        description: Short alert text.
+      - name: alert_description
+        description: Long alert text.
+      - name: alert_cause
+        description: MBTA cause enum (e.g. SIGNAL_PROBLEM).
+      - name: alert_effect
+        description: MBTA effect enum (e.g. DELAY, SHUTTLE).
+      - name: alert_severity
+        description: MBTA severity, 0 (least) to 10 (most).
+      - name: alert_created_at
+        description: When MBTA created the alert (UTC).
+      - name: alert_updated_at
+        description: When MBTA last updated the alert (UTC).
       - name: first_seen_at
         description: First ingest run that included this alert (UTC).
         data_tests: [not_null]
@@ -35,11 +66,11 @@ models:
         description: Latest ingest run that included this alert (UTC).
         data_tests: [not_null]
 
-  - name: mbta_alert_raw_latest
+  - name: mbta_alerts_raw
     description: >
       One row per alert ever captured raw: its latest full JSON plus first/last
-      seen. Incremental table like mbta_alert_latest (see model header). Raw
-      capture began 2026-10-24.
+      seen. Incremental table like mbta_alerts (see model header). Raw capture
+      began 2026-10-24.
     columns:
       - name: alert_id
         description: "{{ doc('alert_id') }}"
@@ -53,125 +84,6 @@ models:
       - name: last_seen_at
         description: Latest ingest run that included this alert (UTC).
         data_tests: [not_null]
-
-  - name: mbta_alert_stops
-    description: >
-      One row per alert × rail route × station the alert names. A bridge table
-      beside mbta_alerts (which stays alert × route): platforms roll up to
-      their station. Alerts naming no stops (most delays) have no rows.
-    data_tests:
-      - unique_combination:
-          arguments:
-            columns: [alert_id, route_id, station_id]
-    columns:
-      - name: alert_id
-        description: "{{ doc('alert_id') }}"
-        data_tests: [not_null]
-      - name: route_id
-        description: "{{ doc('route_id') }}"
-        data_tests: [not_null]
-      - name: station_id
-        description: "{{ doc('station_id') }}"
-        data_tests:
-          - not_null
-          # A stop the stops reference doesn't know keeps its own ID; flag it,
-          # since the next weekly stops run usually fills it in
-          - relationships:
-              arguments:
-                to: ref('mbta_stops')
-                field: station_id
-              config:
-                severity: warn
-      - name: affects_both_directions
-        description: True when the alert affects the station in both directions (or names no direction).
-        data_tests: [not_null]
-      - name: direction_id
-        description: >
-          The one direction affected (0 or 1, indexing the route's
-          route_destinations); NULL when both are.
-
-  - name: mbta_alerts
-    description: >
-      One row per service-affecting alert × route: the latest snapshot of each
-      MBTA rail alert, with start and end resolved from the snapshot history
-      (see model header). Effects in var non_service_alert_effects are excluded.
-    data_tests:
-      - unique_combination:
-          arguments:
-            columns: [alert_id, route_id]
-    columns:
-      - name: alert_id
-        description: "{{ doc('alert_id') }}"
-        data_tests: [not_null]
-      - name: route_id
-        description: "{{ doc('route_id') }}"
-        data_tests:
-          - not_null
-          - relationships:
-              arguments:
-                to: ref('mbta_routes')
-                field: route_id
-      - name: incident_id
-        description: "{{ doc('incident_id') }}"
-        data_tests: [not_null]
-      - name: alert_header
-        description: Short alert text.
-      - name: alert_description
-        description: Long alert text.
-      - name: alert_cause
-        description: Cause, title-cased from the MBTA enum (e.g. "Signal Problem").
-      - name: alert_effect
-        description: Effect, title-cased from the MBTA enum (e.g. "Delay", "Shuttle").
-      - name: alert_severity
-        description: MBTA severity, 0 (least) to 10 (most).
-        data_tests:
-          - accepted_range:
-              arguments:
-                min_value: 0
-                max_value: 10
-      - name: alert_duration_certainty
-        description: Whether MBTA considers the end time Known, Estimated, or Unknown.
-      - name: alert_start_at
-        description: When the alert took effect (UTC). API start, else when MBTA created the alert.
-        data_tests: [not_null]
-      - name: alert_end_at
-        description: >
-          When the alert ended (UTC): whichever came first — the end time the
-          MBTA posted, or when the alert left the feed (midway between the last
-          run that saw it and the next run, at most 30 minutes after last seen).
-          NULL while still in the feed with no posted end.
-      - name: alert_start_date
-        description: Eastern date of alert_start_at.
-      - name: alert_end_date
-        description: Eastern date of alert_end_at; NULL while ongoing.
-      - name: alert_duration_minutes
-        description: Minutes from start to end, or to now for ongoing alerts.
-        data_tests:
-          # The API occasionally publishes an end before the start
-          - accepted_range:
-              arguments:
-                min_value: 0
-              config:
-                severity: warn
-      - name: alert_location_key
-        description: >
-          Station/area named in the header after at/near/between/from,
-          lower-cased with punctuation removed (e.g. "jfkumass"); NULL if none.
-          Used to group alerts into incidents.
-      - name: alert_created_at
-        description: When MBTA created the alert (UTC).
-      - name: alert_updated_at
-        description: When MBTA last updated the alert (UTC).
-      - name: is_in_feed
-        description: True when the alert was in the latest ingest run, i.e. still listed by the API.
-      - name: first_seen_at
-        description: First ingest run that included this alert (UTC).
-      - name: last_seen_at
-        description: Last ingest run that included this alert (UTC). Equals ingested_at.
-      - name: ingested_at
-        description: "{{ doc('ingested_at') }}"
-      - name: ingested_by
-        description: "{{ doc('ingested_by') }}"
 
   - name: mbta_routes
     description: One row per rail route — the latest snapshot, plus the line it belongs to.
@@ -329,3 +241,152 @@ models:
         description: "{{ doc('ingested_at') }}"
       - name: ingested_by
         description: "{{ doc('ingested_by') }}"
+
+  # ── Logic steps ─────────────────────────────────────────────────────────────
+
+  - name: alerts_resolved
+    description: >
+      One row per service-affecting alert × route, with when it really started
+      and ended and whether it's still in the feed (see model header). Effects
+      in var non_service_alert_effects are excluded. Enums as in mbta_alerts.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [alert_id, route_id]
+    columns:
+      - name: is_in_feed
+        description: True when the alert was in the latest ingest run, i.e. still listed by the API.
+        data_tests: [not_null]
+      - name: left_feed_at
+        description: >
+          When the alert left the feed (UTC): midway between the last run that
+          saw it and the next, at most 30 minutes after last seen. Meaningless
+          while is_in_feed.
+      - name: alert_start_at
+        description: When the alert took effect (UTC). Posted start, else when MBTA created the alert.
+        data_tests: [not_null]
+      - name: alert_end_at
+        description: >
+          Whichever came first: the posted end, or leaving the feed. NULL while
+          still in the feed with no posted end.
+
+  - name: alert_incidents
+    description: >
+      One row per service-affecting alert × route, with the incident it belongs
+      to and human-readable enums — what gold reads (see model header). Built
+      on alerts_resolved.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [alert_id, route_id]
+    columns:
+      - name: alert_id
+        description: "{{ doc('alert_id') }}"
+        data_tests: [not_null]
+      - name: route_id
+        description: "{{ doc('route_id') }}"
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('mbta_routes')
+                field: route_id
+      - name: incident_id
+        description: "{{ doc('incident_id') }}"
+        data_tests: [not_null]
+      - name: alert_header
+        description: Short alert text.
+      - name: alert_description
+        description: Long alert text.
+      - name: alert_cause
+        description: Cause, title-cased from the MBTA enum (e.g. "Signal Problem").
+      - name: alert_effect
+        description: Effect, title-cased from the MBTA enum (e.g. "Delay", "Shuttle").
+      - name: alert_severity
+        description: MBTA severity, 0 (least) to 10 (most).
+        data_tests:
+          - accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 10
+      - name: alert_duration_certainty
+        description: Whether MBTA considers the end time Known, Estimated, or Unknown.
+      - name: alert_start_at
+        description: When the alert took effect (UTC). Posted start, else when MBTA created the alert.
+        data_tests: [not_null]
+      - name: alert_end_at
+        description: >
+          When the alert ended (UTC): whichever came first — the end time the
+          MBTA posted, or when the alert left the feed (midway between the last
+          run that saw it and the next run, at most 30 minutes after last seen).
+          NULL while still in the feed with no posted end.
+      - name: alert_start_date
+        description: Eastern date of alert_start_at.
+      - name: alert_end_date
+        description: Eastern date of alert_end_at; NULL while ongoing.
+      - name: alert_duration_minutes
+        description: Minutes from start to end, or to now for ongoing alerts.
+        data_tests:
+          # The API occasionally publishes an end before the start
+          - accepted_range:
+              arguments:
+                min_value: 0
+              config:
+                severity: warn
+      - name: alert_location_key
+        description: >
+          Station/area named in the header after at/near/between/from,
+          lower-cased with punctuation removed (e.g. "jfkumass"); NULL if none.
+          Used to group alerts into incidents.
+      - name: alert_created_at
+        description: When MBTA created the alert (UTC).
+      - name: alert_updated_at
+        description: When MBTA last updated the alert (UTC).
+      - name: is_in_feed
+        description: True when the alert was in the latest ingest run, i.e. still listed by the API.
+      - name: first_seen_at
+        description: First ingest run that included this alert (UTC).
+      - name: last_seen_at
+        description: Last ingest run that included this alert (UTC). Equals ingested_at.
+      - name: ingested_at
+        description: "{{ doc('ingested_at') }}"
+      - name: ingested_by
+        description: "{{ doc('ingested_by') }}"
+
+
+  - name: alert_stations
+    description: >
+      One row per alert × rail route × station the alert names. A bridge table
+      beside alert_incidents (which stays alert × route): platforms roll up to
+      their station. Alerts naming no stops (most delays) have no rows.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [alert_id, route_id, station_id]
+    columns:
+      - name: alert_id
+        description: "{{ doc('alert_id') }}"
+        data_tests: [not_null]
+      - name: route_id
+        description: "{{ doc('route_id') }}"
+        data_tests: [not_null]
+      - name: station_id
+        description: "{{ doc('station_id') }}"
+        data_tests:
+          - not_null
+          # A stop the stops reference doesn't know keeps its own ID; flag it,
+          # since the next weekly stops run usually fills it in
+          - relationships:
+              arguments:
+                to: ref('mbta_stops')
+                field: station_id
+              config:
+                severity: warn
+      - name: affects_both_directions
+        description: True when the alert affects the station in both directions (or names no direction).
+        data_tests: [not_null]
+      - name: direction_id
+        description: >
+          The one direction affected (0 or 1, indexing the route's
+          route_destinations); NULL when both are.
+

@@ -1,16 +1,16 @@
 {#
-  silver.alert_stations — one row per alert × route × station
+  silver.mbta_alerts__stations — one row per alert × route × station
 
   Which stations each alert affects, from the stop list (informed_entity) in
   its latest raw JSON. A bridge table: alerts stay one row per alert × route
-  (silver.alert_incidents), and this adds the stations alongside them rather
+  (silver.mbta_alerts__incidents), and this adds the stations alongside them rather
   than changing that grain.
 
   The MBTA lists stops mostly by platform (often one per direction); those
   roll up to their station here, with whether the alert affects one direction
   or both. Alerts that name no stops (most delays are line-wide) have no rows.
   Covers every effect, like silver.mbta_alerts_raw; gold joins it to
-  silver.alert_incidents, which keeps only service-affecting alerts.
+  silver.mbta_alerts__incidents, which keeps only service-affecting alerts.
 
   Raw capture started 2026-10-24, so earlier alerts have no rows here either;
   gold tells the two apart (see gold.rail_incidents.stations_affected).

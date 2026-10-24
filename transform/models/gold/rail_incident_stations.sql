@@ -4,7 +4,7 @@
   The stations each incident affects, with coordinates and the incident's
   details, for the dashboard's map: what's affected right now, and which
   stations get hit most. Built from the stops each alert names
-  (silver.alert_stations), so it covers incidents since raw alert capture
+  (silver.mbta_alerts__stations), so it covers incidents since raw alert capture
   began on 2026-10-24, and only alerts that name stations — most delays are
   line-wide and have no rows.
 
@@ -19,7 +19,7 @@
 
 WITH
 
-    -- 1. Stations per service-affecting alert (silver.alert_incidents drops the rest)
+    -- 1. Stations per service-affecting alert (silver.mbta_alerts__incidents drops the rest)
     alert_stations AS (
         SELECT
             a.incident_id,
@@ -27,8 +27,8 @@ WITH
             s.station_id,
             s.affects_both_directions,
             s.direction_id
-        FROM {{ ref('alert_incidents') }} AS a
-        INNER JOIN {{ ref('alert_stations') }} AS s
+        FROM {{ ref('mbta_alerts__incidents') }} AS a
+        INNER JOIN {{ ref('mbta_alerts__stations') }} AS s
             ON
                 a.alert_id = s.alert_id
                 AND a.route_id = s.route_id

@@ -22,7 +22,7 @@ available days (snowstorms are too rare for a single winter).
 
 Counting unit is the incident (gold.rail_incidents): one real-world event the
 MBTA may have posted as several alerts. An alert ends at its posted end time or
-when it leaves the MBTA feed, whichever comes first (silver.alerts_resolved).
+when it leaves the MBTA feed, whichever comes first (silver.mbta_alerts__resolved).
 
 Weather comparisons use "% vs typical": a day's gated entries relative to the
 median for the same line, weekday, and month. That removes line size, the
@@ -98,6 +98,12 @@ LABEL_GAP = "\u2003"
 
 # Charts are read-only: no toolbar, zoom, or pan (they fight page scrolling on mobile)
 CHART_CONFIG = {"displayModeBar": False, "scrollZoom": False, "doubleClick": False}
+
+# The station map zooms with +/−/reset buttons and pans by dragging; the scroll
+# wheel still scrolls the page, so the map never traps it
+MAP_CONFIG = {"displayModeBar": True, "displaylogo": False,
+              "modeBarButtons": [["zoomInMap", "zoomOutMap", "resetViewMap"]],
+              "scrollZoom": False, "doubleClick": False}
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Page setup and global styles
@@ -288,8 +294,8 @@ def count_axis(fig, top, axis="y"):
                                        range=[0, ticks[-1] * 1.04])
 
 
-def show(fig):
-    st.plotly_chart(fig, config=CHART_CONFIG, width="stretch")
+def show(fig, config=CHART_CONFIG):
+    st.plotly_chart(fig, config=config, width="stretch")
 
 
 def ranked_bars(labels, values, text, hover, colors=ACCENT, height=None):
@@ -636,6 +642,10 @@ def station_map(backdrop, markers, height=460):
         paper_bgcolor="rgba(0,0,0,0)",
         showlegend=False,
         hoverlabel=dict(bgcolor="#1c2027", bordercolor=BORDER, font=dict(family=FONT, color=INK, size=12)),
+        # Zoom buttons stacked in the corner, in the page's muted ink
+        modebar=dict(orientation="v", bgcolor="rgba(19,22,27,0.85)", color=INK_2, activecolor=INK),
+        # Keep the reader's zoom when the line filter or view toggle reruns the page
+        uirevision="station_map",
         # Downtown Boston, zoomed to fit Alewife through Braintree and Riverside
         map=dict(style="carto-darkmatter", center=dict(lat=42.335, lon=-71.09), zoom=10.3),
     )
@@ -661,7 +671,7 @@ with map_col:
              f"{n_incidents} incident{'s' if n_incidents != 1 else ''} · hover a station for details")
             if n_stations else ("No planned work naming stations" if planned else "No stations affected right now"),
         )
-        show(station_map(stations, markers))
+        show(station_map(stations, markers), config=MAP_CONFIG)
 
 with rank_col:
     with st.container(key="card_station_rank"):

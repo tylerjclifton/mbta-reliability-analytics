@@ -10,7 +10,7 @@
 #   gold    dbt tables the dashboard reads, rebuilt every transform run.
 #
 # Naming: tables are `<source>_<entity>`, and silver's cleaned copy of each
-# keeps the same name (silver's logic steps are named for what they produce);
+# keeps the same name (silver's logic steps are <name>__<step>);
 # the dataset says which layer. A `_raw` suffix marks a table holding
 # the source's records whole, as JSON, rather than chosen columns. Columns
 # ending `_at` are TIMESTAMPs, `_date` are DATEs. Every bronze table ends with

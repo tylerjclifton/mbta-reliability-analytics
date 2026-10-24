@@ -21,7 +21,7 @@ vars:
   local_timezone: 'America/New_York'
 
   # Alert effects that don't affect train service (amenities, facilities,
-  # informational notices). Bronze keeps them; silver.alerts_resolved drops them.
+  # informational notices). Bronze keeps them; silver.mbta_alerts__resolved drops them.
   non_service_alert_effects:
     - NOTICE
     - STATION_ISSUE
@@ -39,7 +39,7 @@ vars:
 #   bronze — append-only tables written by ingest jobs; declared as sources only
 #   silver — views of two kinds (see models/silver/_silver__models.yml):
 #            cleaned copies, named like their bronze table, and logic steps,
-#            named for what they produce. Two exceptions to views: mbta_alerts
+#            named <cleaned copy>__<what the step produces>. Two exceptions to views: mbta_alerts
 #            and mbta_alerts_raw are incremental tables, so the transform
 #            doesn't re-read every 15-minute alert snapshot each run
 #   gold   — tables the dashboard reads, rebuilt every run

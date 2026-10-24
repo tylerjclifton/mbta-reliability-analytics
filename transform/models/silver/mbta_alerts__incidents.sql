@@ -1,7 +1,7 @@
 {#
-  silver.alert_incidents — one row per service-affecting alert × route, with its incident
+  silver.mbta_alerts__incidents — one row per service-affecting alert × route, with its incident
 
-  Logic step 2 of 2 for alerts (step 1: silver.alerts_resolved). Groups alerts
+  Logic step 2 of 2 for alerts (step 1: silver.mbta_alerts__resolved). Groups alerts
   into incidents and presents them in project conventions; gold reads this.
 
   Incidents: the MBTA often posts several alerts for one event — an update, or a
@@ -33,7 +33,7 @@ WITH
                 r'[^a-z]', ''
             ) AS location_key,
             REGEXP_CONTAINS(LOWER(alert_header), r'\b(earlier|residual)\b') AS is_follow_up_wording
-        FROM {{ ref('alerts_resolved') }}
+        FROM {{ ref('mbta_alerts__resolved') }}
     ),
 
     -- 2. Within each route × cause × effect × location group (alerts with no

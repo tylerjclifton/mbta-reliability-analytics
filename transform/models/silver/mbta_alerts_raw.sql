@@ -4,7 +4,7 @@
   The latest full JSON of every alert in bronze.mbta_alerts_raw, plus when it
   was first and last seen. A cleaned copy of the source: models that need what
   bronze.mbta_alerts drops (the stops an alert affects, see
-  silver.alert_stations) read this table.
+  silver.mbta_alerts__stations) read this table.
 
   Incremental for the same reason as silver.mbta_alerts: the raw table
   gains a full snapshot every 15 minutes (~2.6 GB/year), and a view would

@@ -29,7 +29,7 @@ execute =
 
 [sqlfluff:rules:convention.quoted_literals]
 # Single quotes for string literals; double quotes only where the string itself
-# contains a single quote (e.g. the location regex in silver/alert_incidents.sql)
+# contains a single quote (e.g. the location regex in silver/mbta_alerts__incidents.sql)
 preferred_quoted_literal_style = single_quotes
 
 [sqlfluff:rules:capitalisation.keywords]

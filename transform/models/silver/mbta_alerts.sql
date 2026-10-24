@@ -3,7 +3,7 @@
 
   The latest snapshot of every alert ever seen in bronze.mbta_alerts, renamed
   to project conventions, plus when it was first and last seen. A cleaned copy
-  of the source: no business rules (those start in silver.alerts_resolved).
+  of the source: no business rules (those start in silver.mbta_alerts__resolved).
   Enum values stay as the API sends them (e.g. SIGNAL_PROBLEM).
 
   Why a table, not a view like the other cleaned copies: bronze.mbta_alerts

@@ -7,9 +7,10 @@ version: 2
 #                    mbta_stops, …): the latest version of each record,
 #                    renamed and typed, no business rules. Views, except the
 #                    two incremental alert tables (see their headers).
-#   Logic steps      named for what they produce (alerts_resolved,
-#                    alert_incidents, alert_stations): one business rule each,
-#                    built from cleaned copies or earlier steps. Views.
+#   Logic steps      <cleaned copy>__<what the step produces>, e.g.
+#                    mbta_alerts__incidents: one business rule each, built
+#                    from that cleaned copy (plus others as needed). Views.
+#                    The shared prefix sorts each source's steps together.
 #
 # Tests run in `dbt build` before gold is rebuilt; an error-severity failure
 # skips everything downstream, so bad data never reaches the dashboard.
@@ -244,7 +245,7 @@ models:
 
   # ── Logic steps ─────────────────────────────────────────────────────────────
 
-  - name: alerts_resolved
+  - name: mbta_alerts__resolved
     description: >
       One row per service-affecting alert × route, with when it really started
       and ended and whether it's still in the feed (see model header). Effects
@@ -270,11 +271,11 @@ models:
           Whichever came first: the posted end, or leaving the feed. NULL while
           still in the feed with no posted end.
 
-  - name: alert_incidents
+  - name: mbta_alerts__incidents
     description: >
       One row per service-affecting alert × route, with the incident it belongs
       to and human-readable enums — what gold reads (see model header). Built
-      on alerts_resolved.
+      on mbta_alerts__resolved.
     data_tests:
       - unique_combination:
           arguments:
@@ -354,10 +355,10 @@ models:
         description: "{{ doc('ingested_by') }}"
 
 
-  - name: alert_stations
+  - name: mbta_alerts__stations
     description: >
       One row per alert × rail route × station the alert names. A bridge table
-      beside alert_incidents (which stays alert × route): platforms roll up to
+      beside mbta_alerts__incidents (which stays alert × route): platforms roll up to
       their station. Alerts naming no stops (most delays) have no rows.
     data_tests:
       - unique_combination:

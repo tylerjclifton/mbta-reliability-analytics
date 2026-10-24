@@ -849,13 +849,13 @@ year_ago_label = (latest_month - 12).strftime("%b %Y")
 latest_month_name = latest_month.strftime("%B")  # Periods don't take f-string date formats
 
 # Ridership's window ends at the latest published day, not today (the MBTA
-# publishes one to two months behind)
+# publishes in irregular batches, weeks to months behind)
 ridership_year_start = ridership_through - pd.DateOffset(months=12) + pd.Timedelta(days=1)
 
 section(
     "Ridership",
     f"Trailing 12 months, through {ridership_through:%b %Y} — the latest the MBTA has published (it runs "
-    "one to two months behind). All figures are average entries per day, weekends included; the tiles "
+    "weeks to months behind, in batches). All figures are average entries per day, weekends included; the tiles "
     f"compare {latest_month_name} with a year earlier.",
 )
 
@@ -1090,7 +1090,7 @@ st.markdown("""
   <b>Sources</b> · MBTA V3 API (alerts, routes, stops) · MBTA Gated Station Entries (ArcGIS Open Data) ·
   NOAA GHCN-Daily, Boston Logan (USW00014739)<br>
   <b>Refresh</b> · Page data hourly, from alerts checked every 15 minutes · Weather daily
-  (NOAA posts ~3 days behind) · Ridership weekly (MBTA posts ~1–2 months behind)<br>
+  (NOAA posts ~3 days behind) · Ridership weekly (MBTA posts in batches, weeks to months behind)<br>
   <b>Method</b> · An incident groups the alerts the MBTA posts for one event (same route, cause,
   effect, and station, posted in close succession). Notices and facility issues (elevators,
   parking) are excluded. An alert ends at the end time the MBTA posted or when it leaves the MBTA's

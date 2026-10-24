@@ -2,7 +2,9 @@
 Ingest: MBTA rail ridership (gated station entries)
 
 Source:     MBTA Gated Station Entries, ArcGIS open data feature service
-Cadence:    Weekly — the MBTA publishes new months with a ~1–2 month lag
+Cadence:    Weekly — the MBTA publishes in irregular batches, often several
+            months at once, weeks to months after the fact (e.g. July–
+            September 2026 all appeared on 2026-10-20)
 Each run:   Pulls the full published history (2024-10 onward), not a recent
             window, so any numbers the MBTA revises after the fact are captured
 Writes to:  bronze.mbta_ridership (append) — one row per service date × line per run

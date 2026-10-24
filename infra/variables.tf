@@ -57,7 +57,7 @@ variable "weather_ingestion_schedule" {
 }
 
 variable "ridership_ingestion_schedule" {
-  description = "Cron for MBTA ridership ingestion. Weekly (Mondays 6AM ET) so newly published months are picked up within a week."
+  description = "Cron for MBTA ridership ingestion. Weekly (Mondays 6AM ET): the MBTA publishes in irregular batches weeks to months late, so new data is picked up within a week of whenever it lands."
   type        = string
   default     = "0 6 * * 1"
 }

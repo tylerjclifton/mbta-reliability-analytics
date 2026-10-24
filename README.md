@@ -6,6 +6,8 @@ A full-stack data engineering project tracking MBTA rail reliability, ridership,
 
 **Live dashboard:** [tylerclifton.com](https://tylerclifton.com)
 
+**Docs:** [setup on a new machine](docs/setup.md) · [runbook](docs/runbook.md) · [decision records](docs/decisions/README.md) · [roadmap](docs/roadmap.md)
+
 ---
 
 ## What It Does
@@ -214,6 +216,8 @@ serve/                  Streamlit dashboard (app.py; pure helpers in helpers.py,
 scripts/build-image.sh  Build + push a component's image (used by CI/CD)
 .github/workflows/      CI/CD: lint, tests, dbt parse, terraform validate; deploy on main
 pyproject.toml          pytest + ruff config
+CLAUDE.md               Rules and pointers for AI coding sessions
+docs/                   Setup, runbook, decision records, roadmap
 ```
 
 ---

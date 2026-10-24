@@ -9,7 +9,7 @@ version: 2
 #                    business rules. Views, except the two incremental alert
 #                    tables (see their headers).
 #   __<step>         one business rule, named for what it produces
-#                    (mbta_alerts__resolved, mbta_alerts__incidents), built
+#                    (mbta_alerts__resolved, mbta_alerts__grouped), built
 #                    from __base models or earlier steps. Views.
 #
 # Tests run in `dbt build` before gold is rebuilt; an error-severity failure
@@ -271,7 +271,7 @@ models:
           Whichever came first: the posted end, or leaving the feed. NULL while
           still in the feed with no posted end.
 
-  - name: mbta_alerts__incidents
+  - name: mbta_alerts__grouped
     description: >
       One row per service-affecting alert × route, with the incident it belongs
       to and human-readable enums — what gold reads (see model header). Built
@@ -358,7 +358,7 @@ models:
   - name: mbta_alerts__stations
     description: >
       One row per alert × rail route × station the alert names. A bridge table
-      beside mbta_alerts__incidents (which stays alert × route): platforms roll up to
+      beside mbta_alerts__grouped (which stays alert × route): platforms roll up to
       their station. Alerts naming no stops (most delays) have no rows.
     data_tests:
       - unique_combination:

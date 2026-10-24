@@ -1,5 +1,5 @@
 {#
-  silver.mbta_alerts__incidents — one row per service-affecting alert × route, with its incident
+  silver.mbta_alerts__grouped — one row per service-affecting alert × route, with its incident
 
   Logic step 2 of 2 for alerts (step 1: silver.mbta_alerts__resolved). Groups alerts
   into incidents and presents them in project conventions; gold reads this.

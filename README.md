@@ -62,7 +62,7 @@ Each layer is its own BigQuery dataset.
 | Silver step (beyond `__base`) | Grain | What it produces |
 |---|---|---|
 | `mbta_alerts__resolved` | alert × route | Service-affecting alerts with their real start and end, and whether they're still in the feed |
-| `mbta_alerts__incidents` | alert × route | The incident each alert belongs to, with readable labels and durations (gold reads this) |
+| `mbta_alerts__grouped` | alert × route | Alerts grouped into incidents: each alert tagged with its incident, with readable labels and durations (gold reads this; `gold.rail_incidents` has one row per incident) |
 | `mbta_alerts__stations` | alert × route × station | Which stations each alert affects, and in which direction |
 
 | Gold table | Grain | Contents |
@@ -80,7 +80,7 @@ Each layer is its own BigQuery dataset.
 
 **Alert end times.** An alert ends at whichever comes first: the end time the MBTA posted (an estimate, usually rounded to the hour) or when it left the feed (midway between the last 15-minute run that saw it and the next). Since July 2026, 82% of alerts left the feed before their posted end.
 
-**Alerts → incidents.** The MBTA often posts several alerts for one event (an update, or "delays due to an earlier disabled train at JFK/UMass"). `silver.mbta_alerts__incidents` groups them: same route, cause, effect, and station named in the header, starting within 2 hours of the previous alert's end (6 hours for "earlier"/"residual" follow-ups). Alerts that don't affect train service (notices, elevator/parking issues — `non_service_alert_effects` in `dbt_project.yml`) are excluded in silver; bronze keeps them.
+**Alerts → incidents.** The MBTA often posts several alerts for one event (an update, or "delays due to an earlier disabled train at JFK/UMass"). `silver.mbta_alerts__grouped` groups them: same route, cause, effect, and station named in the header, starting within 2 hours of the previous alert's end (6 hours for "earlier"/"residual" follow-ups). Alerts that don't affect train service (notices, elevator/parking issues — `non_service_alert_effects` in `dbt_project.yml`) are excluded in silver; bronze keeps them.
 
 ### Data quality
 
@@ -112,7 +112,7 @@ The dashboard shows visitors the same thing: the dot beside "Alerts updated" is 
 |---|---|---|
 | Datasets | Medallion layer | `bronze`, `silver`, `gold` |
 | Bronze tables | `<source>_<entity>` | `mbta_alerts` |
-| Silver models | `<bronze table>__<step>`; `__base` is the cleaned copy | `mbta_alerts__base`, `mbta_alerts__incidents` |
+| Silver models | `<bronze table>__<step>`; `__base` is the cleaned copy | `mbta_alerts__base`, `mbta_alerts__grouped` |
 | Gold tables | `<domain>_<entity>` | `rail_ridership` |
 | Ingest jobs | `ingest/<source>-<entity>/main.py` → `bronze.<source>_<entity>` | `ingest/noaa-weather` → `bronze.noaa_weather` |
 | Bronze columns | Source system's names, plus audit columns | `route_or_line`, `tmax` |
@@ -137,7 +137,9 @@ Each workload runs as its own service account with access granted per dataset (`
 
 The three data workloads also hold `bigquery.jobUser` (permission to run queries), which grants no data access on its own. The MBTA API key lives in Secret Manager (`infra/secrets.tf`; Terraform owns the secret, the value is added by hand). Only the APIs the pipeline uses are enabled (`infra/apis.tf`), and Artifact Registry keeps the 5 newest versions of each image.
 
-### Cost
+---
+
+## Cost
 
 The pipeline runs within GCP's free tiers. Query volume is dominated by BigQuery's 10 MB-per-query billing minimum (about 13 GiB/day, or 0.4 TiB/month of the free 1 TiB, measured 2026-10), not by data size, so it stays flat as history grows. A **$5/month budget** on the billing account emails at 50%, 90%, and 100% of actual spend and when spend is forecast to pass $5 (created with `gcloud billing budgets`, outside Terraform, since the CI deployer has no billing access). The budget only alerts; it never stops anything.
 

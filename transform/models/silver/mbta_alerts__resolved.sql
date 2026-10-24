@@ -1,7 +1,7 @@
 {#
   silver.mbta_alerts__resolved — one row per service-affecting alert × route
 
-  Logic step 1 of 2 for alerts (step 2: silver.mbta_alerts__incidents). Keeps the
+  Logic step 1 of 2 for alerts (step 2: silver.mbta_alerts__grouped). Keeps the
   alerts that affect train service, and works out when each one really started
   and ended, and whether it's still in the live feed.
 

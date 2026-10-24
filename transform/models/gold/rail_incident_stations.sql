@@ -19,7 +19,7 @@
 
 WITH
 
-    -- 1. Stations per service-affecting alert (silver.mbta_alerts__incidents drops the rest)
+    -- 1. Stations per service-affecting alert (silver.mbta_alerts__grouped drops the rest)
     alert_stations AS (
         SELECT
             a.incident_id,
@@ -27,7 +27,7 @@ WITH
             s.station_id,
             s.affects_both_directions,
             s.direction_id
-        FROM {{ ref('mbta_alerts__incidents') }} AS a
+        FROM {{ ref('mbta_alerts__grouped') }} AS a
         INNER JOIN {{ ref('mbta_alerts__stations') }} AS s
             ON
                 a.alert_id = s.alert_id

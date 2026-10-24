@@ -52,8 +52,8 @@ Each layer is its own BigQuery dataset.
 
 | Bronze table (silver: `<name>__base`) | Grain (silver) | How bronze grows |
 |---|---|---|
-| `mbta_alerts` | alert × route | 15-minute snapshot of the live feed — the only record of alerts once they end |
-| `mbta_alerts_raw` | alert | The same 15-minute snapshots, each alert's full JSON (below) |
+| `mbta_alerts_raw` | alert × route (split in silver) | The live alerts table: a 15-minute snapshot of the feed, each alert's full JSON — the only record of alerts once they end |
+| `mbta_alerts` | (history only) | Frozen: the same snapshots as the old ingest shaped them, 2026-06-07 to 2026-10-24; silver reads it for history before raw capture (below) |
 | `mbta_stops` | stop × route | Weekly snapshot of every rail station and its platforms, entrances, and nodes; silver maps each to its station |
 | `mbta_routes` | route | Yearly snapshot |
 | `mbta_ridership` | service date × line | Full history re-pulled weekly; silver keeps the latest value, so MBTA revisions win |
@@ -72,9 +72,9 @@ Each layer is its own BigQuery dataset.
 | `rail_stations` | station × line | Every rail station's coordinates, the map's backdrop |
 | `rail_ridership` | service date × line | Gated entries, active incident count, the day's most severe alert effect, whether it was a calm day, and weather |
 
-**`silver.mbta_alerts__base` and `silver.mbta_alerts_raw__base` are tables, not views.** Everything else in silver is a view, recomputed every run ([0010](docs/decisions/0010-silver-naming-and-materialization.md)). Alert snapshots add ~1 GB/year to `bronze.mbta_alerts` and ~2.6 GB/year to `bronze.mbta_alerts_raw`, and a view would re-read all of it for every model and test that uses alerts (~9× per transform), outgrowing the free query tier within a year. The incremental tables read only snapshots added since the last run, so cost stays flat; `dbt build --full-refresh` rebuilds them from bronze.
+**`silver.mbta_alerts__base` and `silver.mbta_alerts_raw__base` are tables, not views.** Everything else in silver is a view, recomputed every run ([0010](docs/decisions/0010-silver-naming-and-materialization.md)). Raw alert snapshots add ~2.6 GB/year to bronze, and a view would re-read all of it for every model and test that uses alerts (~9× per transform), outgrowing the free query tier within a year. The incremental tables read only snapshots added since the last run, so cost stays flat; `dbt build --full-refresh` rebuilds them from bronze.
 
-**Raw alerts.** `bronze.mbta_alerts` keeps only the fields chosen when it was built, and drops the rest: the stops each alert affects, every active period after the first, and attributes like `lifecycle`. Since 2026-10-24 the alerts job also writes each alert's full JSON to `bronze.mbta_alerts_raw` (~2.6 GB/year). Alerts that ended before then have no raw record, since the API never returns them again. Once the raw table has enough history, silver will read it directly and `bronze.mbta_alerts` will be frozen and renamed `mbta_alerts_legacy`.
+**Raw alerts.** Until 2026-10-24 the alerts job wrote only chosen fields to `bronze.mbta_alerts`, dropping the rest: the stops each alert affects, every active period after the first, and attributes like `lifecycle`. It now writes each alert's full JSON to `bronze.mbta_alerts_raw` instead (~2.6 GB/year), and `silver.mbta_alerts__base` splits it into one row per route. The old table is kept, frozen, as history: silver reads it for snapshots before raw capture began (`alerts_raw_capture_start` in `dbt_project.yml`) and raw from then on. Both were written in parallel for a day and matched row for row. Alerts that ended before raw capture have no stop data, since the API never returns them again ([0002](docs/decisions/0002-raw-alert-capture.md)).
 
 **Alerts → stations.** Alerts name the stops they affect, mostly by platform and direction. `silver.mbta_alerts__stations` unpacks that list from the raw JSON and rolls platforms up to their station using `silver.mbta_stops__base`, one row per alert × route × station. It sits beside the alert × route models instead of changing their grain. Shuttles, suspensions, and station closures name their stations; most delays are line-wide and name none. `gold.rail_incidents.stations_affected` is NULL for incidents from before raw capture began (unknown) and 0 for ones that named no stations.
 

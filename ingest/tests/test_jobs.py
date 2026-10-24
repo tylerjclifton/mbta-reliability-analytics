@@ -33,39 +33,8 @@ def alert(alert_id, routes, effect="DELAY", start="2026-10-21T08:00:00-04:00", e
     }
 
 
-def test_alerts_one_row_per_rail_route(run_job):
-    df = run_job("mbta-alerts", [{"data": [
-        # Green Line alert listed per branch, with a duplicate entity and a bus route
-        alert("1", ["Green-C", "Green-B", "Green-B", "39"]),
-        alert("2", ["Red"]),
-    ]}])
-
-    assert sorted(zip(df["alert_id"], df["route"], strict=True)) == [("1", "Green-B"), ("1", "Green-C"), ("2", "Red")]
-
-
-def test_alerts_keep_every_effect_for_bronze(run_job):
-    """Non-service effects (notices, elevators) are filtered in silver, not here."""
-    df = run_job("mbta-alerts", [{"data": [alert("1", ["Red"], effect="ELEVATOR_CLOSURE")]}])
-
-    assert df["effect"].tolist() == ["ELEVATOR_CLOSURE"]
-
-
-def test_alerts_parse_timestamps_and_missing_end(run_job):
-    df = run_job("mbta-alerts", [{"data": [alert("1", ["Red"], end=None)]}])
-
-    start = df["active_period_start"].iloc[0]
-    assert start == datetime.datetime(2026, 10, 21, 12, 0, tzinfo=datetime.timezone.utc)
-    assert df["active_period_end"].iloc[0] is None
-
-
-def test_alerts_empty_feed_writes_nothing(run_job):
-    df = run_job("mbta-alerts", [{"data": []}])
-
-    assert df.empty
-
-
-def test_alerts_raw_keeps_each_alert_whole(run_job):
-    """The raw table gets one row per alert — not per route — with nothing dropped."""
+def test_alerts_one_row_per_alert_kept_whole(run_job):
+    """One row per alert — not per route — with nothing dropped (silver splits routes)."""
     green = alert("1", ["Green-B", "Green-C"])
     green["attributes"]["informed_entity"][0]["stop"] = "70145"
     green["attributes"]["active_period"].append({"start": "2026-10-28T08:00:00-04:00", "end": None})
@@ -74,6 +43,20 @@ def test_alerts_raw_keeps_each_alert_whole(run_job):
 
     assert raw["alert_id"].tolist() == ["1", "2"]
     assert json.loads(raw["alert_json"].iloc[0]) == green  # stops and every active period survive
+
+
+def test_alerts_keep_every_effect_for_bronze(run_job):
+    """Non-service effects (notices, elevators) are filtered in silver, not here."""
+    raw = run_job("mbta-alerts", [{"data": [alert("1", ["Red"], effect="ELEVATOR_CLOSURE")]}],
+                  table_id="mbta_alerts_raw")
+
+    assert json.loads(raw["alert_json"].iloc[0])["attributes"]["effect"] == "ELEVATOR_CLOSURE"
+
+
+def test_alerts_empty_feed_writes_nothing(run_job):
+    raw = run_job("mbta-alerts", [{"data": []}], table_id="mbta_alerts_raw")
+
+    assert raw.empty
 
 
 # ── mbta-stops ────────────────────────────────────────────────────────────────

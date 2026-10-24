@@ -26,16 +26,21 @@
 WITH
 
     -- 1. Ingest runs, to the minute (rows from one run share a timestamp; rows
-    --    from the pre-2026-10 pipeline differ by microseconds within a run).
-    --    Reads only the ingested_at column of bronze, so it stays cheap.
+    --    from the pre-2026-10 pipeline differ by microseconds within a run),
+    --    from both alert tables: the frozen shaped one and raw. Runs where both
+    --    were written collapse into one. Reads only the ingested_at columns,
+    --    so it stays cheap.
     runs AS (
         SELECT
             run_at,
             LEAD(run_at) OVER (ORDER BY run_at) AS next_run_at,
             MAX(run_at) OVER ()                 AS latest_run_at
         FROM (
-            SELECT DISTINCT TIMESTAMP_TRUNC(ingested_at, MINUTE) AS run_at
+            SELECT TIMESTAMP_TRUNC(ingested_at, MINUTE) AS run_at
             FROM {{ source('bronze', 'mbta_alerts') }}
+            UNION DISTINCT
+            SELECT TIMESTAMP_TRUNC(ingested_at, MINUTE) AS run_at
+            FROM {{ source('bronze', 'mbta_alerts_raw') }}
         )
     ),
 

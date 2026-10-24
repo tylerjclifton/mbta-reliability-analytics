@@ -22,22 +22,20 @@ sources:
     tables:
       - name: mbta_alerts
         description: >
-          15-minute snapshots of the MBTA alerts API (rail routes only).
-          Grain: alert × route × ingest run. Column names follow the API.
-        config:
-          freshness:
-            # Every 15 minutes; a run with no rail alerts writes nothing, so allow slack
-            warn_after: {count: 1, period: hour}
-            error_after: {count: 3, period: hour}
+          Frozen: 15-minute snapshots of the MBTA alerts API (rail routes only)
+          as the ingest used to shape them, June 2026 until the raw cutover.
+          No longer written (decision 0002); silver reads it only for history
+          before var alerts_raw_capture_start. Grain: alert × route × ingest run.
+        # No freshness check: nothing writes it anymore
 
       - name: mbta_alerts_raw
         description: >
-          The same 15-minute snapshots as mbta_alerts, each alert's full JSON as
-          the API returned it, including the stops it affects. Started
-          2026-10-24. Grain: alert × ingest run.
+          15-minute snapshots of the MBTA alerts API (rail routes only), each
+          alert's full JSON as the API returned it, including the stops it
+          affects. The live alerts table since 2026-10-24. Grain: alert × ingest run.
         config:
           freshness:
-            # Written by the same run as mbta_alerts
+            # Every 15 minutes; a run with no rail alerts writes nothing, so allow slack
             warn_after: {count: 1, period: hour}
             error_after: {count: 3, period: hour}
 

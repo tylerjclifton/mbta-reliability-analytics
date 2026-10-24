@@ -4,11 +4,8 @@ Planned work, roughly in order, with why. Move an item to a [decision record](de
 
 ## Next
 
-### Raw alert cutover ([0002](decisions/0002-raw-alert-capture.md))
-Once `bronze.mbta_alerts_raw` has a few weeks of history (mid-November 2026 or later):
-1. Reconcile: raw unpacked to alert × route matches `bronze.mbta_alerts` for the same runs.
-2. Silver reads raw going forward and the old table for history, and the ingest stops writing the shaped table.
-3. Rename the old table `bronze.mbta_alerts_legacy` (`ALTER TABLE … RENAME` plus Terraform import/removed blocks). Never delete it.
+### Rename the frozen alerts table ([0002](decisions/0002-raw-alert-capture.md))
+The cutover is done: the ingest writes only `bronze.mbta_alerts_raw`, and nothing writes `bronze.mbta_alerts`. Remaining: rename it `bronze.mbta_alerts_legacy` (`ALTER TABLE … RENAME` plus Terraform import/removed blocks), with its date range in the description. Never delete it.
 
 ## Later
 

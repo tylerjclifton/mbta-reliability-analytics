@@ -20,6 +20,12 @@ vars:
   # MBTA service dates and NOAA observation days are both Eastern time
   local_timezone: 'America/New_York'
 
+  # The first ingest run that wrote bronze.mbta_alerts_raw (UTC). Alert history
+  # before it comes from the frozen shaped table; this run and every one after,
+  # from raw (silver/mbta_alerts__base.sql). Both were written from this run
+  # until the cutover, and matched row for row (decision 0002).
+  alerts_raw_capture_start: '2026-10-24 14:11:39.835891'
+
   # Alert effects that don't affect train service (amenities, facilities,
   # informational notices). Bronze keeps them; silver.mbta_alerts__resolved drops them.
   non_service_alert_effects:

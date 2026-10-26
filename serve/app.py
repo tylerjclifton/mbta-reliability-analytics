@@ -128,6 +128,9 @@ html, body, .stMarkdown, .stMarkdown *, .stCaption *, .st-key-line_filter button
 /* Header */
 .hero h1 {{ font-size: 2.6rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1;
             margin: 0 0 0.6rem; padding: 0; color: {INK}; }}
+/* Signature stripe above the title: one short bar per line, in its official color */
+.hero .lines {{ display: flex; gap: 4px; margin-bottom: 1rem; }}
+.hero .lines span {{ width: 28px; height: 4px; border-radius: 2px; }}
 .hero p  {{ color: {INK_2}; font-size: 1.05rem; margin: 0 0 1rem; max-width: 54rem; }}
 .status  {{ display: inline-flex; flex-wrap: wrap; gap: 0.35rem 1rem; color: {MUTED};
             font-size: 0.8rem; margin-bottom: 1.25rem; }}
@@ -488,6 +491,7 @@ alerts_status = f'Alerts updated {alerts_updated.tz_convert(TIMEZONE).strftime("
 
 st.markdown(f"""
 <div class="hero">
+  <div class="lines">{"".join(f'<span style="background:{c}"></span>' for c in LINE_COLORS.values())}</div>
   <h1>MBTA Reliability &amp; Ridership</h1>
   <p>Service incidents, ridership, and weather across Boston's four subway lines.</p>
   <div class="status">

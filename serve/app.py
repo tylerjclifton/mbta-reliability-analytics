@@ -871,8 +871,11 @@ month_days = ridership.groupby(["line_name", "month"])["service_date"].nunique()
 month_days = month_days[month_days["days"] == month_days["month"].dt.days_in_month]
 full_months = ridership.merge(month_days[["line_name", "month"]], on=["line_name", "month"])
 latest_month = full_months["month"].max()
-year_ago_label = (latest_month - 12).strftime("%b %Y")
 latest_month_name = latest_month.strftime("%B")  # Periods don't take f-string date formats
+# Non-breaking spaces keep "Sep 2026" and "▲ 12.6%" whole when narrow tiles wrap
+NBSP = "\u00a0"
+latest_month_label = latest_month.strftime(f"%b{NBSP}%Y")
+year_ago_label = (latest_month - 12).strftime(f"%b{NBSP}%Y")
 
 # Ridership's window ends at the latest published day, not today (the MBTA
 # publishes in irregular batches, weeks to months behind)
@@ -880,9 +883,9 @@ ridership_year_start = ridership_through - pd.DateOffset(months=12) + pd.Timedel
 
 section(
     "Ridership",
-    f"Trailing 12 months, through {ridership_through:%b %Y} — the latest the MBTA has published (it runs "
-    "weeks to months behind, in batches). All figures are average entries per day, weekends included; the tiles "
-    f"compare {latest_month_name} with a year earlier.",
+    f"Through {ridership_through:%b %Y}, the latest the MBTA has published (it runs weeks to months behind, "
+    f"in batches). The tiles show {latest_month_name}'s average entries per day against a year earlier; the "
+    "charts below cover the trailing 12 months. All figures are average entries per day, weekends included.",
 )
 
 # Every day except federal holidays — for the "% vs typical" and "% vs calm
@@ -898,11 +901,12 @@ for line in selected_lines:
     year_ago = days[days["month"] == latest_month - 12]["gated_entries"].mean()
     if pd.notna(year_ago) and year_ago:
         change = (current / year_ago - 1) * 100
-        sub = (f'<span class="{"delta-up" if change >= 0 else "delta-down"}">{"▲" if change >= 0 else "▼"} '
-               f'{abs(change):.1f}%</span> vs {year_ago_label}')
+        sub = (f'avg{NBSP}per{NBSP}day · <span class="{"delta-up" if change >= 0 else "delta-down"}">'
+               f'{"▲" if change >= 0 else "▼"}{NBSP}{abs(change):.1f}%</span>{NBSP}vs{NBSP}{year_ago_label}')
     else:
-        sub = "no prior-year data"
-    tiles.append(dict(label=line,
+        sub = f"avg{NBSP}per{NBSP}day · no prior-year data"
+    # The month is on the tile itself, so the number never reads as a 12-month figure
+    tiles.append(dict(label=f"{line} · {latest_month_label}",
                       value=fmt_count(current) if pd.notna(current) else "—", sub=sub, color=LINE_COLORS[line]))
 kpi_tiles(tiles)
 st.write("")

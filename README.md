@@ -47,24 +47,31 @@ Each layer is its own BigQuery dataset.
 | Layer | Stored as | Written by | Role |
 |---|---|---|---|
 | `bronze` | Append-only tables (Terraform-managed, deletion-protected) | Ingest jobs | Raw history. Each run appends a new version of every record it saw; rows are never updated or deleted, so nothing depends on a source keeping its own history |
-| `silver` | Views (two incremental tables, below) | dbt | Every model is `<bronze table>__<step>`: `__base` is each source's **cleaned copy** (latest version, renamed and typed, unit conversion, QC filtering); other steps apply **one business rule** each (alert start/end, incident grouping, stations) |
+| `silver` | Views (two incremental tables, below) | dbt | Every model is `<bronze table>__<step>`: `__base` is each source's **cleaned copy** (latest version, renamed and typed, unit conversion, QC filtering); other steps each do **one job** (split alerts by route or station, resolve start/end, group into incidents) |
 | `gold` | Tables, rebuilt hourly | dbt | Cross-source joins served to the dashboard |
 
-| Bronze table (silver: `<name>__base`) | Grain (silver) | How bronze grows |
+| Bronze table | Grain | How it grows |
 |---|---|---|
-| `mbta_alerts` | alert (`__base`); alert × route (`__by_route`) | The live alerts table: a 15-minute snapshot of the feed, each alert's full JSON — the only record of alerts once they end |
-| `mbta_alerts_legacy` | (history only) | Frozen: the same snapshots as the old ingest shaped them, 2026-06-07 to 2026-10-24; silver reads it for history before raw capture (below). Never written, never deleted |
-| `mbta_stops` | stop × route | Weekly snapshot of every rail station and its platforms, entrances, and nodes; silver maps each to its station |
-| `mbta_routes` | route | Yearly snapshot |
-| `mbta_ridership` | service date × line | Full history re-pulled weekly; silver keeps the latest value, so MBTA revisions win |
-| `noaa_weather` | observation date | Last 10 days re-pulled daily; silver keeps the latest value |
+| `mbta_alerts` | alert × ingest run | The live alerts table: a 15-minute snapshot of the feed, each alert's full JSON — the only record of alerts once they end |
+| `mbta_alerts_legacy` | alert × route × ingest run | Frozen: the same snapshots as the old ingest shaped them, 2026-06-07 to 2026-10-24 (below). Never written, never deleted |
+| `mbta_stops` | stop × route × ingest run | Weekly snapshot of every rail station and its platforms, entrances, and nodes |
+| `mbta_routes` | route × ingest run | Yearly snapshot |
+| `mbta_ridership` | service date × line × ingest run | Full published history re-pulled weekly |
+| `noaa_weather` | observation date × ingest run | Last 10 days re-pulled daily (NOAA revises recent days) |
 
-| Silver step (beyond `__base`) | Grain | What it produces |
+Silver models are named `<bronze table>__<step>`. `__base` is each source's cleaned copy: the latest version of each record, renamed and typed, with no business rules. Other steps each do one job.
+
+| Silver model | Grain | What it is |
 |---|---|---|
-| `mbta_alerts__by_route` | alert × route | Each alert split into one row per rail route, with history before raw capture from `mbta_alerts_legacy` |
+| `mbta_alerts__base` | alert | Each alert's latest full JSON (incremental table) |
+| `mbta_alerts__by_route` | alert × route | Each alert split into one row per rail route, with history from `mbta_alerts_legacy` before full-JSON capture began (incremental table) |
 | `mbta_alerts__resolved` | alert × route | Service-affecting alerts with their real start and end, and whether they're still in the feed |
-| `mbta_alerts__grouped` | alert × route | Alerts grouped into incidents: each alert tagged with its incident, with readable labels and durations (gold reads this; `gold.rail_incidents` has one row per incident) |
+| `mbta_alerts__grouped` | alert × route | Each alert tagged with its incident, with readable labels and durations (gold reads this; `gold.rail_incidents` has one row per incident) |
 | `mbta_alerts__by_station` | alert × route × station | Which stations each alert affects, and in which direction |
+| `mbta_routes__base` | route | Each rail route and the line it belongs to |
+| `mbta_stops__base` | stop × route | Every station and platform, mapped to its station, with coordinates |
+| `mbta_ridership__base` | service date × line | The latest published entries, so MBTA revisions win |
+| `noaa_weather__base` | observation date | Weather in °F and inches, failed quality checks removed, latest value |
 
 | Gold table | Grain | Contents |
 |---|---|---|

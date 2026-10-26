@@ -178,7 +178,7 @@ div[class*="st-key-card_"] {{ background: {CARD}; border: 1px solid {BORDER}; bo
    stations) to a line under the map — still shown, as OpenStreetMap and CARTO
    require */
 .st-key-card_station_map .maplibregl-ctrl-attrib {{ display: none; }}
-.map-credit {{ color: {MUTED}; font-size: 0.72rem; text-align: right; margin-top: -0.4rem; }}
+.map-credit {{ color: {MUTED}; font-size: 0.72rem; text-align: right; margin: -0.75rem 0 0; padding-bottom: 0.4rem; }}
 .map-credit a {{ color: {MUTED}; }}
 
 /* First-load message while the data queries run */
@@ -489,7 +489,7 @@ alerts_status = f'Alerts updated {alerts_updated.tz_convert(TIMEZONE).strftime("
 st.markdown(f"""
 <div class="hero">
   <h1>MBTA Reliability &amp; Ridership</h1>
-  <p>Service incidents, ridership, and weather across Boston's Red, Orange, Blue, and Green Lines.</p>
+  <p>Service incidents, ridership, and weather across Boston's four subway lines.</p>
   <div class="status">
     <span class="dot {alerts_freshness}">{alerts_status}</span>
     <span>Ridership through {ridership_through.strftime("%b %-d, %Y")}</span>

@@ -9,16 +9,18 @@ Deployed:   Cloud Run service `serve` (infra/cloud-run-services.tf), public at
 Layout:
   1. Header + line filter
   2. Service status    — KPIs, incidents happening now, planned work coming up
-  3. Stations affected — map of stations hit right now, most-affected stations
+  3. Stations affected — map of stations hit now or by planned work, most-affected stations
   4. Incident patterns — when, where, why, and how long (since alert tracking began)
-  5. Ridership         — per-line KPIs, monthly trend, ridership by alert effect, day of week
+  5. Ridership         — per-line tiles (latest month), monthly trend, ridership by alert effect, day of week
   6. Weather           — rain, snow, and temperature vs. typical ridership
   7. Footer            — sources, cadence, method notes
 
 Time windows: every section covers the trailing 12 months, stated in its
-subtitle. Two exceptions, also labeled: the monthly ridership trend shows 24
-months (to compare each month with a year earlier) and weather uses all
-available days (snowstorms are too rare for a single winter).
+subtitle. Three exceptions, also labeled: the ridership tiles show the latest
+published month (each tile names it) against the same month a year earlier,
+the monthly ridership trend shows 24 months (to compare each month with a year
+earlier), and weather uses all available days (snowstorms are too rare for a
+single winter).
 
 Counting unit is the incident (gold.rail_incidents): one real-world event the
 MBTA may have posted as several alerts. An alert ends at its posted end time or

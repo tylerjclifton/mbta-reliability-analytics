@@ -173,15 +173,15 @@ Dark theme; official MBTA line colors for every line-level visual, a neutral vio
 
 **Service status** — KPIs (active now, planned in 30 days, last 30 days vs prior, median duration); incidents happening now and planned work coming up, one card per incident
 
-**Stations affected** — a map of the stations hit right now or by planned work in the next 30 days (ringed and labeled, with each incident on hover), and the most-affected stations since station tracking began
+**Stations affected** — a map of the whole network showing the stations hit right now or by planned work in the next 30 days (ringed and labeled, with each incident on hover; + / − / reset buttons to zoom, drag to pan, while the scroll wheel still scrolls the page; the OpenStreetMap/CARTO credit sits under the map), and the most-affected stations since station tracking began
 
 **Incident patterns** — incidents per week, by line, by cause and effect, median duration by cause, cause mix by line (heatmap)
 
-**Ridership** — per-line average entries per day with year-over-year change; 24-month trend; ridership by alert effect (delay, suspension, shuttle) vs each line's calm days; day of week
+**Ridership** — per-line tiles: the latest published month's average entries per day vs the same month a year earlier (each tile names its month); 24-month trend; ridership by alert effect (delay, suspension, shuttle) vs each line's calm days; day of week
 
 **Weather** — ridership on rainy, snowy, and unusually cold/warm days vs normal-weather days
 
-Ridership figures are **average entries per day**, weekends included. Time windows: every section covers the trailing 12 months, except the ridership trend (24 months, for year-over-year) and weather (all history — storms are rare).
+Ridership figures are **average entries per day**, weekends included. Time windows: every section covers the trailing 12 months, except the ridership tiles (the latest published month), the ridership trend (24 months, for year-over-year), and weather (all history — storms are rare).
 
 Incident history counts from when alert coverage became continuous (detected as the first incident after the last 14-day gap — the pre-October pipeline missed June 8 – July 1, 2026), so missing data never reads as a quiet day.
 

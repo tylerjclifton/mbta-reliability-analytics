@@ -150,7 +150,7 @@ div[class*="st-key-card_"] {{ background: {CARD}; border: 1px solid {BORDER}; bo
 .card-sub   {{ font-size: 0.82rem; color: {MUTED}; margin: 0.15rem 0 0.5rem; }}
 
 /* KPI tiles */
-.kpis {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 0.75rem; }}
+.kpis {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 1rem; }}
 .kpi  {{ background: {CARD}; border: 1px solid {BORDER}; border-radius: 14px; padding: 1rem 1.1rem;
          position: relative; overflow: hidden; }}
 .kpi .stripe {{ position: absolute; left: 0; top: 0; bottom: 0; width: 4px; }}
@@ -199,9 +199,12 @@ div[class*="st-key-card_"] {{ background: {CARD}; border: 1px solid {BORDER}; bo
            margin-top: 3.5rem; padding-top: 1.25rem; }}
 .footer b {{ color: {INK_2}; font-weight: 600; }}
 
-/* Phones: tighter gutters and type */
+/* Phones: tighter gutters and type. Side-by-side cards stack on a phone, and
+   the column gap (2rem) would become the space between them; within a section
+   every gap is 1rem, so stacked cards match the space between rows. */
 @media (max-width: 640px) {{
   .block-container {{ padding: 1.5rem 1rem 3rem; }}
+  [data-testid="stHorizontalBlock"] {{ row-gap: 1rem !important; }}
   .hero h1 {{ font-size: 1.9rem; }}
   .section {{ margin-top: 2.5rem; }}
   .kpis {{ grid-template-columns: repeat(2, 1fr); }}

@@ -13,5 +13,5 @@ Several sources keep little or no history. The MBTA alerts API drops an alert th
 - Paying a little beyond the free tier to keep history is acceptable.
 
 ## Consequences
-- Bronze grows with every run (alerts: ~1 GB/year shaped plus ~2.6 GB/year raw). That's fine, and storage stays near-free for years.
+- Bronze grows with every run (alerts: ~2.6 GB/year of full JSON in `bronze.mbta_alerts`; the frozen `mbta_alerts_legacy` no longer grows). That's fine, and storage stays near-free for years.
 - Bronze should hold what the source said, not a selection of it. Where an ingest only kept chosen columns, the rest was lost (see [0002](0002-raw-alert-capture.md)).

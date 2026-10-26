@@ -7,13 +7,13 @@
   categorizes incidents so a re-posted event isn't counted twice.
 
   stations_affected counts the stations the incident's alerts name. It needs
-  the alerts' raw JSON, captured since 2026-10-24: NULL means none of the
+  the alerts' full JSON, captured since 2026-10-24: NULL means none of the
   incident's alerts were captured (so unknown), while 0 means they were but
   named no stations, as with most line-wide delays.
 
   Steps:
     1. incident_alerts   — every alert with its route's name, line, and type
-    2. incident_stations — per incident × route: whether any alert has raw
+    2. incident_stations — per incident × route: whether any alert has full JSON
                            data, and how many distinct stations they name
     3. incidents         — one row per incident: the span of all its alerts,
                            the latest alert's text, and how many alerts it took
@@ -39,11 +39,11 @@ WITH
         SELECT
             a.incident_id,
             a.route_id,
-            LOGICAL_OR(raw.alert_id IS NOT NULL) AS has_stop_data,
+            LOGICAL_OR(captured.alert_id IS NOT NULL) AS has_stop_data,
             COUNT(DISTINCT s.station_id)         AS station_count
         FROM {{ ref('mbta_alerts__grouped') }} AS a
-        LEFT JOIN {{ ref('mbta_alerts__base') }} AS raw
-            ON a.alert_id = raw.alert_id
+        LEFT JOIN {{ ref('mbta_alerts__base') }} AS captured
+            ON a.alert_id = captured.alert_id
         LEFT JOIN {{ ref('mbta_alerts__by_station') }} AS s
             ON
                 a.alert_id = s.alert_id
@@ -96,7 +96,7 @@ WITH
             route_id
     )
 
--- 4. Station count: NULL when no alert was captured raw (unknown), else the count
+-- 4. Station count: NULL when no alert's full JSON was captured (unknown), else the count
 SELECT
     i.* EXCEPT (ingested_at),
     IF(st.has_stop_data, st.station_count, NULL) AS stations_affected,

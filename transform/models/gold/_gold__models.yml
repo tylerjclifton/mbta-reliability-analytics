@@ -55,7 +55,7 @@ models:
       - name: stations_affected
         description: >
           Distinct stations the incident's alerts name on this route. NULL when
-          none of its alerts was captured raw (before 2026-10-24), so unknown;
+          none of its alerts' full JSON was captured (before 2026-10-24), so unknown;
           0 when they were but named no stations, as with most line-wide delays.
         data_tests:
           - accepted_range:

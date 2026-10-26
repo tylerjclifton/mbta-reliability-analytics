@@ -5,7 +5,7 @@ One short file per decision that shaped this project: the situation, what was de
 | # | Decision | Status |
 |---|---|---|
 | [0001](0001-append-only-bronze.md) | Bronze is append-only; never rely on a source keeping history | Accepted |
-| [0002](0002-raw-alert-capture.md) | Capture each alert's full JSON; later freeze the shaped table as legacy | Accepted (cutover pending) |
+| [0002](0002-raw-alert-capture.md) | Capture each alert's full JSON; freeze the shaped table as legacy | Accepted (cut over 2026-10-24) |
 | [0003](0003-stations-as-bridge-table.md) | Alert stations live in a bridge table, not a new alert grain | Accepted |
 | [0004](0004-per-query-cost-limits.md) | Per-query byte limits instead of a project-wide daily query cap | Accepted |
 | [0005](0005-terraform-only-changes.md) | Every infrastructure change goes through Terraform | Accepted |
@@ -15,4 +15,6 @@ One short file per decision that shaped this project: the situation, what was de
 | [0009](0009-runtime-versions.md) | dbt 1.12 and Python 3.13; dbt v2 skipped for now | Accepted |
 | [0010](0010-silver-naming-and-materialization.md) | Silver models are `<bronze table>__<step>` (`__base` = cleaned copy); views unless too costly to recompute | Accepted |
 
-**Adding one:** copy the shape of an existing file, take the next number, add a row here. Don't rewrite an old record when a decision changes; add a new one and mark the old one "Superseded by 00NN".
+**Adding one:** copy the shape of an existing file, take the next number, add a row here.
+
+**Changing one:** refinements made while a decision is still being carried out (a better name, a step done sooner than planned) are added to the record itself, dated, so it tells the whole story. Reversing a decision later gets a new record, and the old one is marked "Superseded by 00NN".

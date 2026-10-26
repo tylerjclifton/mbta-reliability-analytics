@@ -11,7 +11,7 @@
   re-read all of it on every transform. Each run reads only the snapshots added
   since the last one; `dbt build --full-refresh` rebuilds it from bronze.
 
-  Raw capture started 2026-10-24, so alerts that ended before then aren't here.
+  Full-JSON capture started 2026-10-24, so alerts that ended before then aren't here.
 
   Steps:
     1. new_snapshots — bronze rows ingested after the latest one already here

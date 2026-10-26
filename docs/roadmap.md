@@ -5,7 +5,7 @@ Planned work, roughly in order, with why. Move an item to a [decision record](de
 ## Later
 
 - **MBTA estimate accuracy model** (~January 2027). Are the MBTA's posted end times any good, and can a model beat them? This needs months of 15-minute snapshots (they began 2026-10-21). Early sign, from only 5 alerts: estimates sit ~2 hours out while delays clear in ~30 minutes.
-- **Riders affected per disruption.** The ridership source is per station, but the ingest sums it per line. Station-level entries × stations affected would weight disruptions by the riders they hit.
+- **Riders affected per incident.** The ridership source is per station, but the ingest sums it per line. Station-level entries × stations affected would weight incidents by the riders they hit.
 - **Map line geometry.** Draw the lines themselves (MBTA shapes API) behind the station dots.
 
 ## Dated upkeep

@@ -10,9 +10,9 @@ Alerts list the stops they affect, mostly as platforms, per direction. One Green
 
 ## Decision
 - Alerts keep their alert × route grain.
-- Stations live in a separate bridge table, `silver.mbta_alerts__by_station` (alert × route × station). It's unpacked from the raw JSON, with platforms rolled up to their station through `silver.mbta_stops__base`.
+- Stations live in a separate bridge table, `silver.mbta_alerts__by_station` (alert × route × station). It's unpacked from each alert's full JSON, with platforms rolled up to their station through `silver.mbta_stops__base`.
 - Gold joins or summarizes it: `rail_incidents.stations_affected` (same grain as before) and `rail_incident_stations` for the map.
-- `stations_affected` distinguishes **NULL** (no raw data: before capture, unknown) from **0** (captured, but the alert names no station, as with most line-wide delays).
+- `stations_affected` distinguishes **NULL** (no full JSON: before capture began, unknown) from **0** (captured, but the alert names no station, as with most line-wide delays).
 
 ## Consequences
 - Nothing existing changed grain or broke.

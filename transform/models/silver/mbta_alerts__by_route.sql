@@ -18,7 +18,7 @@
       matched row for row (decision 0002).
 
   Why a table, not a view like most of silver: alert snapshots arrive
-  every 15 minutes (~2.6 GB/year of raw JSON). A view would re-read that whole
+  every 15 minutes (~2.6 GB/year of JSON). A view would re-read that whole
   history for every model and test that uses it — about 9 times per hourly
   transform — which outgrows BigQuery's free query tier within a year. This
   table is incremental: each run reads only the snapshots added since the last
@@ -28,7 +28,7 @@
 
   Steps:
     1. new_snapshots — snapshots after the latest one already here: frozen
-                       shaped rows before the capture start, raw JSON split per
+                       shaped rows before the capture start, full JSON split per
                        route from it on; the API's epoch placeholder → NULL
     2. candidates    — those rows, plus the existing row for each alert they touch
     3. final select  — per alert × route: latest version's fields, earliest
@@ -101,7 +101,7 @@ WITH
         UNION ALL
         {%- endif %}
 
-        -- From the capture start on: raw JSON, one row per rail route it names
+        -- From the capture start on: full JSON, one row per rail route it names
         SELECT
             alert_id,
             route_id,

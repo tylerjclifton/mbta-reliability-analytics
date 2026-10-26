@@ -51,7 +51,16 @@ Jobs read the `latest` version at their next run.
 
 Re-run the GitHub Actions deploy for an earlier commit, or revert the commit and push. Artifact Registry keeps the 5 most recent images.
 
-## Watch CI without `gh`
+## Check what's deployed
+
+Each deploy tags every image with its commit (the first 12 characters of the SHA), so the dashboard's image says which commit is live:
+
+```bash
+gcloud run services describe serve --region us-east1 --format="value(spec.template.spec.containers[0].image)"
+# …/frontend/serve:42e675d0ce5c   → compare with: git log --oneline -3
+```
+
+To follow a CI run itself, use the Actions tab on GitHub or `gh run watch`. GitHub's API also answers without `gh`, but unauthenticated requests are limited to 60 an hour, so don't poll it in a loop:
 
 ```bash
 curl -s "https://api.github.com/repos/tylerjclifton/mbta-reliability-analytics/actions/runs?per_page=1" \

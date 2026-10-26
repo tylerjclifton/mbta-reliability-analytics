@@ -33,7 +33,7 @@ MBTA Alerts API  ──┐
 MBTA Routes API  ──┤
 MBTA Stops API   ──┤                        ┌─────────────────────────────────────────┐
 NOAA GHCN-Daily  ──┼──► Cloud Run Jobs ──►  │  BigQuery                               │──► Streamlit
-MBTA Ridership   ──┘         ↑              │  bronze → silver → gold                 │
+MBTA ArcGIS      ──┘         ↑              │  bronze → silver → gold                 │
                       Cloud Scheduler       │            └─ dbt Core ─┘               │
                                             └─────────────────────────────────────────┘
 ```
@@ -47,7 +47,7 @@ Each layer is its own BigQuery dataset.
 | Layer | Stored as | Written by | Role |
 |---|---|---|---|
 | `bronze` | Append-only tables (Terraform-managed, deletion-protected) | Ingest jobs | Raw history. Each run appends a new version of every record it saw; rows are never updated or deleted, so nothing depends on a source keeping its own history |
-| `silver` | Views (two incremental tables, below) | dbt | Every model is `<bronze table>__<step>`: `__base` is each source's **cleaned copy** (latest version, renamed and typed, unit conversion, QC filtering); other steps each do **one job** (split alerts by route or station, resolve start/end, group into incidents) |
+| `silver` | Views (two incremental tables, below) | dbt | Each source's **cleaned copy** (latest version, renamed and typed, unit conversion, QC filtering), plus steps that each do **one job** (split alerts by route or station, resolve start/end, group into incidents) |
 | `gold` | Tables, rebuilt hourly | dbt | Cross-source joins served to the dashboard |
 
 | Bronze table | Grain | How it grows |
@@ -59,7 +59,7 @@ Each layer is its own BigQuery dataset.
 | `mbta_ridership` | service date × line × ingest run | Full published history re-pulled weekly |
 | `noaa_weather` | observation date × ingest run | Last 10 days re-pulled daily (NOAA revises recent days) |
 
-Silver models are named `<bronze table>__<step>`. `__base` is each source's cleaned copy: the latest version of each record, renamed and typed, with no business rules. Other steps each do one job.
+Silver models are named `<bronze table>__<step>`. `__base` is each source's cleaned copy, with no business rules; every other step does one job.
 
 | Silver model | Grain | What it is |
 |---|---|---|
@@ -80,21 +80,21 @@ Silver models are named `<bronze table>__<step>`. `__base` is each source's clea
 | `rail_stations` | station × line | Every rail station's coordinates, the map's backdrop |
 | `rail_ridership` | service date × line | Gated entries, active incident count, the day's most severe alert effect, whether it was a calm day, and weather |
 
-**`silver.mbta_alerts__by_route` and `silver.mbta_alerts__base` are tables, not views.** Everything else in silver is a view, recomputed every run ([0010](docs/decisions/0010-silver-naming-and-materialization.md)). Raw alert snapshots add ~2.6 GB/year to bronze, and a view would re-read all of it for every model and test that uses alerts (~9× per transform), outgrowing the free query tier within a year. The incremental tables read only snapshots added since the last run, so cost stays flat; `dbt build --full-refresh` rebuilds them from bronze.
+**`silver.mbta_alerts__by_route` and `silver.mbta_alerts__base` are tables, not views.** Everything else in silver is a view, recomputed every run ([0010](docs/decisions/0010-silver-naming-and-materialization.md)). Alert snapshots add ~2.6 GB/year to bronze, and a view would re-read all of it for every model and test that uses alerts (~9× per transform), outgrowing the free query tier within a year. The incremental tables read only snapshots added since the last run, so cost stays flat; `dbt build --full-refresh` rebuilds them from bronze.
 
-**Raw alerts.** Until 2026-10-24 the alerts job wrote only chosen fields to the table now named `bronze.mbta_alerts_legacy`, dropping the rest: the stops each alert affects, every active period after the first, and attributes like `lifecycle`. It now writes each alert's full JSON to `bronze.mbta_alerts` instead (~2.6 GB/year), and `silver.mbta_alerts__by_route` splits it into one row per route. The old table is kept, frozen and renamed `_legacy`, as history: silver reads it for snapshots before raw capture began (`alerts_raw_capture_start` in `dbt_project.yml`) and raw from then on. Both were written in parallel for a day and matched row for row. Alerts that ended before raw capture have no stop data, since the API never returns them again ([0002](docs/decisions/0002-raw-alert-capture.md)).
+**Full alert JSON.** Until 2026-10-24 the alerts job wrote only chosen fields to the table now named `bronze.mbta_alerts_legacy`, dropping the rest: the stops each alert affects, every active period after the first, and attributes like `lifecycle`. It now writes each alert's full JSON to `bronze.mbta_alerts` instead (~2.6 GB/year), and `silver.mbta_alerts__by_route` splits it into one row per route. The old table is kept, frozen, as history: silver reads it for snapshots before full-JSON capture began (`alerts_raw_capture_start` in `dbt_project.yml`) and `bronze.mbta_alerts` from then on. Both were written in parallel for a day and matched row for row. Alerts that ended before full-JSON capture have no stop data, since the API never returns them again ([0002](docs/decisions/0002-raw-alert-capture.md)).
 
-**Alerts → stations.** Alerts name the stops they affect, mostly by platform and direction. `silver.mbta_alerts__by_station` unpacks that list from the raw JSON and rolls platforms up to their station using `silver.mbta_stops__base`, one row per alert × route × station. It sits beside the alert × route models instead of changing their grain. Shuttles, suspensions, and station closures name their stations; most delays are line-wide and name none. `gold.rail_incidents.stations_affected` is NULL for incidents from before raw capture began (unknown) and 0 for ones that named no stations.
+**Alerts → stations.** Alerts name the stops they affect, mostly by platform and direction. `silver.mbta_alerts__by_station` unpacks that list from each alert's full JSON and rolls platforms up to their station using `silver.mbta_stops__base`, one row per alert × route × station. It sits beside the alert × route models instead of changing their grain. Shuttles, suspensions, and station closures name their stations; most delays are line-wide and name none. `gold.rail_incidents.stations_affected` is NULL for incidents from before full-JSON capture began (unknown) and 0 for ones that named no stations.
 
 **Alert end times.** An alert ends at whichever comes first: the end time the MBTA posted (an estimate, usually rounded to the hour) or when it left the feed (midway between the last 15-minute run that saw it and the next). Since July 2026, 82% of alerts left the feed before their posted end.
 
-**Alerts → incidents.** The MBTA often posts several alerts for one event (an update, or "delays due to an earlier disabled train at JFK/UMass"). `silver.mbta_alerts__grouped` groups them: same route, cause, effect, and station named in the header, starting within 2 hours of the previous alert's end (6 hours for "earlier"/"residual" follow-ups). Alerts that don't affect train service (notices, elevator/parking issues — `non_service_alert_effects` in `dbt_project.yml`) are excluded in silver; bronze keeps them.
+**Alerts → incidents.** The MBTA often posts several alerts for one event (an update, or "delays due to an earlier disabled train at JFK/UMass"). `silver.mbta_alerts__grouped` groups them: same route, cause, effect, and station named in the header, starting within 2 hours of the previous alert's end (6 hours for "earlier"/"residual" follow-ups). Alerts that don't affect train service (notices, elevator/parking issues — `non_service_alert_effects` in `dbt_project.yml`) are excluded in `silver.mbta_alerts__resolved`; bronze keeps them.
 
 ### Data quality
 
 The transform job (`transform/run.py`) runs `dbt build` then `dbt source freshness`:
 
-- **Grain tests** — every silver view and gold table is unique on its key
+- **Grain tests** — every silver model and gold table is unique on its key
 - **Join tests** — line names are one of the four rail lines; every alert's route exists in routes
 - **Range tests** — temperatures, precipitation, gated entries, and severities are physically plausible
 - **Coverage** — warns if any ridership day has no weather
@@ -125,7 +125,7 @@ The dashboard shows visitors the same thing: the dot beside "Alerts updated" is 
 | Ingest jobs | `ingest/<source>-<entity>/main.py` → `bronze.<source>_<entity>` | `ingest/noaa-weather` → `bronze.noaa_weather` |
 | Bronze columns | Source system's names, plus audit columns | `route_or_line`, `tmax` |
 | Silver / gold columns | `snake_case`; keys `<entity>_id`; `_at` = TIMESTAMP (UTC); `_date` = DATE (Eastern); measures carry their unit; booleans `is_` | `alert_start_at`, `precipitation_in`, `is_in_feed` |
-| Audit columns | On every bronze/silver table | `ingested_at`, `ingested_by` |
+| Audit columns | On every bronze table, carried into silver and gold where a row has one source version (alert models track `first_seen_at` / `last_seen_at` instead) | `ingested_at`, `ingested_by` |
 | dbt models | Header comment (purpose, grain, numbered steps); CTEs named after the step | `latest_versions`, `quality_checked` |
 | Ingest scripts | Docstring (source, cadence, each run, writes to); Fetch → Shape → Write sections | |
 
@@ -140,7 +140,7 @@ Each workload runs as its own service account with access granted per dataset (`
 | `ingest-jobs` | Ingest jobs | Write `bronze`; read the `mbta-api-key` secret |
 | `dbt-bigquery` | Transform job | Read `bronze`; write `silver` and `gold` |
 | `serve-bigquery` | Dashboard | Read `gold` |
-| `job-scheduler` | Cloud Scheduler | Start the five Cloud Run jobs (`run.invoker` on each job) |
+| `job-scheduler` | Cloud Scheduler | Start the six Cloud Run jobs: five ingest plus the transform (`run.invoker` on each job) |
 | `github-deployer` | CI/CD (GitHub Actions) | Build, push, and `terraform apply` — broad by necessity, usable only from this repo's `main` branch |
 
 The three data workloads also hold `bigquery.jobUser` (permission to run queries), which grants no data access on its own. The MBTA API key lives in Secret Manager (`infra/secrets.tf`; Terraform owns the secret, the value is added by hand). Only the APIs the pipeline uses are enabled (`infra/apis.tf`), and Artifact Registry keeps the 5 newest versions of each image.
@@ -153,7 +153,7 @@ The pipeline runs within GCP's free tiers. Query volume is dominated by BigQuery
 
 Hard caps bound what a runaway can cost without a billing kill switch, which would stop ingest and permanently lose live alerts:
 
-- **BigQuery: a per-query byte limit** (`maximum_bytes_billed`): 50 GiB (~$0.30) per dbt query (`transform/profiles.yml`, local builds included) and 1 GiB per dashboard query (`serve/app.py`). A query that would bill more fails before it runs; the transform's failure sends the usual email. The dbt limit is sized for the biggest query the transform can run, a full rebuild of the alerts table from all raw snapshots (~2.6 GB/year), so it holds for ~19 years; hourly runs read only new snapshots.
+- **BigQuery: a per-query byte limit** (`maximum_bytes_billed`): 50 GiB (~$0.30) per dbt query (`transform/profiles.yml`, local builds included) and 1 GiB per dashboard query (`serve/app.py`). A query that would bill more fails before it runs; the transform's failure sends the usual email. The dbt limit is sized for the biggest query the transform can run, a full rebuild of the alerts table from every alert snapshot (~2.6 GB/year), so it holds for ~19 years; hourly runs read only new snapshots.
 - **Dashboard: at most 2 instances** (`infra/cloud-run-services.tf`), so a traffic flood slows the site rather than multiplying the bill. Each instance takes up to 80 concurrent connections (Cloud Run's default; one per open tab).
 
 There is deliberately no project-wide daily query cap. One was tried on 2026-10-23 and refused queries at ~12 GiB of usage with the limit set at 50 GiB, and again at 200 GiB, so `infra/quotas.tf` pins the quota at Google's default.
@@ -202,11 +202,14 @@ The alert-effect chart uses **% vs calm days** instead: a day's entries vs the m
 
 ```
 infra/                  Terraform — all GCP infrastructure
+  main.tf               Providers + GCS state backend
+  variables.tf          Project, schedules, alert email, service agents
   bigquery.tf           Datasets (incl. dev sandboxes) + bronze table schemas (single source of truth)
   cloud-run-jobs.tf     Ingest jobs (one per source) + transform job
   cloud-run-services.tf Dashboard service + tylerclifton.com domain mapping
   cloud-scheduler.tf    Cron triggers
-  iam.tf                Per-workload access (service-accounts.tf defines the accounts)
+  service-accounts.tf   One service account per workload
+  iam.tf                Per-workload access
   deploy.tf             GitHub Actions deploy identity (Workload Identity Federation)
   monitoring.tf         Failure alert emails
   secrets.tf            MBTA API key secret
@@ -225,13 +228,14 @@ ingest/                 One shared image for every ingest job
 transform/              dbt Core project
   run.py                Job entrypoint: dbt build + freshness, failure reports
   models/bronze/        Source declarations + freshness thresholds
-  models/silver/        Cleaned copies + logic steps + tests
+  models/silver/        __base cleaned copies + steps + tests
   models/gold/          Dashboard tables (rail_incidents, rail_incident_stations, rail_stations, rail_ridership) + tests
   macros/               keep_latest_version, null_if_failed_ghcn_qc
   tests/generic/        unique_combination, accepted_range
 serve/                  Streamlit dashboard (app.py; pure helpers in helpers.py, tested in tests/)
 scripts/build-image.sh  Build + push a component's image (used by CI/CD)
 .github/workflows/      CI/CD: lint, tests, dbt parse, terraform validate; deploy on main
+requirements.txt        Local environment: every component + dev tools
 pyproject.toml          pytest + ruff config
 CLAUDE.md               Rules and pointers for AI coding sessions
 docs/                   Setup, runbook, decision records, roadmap
@@ -266,8 +270,10 @@ docker build -t serve:dev serve && docker run --rm -p 8601:8080 \
 
 # Ship a change: merge to main — CI/CD builds, pushes, applies, and runs the
 # transform (see Continuous deployment below). To preview infra changes locally,
-# plan against the deployed tag:
-cd infra && terraform plan -var image_tag=$(git rev-parse --short=12 origin/main)
+# plan against the deployed tag (the variables give local credentials a quota
+# project; see docs/setup.md):
+cd infra && USER_PROJECT_OVERRIDE=true GOOGLE_BILLING_PROJECT=mbta-reliability-analytics \
+  terraform plan -var image_tag=$(git rev-parse --short=12 origin/main)
 
 # Backfill weather (e.g. ~2 years)
 gcloud run jobs execute ingest-noaa-weather --region=us-east1 --update-env-vars LOOKBACK_DAYS=800

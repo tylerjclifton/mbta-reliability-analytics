@@ -10,7 +10,7 @@
 # maximum_bytes_billed (50 GiB, ~$0.30) fails any single query that would bill
 # more, the cost guardrail for the transform (infra/quotas.tf says why it isn't
 # a project-wide daily cap). Sized for the biggest query the transform can
-# run: a full rebuild of silver.mbta_alerts__by_route, which reads every raw alert
+# run: a full rebuild of silver.mbta_alerts__by_route, which reads every alert
 # snapshot. bronze.mbta_alerts grows ~2.6 GB/year, so that stays under the
 # limit for ~19 years; hourly incremental runs read only new snapshots (KBs).
 # ══════════════════════════════════════════════════════════════════════════════

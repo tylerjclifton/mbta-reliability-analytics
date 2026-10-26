@@ -206,7 +206,7 @@ models:
     description: >
       One row per alert × route ever seen: the latest snapshot split by rail
       route and renamed to project conventions (enum values as the API sends
-      them), plus first/last seen; history before raw capture comes from
+      them), plus first/last seen; history before full-JSON capture comes from
       mbta_alerts_legacy. Incremental table, so the transform reads only new
       snapshots instead of re-reading all of bronze (see model header).
     data_tests:

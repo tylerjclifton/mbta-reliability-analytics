@@ -68,7 +68,7 @@ models:
     description: >
       One row per incident × route × station the incident's alerts name, with
       the station's coordinates and the incident's details — the dashboard's
-      map. Covers incidents since raw alert capture began (2026-10-24) whose
+      map. Covers incidents since full-JSON capture began (2026-10-24) whose
       alerts name stations.
     data_tests:
       - unique_combination:

@@ -1,9 +1,9 @@
 # 0010 — Silver models are `<bronze table>__<step>`; views unless too costly to recompute
 
-**Status:** Accepted · **Date:** 2026-10-24 (names standardized the same day)
+**Status:** Accepted · **Date:** 2026-10-24 (names refined 2026-10-24 and 2026-10-26)
 
 ## Context
-Silver mixed three kinds of model with nothing in their names to tell them apart. Some were cleaned copies of one source (`mbta_routes`), some were incremental "latest version" tables (`mbta_alert_latest`), and some were multi-step business logic (`mbta_alerts`, 7 steps in one model). It even broke the existing rule that silver tables share their bronze table's name, since `silver.mbta_alerts__base` was the logic model.
+Silver mixed three kinds of model with nothing in their names to tell them apart. Some were cleaned copies of one source (`mbta_routes`), some were incremental "latest version" tables (`mbta_alert_latest`), and some were multi-step business logic (`mbta_alerts`, 7 steps in one model). It even broke the existing rule that silver tables share their bronze table's name, since `silver.mbta_alerts` was the logic model.
 
 dbt's conventional prefixes (`stg_` for "staging," `int_` for "intermediate") were considered and rejected. Neither name says what it stands for, and "staging" usually means an environment.
 
@@ -20,5 +20,5 @@ How it got here: on 2026-10-24, logic steps were first named on their own (`aler
 
 ## Consequences
 - The refactor was proven pure: old and new code built against the same bronze produced identical gold (all 3,691 rows across four tables, compared both ways).
-- In production, renamed models leave their old objects behind (dbt doesn't drop them), so they're dropped by hand after each deploy (`bq rm`). Both renames were proven pure the same way.
-- The raw alert cutover ([0002](0002-raw-alert-capture.md)) only touched `mbta_alerts__by_route`, which reads raw plus legacy history; the steps after it didn't change.
+- In production, renamed models leave their old objects behind (dbt doesn't drop them), so they're dropped by hand after each deploy (`bq rm`). Every rename was proven pure the same way.
+- The alerts cutover ([0002](0002-raw-alert-capture.md)) only touched `mbta_alerts__by_route`, which reads `bronze.mbta_alerts` plus legacy history; the steps after it didn't change.

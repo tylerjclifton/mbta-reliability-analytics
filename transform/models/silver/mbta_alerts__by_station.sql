@@ -2,7 +2,7 @@
   silver.mbta_alerts__by_station — one row per alert × route × station
 
   Which stations each alert affects, from the stop list (informed_entity) in
-  its latest raw JSON. A bridge table: alerts stay one row per alert × route
+  its latest full JSON. A bridge table: alerts stay one row per alert × route
   (silver.mbta_alerts__grouped), and this adds the stations alongside them rather
   than changing that grain.
 
@@ -12,7 +12,7 @@
   Covers every effect, like silver.mbta_alerts__base; gold joins it to
   silver.mbta_alerts__grouped, which keeps only service-affecting alerts.
 
-  Raw capture started 2026-10-24, so earlier alerts have no rows here either;
+  Full-JSON capture started 2026-10-24, so earlier alerts have no rows here either;
   gold tells the two apart (see gold.rail_incidents.stations_affected).
 
   Steps:

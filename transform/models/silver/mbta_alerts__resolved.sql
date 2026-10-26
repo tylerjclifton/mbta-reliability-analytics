@@ -27,7 +27,7 @@ WITH
 
     -- 1. Ingest runs, to the minute (rows from one run share a timestamp; rows
     --    from the pre-2026-10 pipeline differ by microseconds within a run),
-    --    from both alert tables: the frozen shaped one and raw. Runs where both
+    --    from both alert tables: the frozen shaped one and the live one. Runs where both
     --    were written collapse into one. Reads only the ingested_at columns,
     --    so it stays cheap.
     runs AS (

@@ -4,7 +4,7 @@
   The stations each incident affects, with coordinates and the incident's
   details, for the dashboard's map: what's affected right now, and which
   stations get hit most. Built from the stops each alert names
-  (silver.mbta_alerts__by_station), so it covers incidents since raw alert capture
+  (silver.mbta_alerts__by_station), so it covers incidents since full-JSON capture
   began on 2026-10-24, and only alerts that name stations — most delays are
   line-wide and have no rows.
 

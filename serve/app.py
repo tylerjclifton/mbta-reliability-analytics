@@ -609,7 +609,7 @@ active_hits = incident_stations[
 planned_hits = incident_stations[incident_stations["incident_start_at"].between(now, now + pd.Timedelta(days=30))]
 
 
-def station_map(backdrop, markers, height=460):
+def station_map(backdrop, markers, height=560):
     """Every station as a faint dot in its line's color; affected stations large, ringed, and labeled."""
     fig = go.Figure()
     for line in LINES:
@@ -646,13 +646,17 @@ def station_map(backdrop, markers, height=460):
         modebar=dict(orientation="v", bgcolor="rgba(19,22,27,0.85)", color=INK_2, activecolor=INK),
         # Keep the reader's zoom when the line filter or view toggle reruns the page
         uirevision="station_map",
-        # Downtown Boston, zoomed to fit Alewife through Braintree and Riverside
-        map=dict(style="carto-darkmatter", center=dict(lat=42.335, lon=-71.09), zoom=10.3),
+        # The middle of the system, zoomed so the whole network fits the map's
+        # height: Braintree (42.21°N) to Oak Grove (42.44°N), Riverside to
+        # Wonderland. Map zoom levels use 512px tiles. On a phone the east and
+        # west ends sit just off screen; drag or zoom out to see them.
+        map=dict(style="carto-darkmatter", center=dict(lat=42.322, lon=-71.12), zoom=10.1),
     )
     return fig
 
 
-map_col, rank_col = st.columns([3, 2], gap="medium")
+# The map gets two thirds of the width; the ranking is a short list
+map_col, rank_col = st.columns([2, 1], gap="medium")
 
 with map_col:
     with st.container(key="card_station_map"):

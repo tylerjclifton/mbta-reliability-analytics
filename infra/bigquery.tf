@@ -185,20 +185,3 @@ resource "google_bigquery_table" "bronze" {
     prevent_destroy = true
   }
 }
-
-# The frozen shaped alerts table was renamed in BigQuery from mbta_alerts to
-# mbta_alerts_legacy (ALTER TABLE … RENAME, 2026-10-24), since a rename in
-# Terraform alone would delete and recreate it. This adopts the renamed table
-# without touching it. Idempotent: once it's in state, this is a no-op.
-import {
-  to = google_bigquery_table.bronze["mbta_alerts_legacy"]
-  id = "projects/${var.project_id}/datasets/bronze/tables/mbta_alerts_legacy"
-}
-
-# The live alerts table was renamed in BigQuery from mbta_alerts_raw to
-# mbta_alerts (ALTER TABLE … RENAME, 2026-10-26) once it was the only alerts
-# table written, matching the other bronze names. Adopted the same way.
-import {
-  to = google_bigquery_table.bronze["mbta_alerts"]
-  id = "projects/${var.project_id}/datasets/bronze/tables/mbta_alerts"
-}

@@ -172,6 +172,13 @@ div[class*="st-key-card_"] {{ background: {CARD}; border: 1px solid {BORDER}; bo
 .inc .meta  {{ color: {MUTED}; font-size: 0.78rem; margin-top: 0.3rem; }}
 .empty {{ color: {MUTED}; font-size: 0.9rem; padding: 0.5rem 0 1rem; }}
 
+/* Station map: the basemap credit moves from the map's corner (where it covers
+   stations) to a line under the map — still shown, as OpenStreetMap and CARTO
+   require */
+.st-key-card_station_map .maplibregl-ctrl-attrib {{ display: none; }}
+.map-credit {{ color: {MUTED}; font-size: 0.72rem; text-align: right; margin-top: -0.4rem; }}
+.map-credit a {{ color: {MUTED}; }}
+
 /* First-load message while the data queries run */
 .loading {{ color: {MUTED}; font-size: 0.95rem; }}
 
@@ -676,6 +683,11 @@ with map_col:
             if n_stations else ("No planned work naming stations" if planned else "No stations affected right now"),
         )
         show(station_map(stations, markers), config=MAP_CONFIG)
+        st.markdown(
+            '<div class="map-credit">Map data © <a href="https://www.openstreetmap.org/copyright">'
+            'OpenStreetMap</a> contributors · © <a href="https://carto.com/attributions">CARTO</a></div>',
+            unsafe_allow_html=True,
+        )
 
 with rank_col:
     with st.container(key="card_station_rank"):

@@ -29,7 +29,7 @@ sources:
           Grain: alert × route × ingest run.
         # No freshness check: nothing writes it anymore
 
-      - name: mbta_alerts_raw
+      - name: mbta_alerts
         description: >
           15-minute snapshots of the MBTA alerts API (rail routes only), each
           alert's full JSON as the API returned it, including the stops it

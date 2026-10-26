@@ -2,8 +2,7 @@
 # Cloud Run jobs — ingest (one per source) and transform (dbt)
 #
 # All ingest jobs run the same image (ingest/Dockerfile); each job runs its own
-# script via container args and appends to its bronze table — the one of the
-# same name unless bronze_table says otherwise.
+# script via container args and appends to its bronze table of the same name.
 # ══════════════════════════════════════════════════════════════════════════════
 
 locals {
@@ -17,9 +16,8 @@ locals {
   ingest_max_retries    = 1
   transform_max_retries = 0
 
-  # One entry per ingest job. Key = job folder under ingest/; its bronze table
-  # is the key with "-" for "_" (e.g. mbta-stops → bronze.mbta_stops), unless
-  # bronze_table names another.
+  # One entry per ingest job. Key = job folder under ingest/ = bronze table
+  # name with "-" for "_" (e.g. mbta-alerts → bronze.mbta_alerts).
   ingest_jobs = {
     "mbta-alerts" = {
       schedule          = var.alerts_ingestion_schedule
@@ -27,9 +25,6 @@ locals {
       memory            = "512Mi"
       timeout           = "600s"
       env               = {}
-      # Writes each alert's full JSON; bronze.mbta_alerts_legacy is the frozen history
-      # it used to write (decision 0002)
-      bronze_table = "mbta_alerts_raw"
     }
     "mbta-routes" = {
       schedule          = var.routes_ingestion_schedule
@@ -37,7 +32,6 @@ locals {
       memory            = "512Mi"
       timeout           = "600s"
       env               = {}
-      bronze_table      = null
     }
     "mbta-stops" = {
       schedule          = var.stops_ingestion_schedule
@@ -45,7 +39,6 @@ locals {
       memory            = "512Mi"
       timeout           = "600s" # Seven requests, one per route
       env               = {}
-      bronze_table      = null
     }
     "mbta-ridership" = {
       schedule          = var.ridership_ingestion_schedule
@@ -53,7 +46,6 @@ locals {
       memory            = "1Gi"
       timeout           = "900s" # Full-history ArcGIS pull, several paginated requests
       env               = {}
-      bronze_table      = null
     }
     "noaa-weather" = {
       schedule          = var.weather_ingestion_schedule
@@ -65,7 +57,6 @@ locals {
         # execution time to backfill: --update-env-vars LOOKBACK_DAYS=800
         LOOKBACK_DAYS = "10"
       }
-      bronze_table = null
     }
   }
 }
@@ -111,7 +102,7 @@ resource "google_cloud_run_v2_job" "ingest" {
         }
         env {
           name  = "BQ_TABLE_ID"
-          value = google_bigquery_table.bronze[coalesce(each.value.bronze_table, replace(each.key, "-", "_"))].table_id
+          value = google_bigquery_table.bronze[replace(each.key, "-", "_")].table_id
         }
 
         # Job-specific settings

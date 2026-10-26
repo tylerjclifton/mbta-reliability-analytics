@@ -33,5 +33,5 @@ Day the weather values summarize: midnight to midnight local standard time (1amâ
 {% enddocs %}
 
 {% docs incident_id %}
-One real-world event the MBTA may have posted as several alerts (updates, "earlier disabled train" follow-ups). Alerts share an incident when they have the same route, cause, effect, and location and follow on within 2 hours (6 hours for "earlier"/"residual" follow-ups). The value is the incident's first alert ID. See silver.mbta_alerts__base.
+One real-world event the MBTA may have posted as several alerts (updates, "earlier disabled train" follow-ups). Alerts share an incident when they have the same route, cause, effect, and location and follow on within 2 hours (6 hours for "earlier"/"residual" follow-ups). The value is the incident's first alert ID. See silver.mbta_alerts__by_route.
 {% enddocs %}

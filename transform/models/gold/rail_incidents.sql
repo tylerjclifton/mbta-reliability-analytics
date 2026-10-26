@@ -42,9 +42,9 @@ WITH
             LOGICAL_OR(raw.alert_id IS NOT NULL) AS has_stop_data,
             COUNT(DISTINCT s.station_id)         AS station_count
         FROM {{ ref('mbta_alerts__grouped') }} AS a
-        LEFT JOIN {{ ref('mbta_alerts_raw__base') }} AS raw
+        LEFT JOIN {{ ref('mbta_alerts__base') }} AS raw
             ON a.alert_id = raw.alert_id
-        LEFT JOIN {{ ref('mbta_alerts__stations') }} AS s
+        LEFT JOIN {{ ref('mbta_alerts__by_station') }} AS s
             ON
                 a.alert_id = s.alert_id
                 AND a.route_id = s.route_id

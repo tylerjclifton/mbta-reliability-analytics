@@ -374,7 +374,7 @@ def load_incidents():
     return df
 
 
-# Station lists come from the alerts' raw JSON (bronze.mbta_alerts_raw), captured
+# Station lists come from the alerts' raw JSON (bronze.mbta_alerts), captured
 # since this date; incidents that ended earlier have no stations
 STATION_TRACKING_START = pd.Timestamp("2026-10-24", tz=TIMEZONE)
 

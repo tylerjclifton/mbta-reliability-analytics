@@ -20,10 +20,11 @@ vars:
   # MBTA service dates and NOAA observation days are both Eastern time
   local_timezone: 'America/New_York'
 
-  # The first ingest run that wrote bronze.mbta_alerts_raw (UTC). Alert history
-  # before it comes from the frozen shaped table; this run and every one after,
-  # from raw (silver/mbta_alerts__base.sql). Both were written from this run
-  # until the cutover, and matched row for row (decision 0002).
+  # The first ingest run that captured each alert's full JSON (UTC), in the
+  # table now named bronze.mbta_alerts. Alert history before it comes from
+  # bronze.mbta_alerts_legacy; this run and every one after, from the JSON
+  # (silver/mbta_alerts__by_route.sql). Both were written from this run until
+  # the cutover, and matched row for row (decision 0002).
   alerts_raw_capture_start: '2026-10-24 14:11:39.835891'
 
   # Alert effects that don't affect train service (amenities, facilities,
@@ -45,8 +46,8 @@ vars:
 #   bronze — append-only tables written by ingest jobs; declared as sources only
 #   silver — <bronze table>__<step> views (see models/silver/_silver__models.yml):
 #            __base is each source's cleaned copy, other steps apply one
-#            business rule each. Two exceptions to views: mbta_alerts__base
-#            and mbta_alerts_raw__base are incremental tables, so the
+#            business rule each. Two exceptions to views: mbta_alerts__by_route
+#            and mbta_alerts__base are incremental tables, so the
 #            transform doesn't re-read every 15-minute alert snapshot each run
 #   gold   — tables the dashboard reads, rebuilt every run
 models:

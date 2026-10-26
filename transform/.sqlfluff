@@ -25,7 +25,7 @@ load_macros_from_path = macros
 local_timezone = America/New_York
 alerts_raw_capture_start = 2026-10-24 14:11:39.835891
 # Empty (falsy), like dbt's parse phase: skips run_query() blocks that need a
-# live warehouse (the incremental silver/mbta_alerts__base.sql and mbta_alerts_raw__base.sql)
+# live warehouse (the incremental silver/mbta_alerts__by_route.sql and mbta_alerts__base.sql)
 execute =
 
 [sqlfluff:rules:convention.quoted_literals]

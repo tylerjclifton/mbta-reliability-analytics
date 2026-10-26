@@ -39,7 +39,7 @@ def test_alerts_one_row_per_alert_kept_whole(run_job):
     green["attributes"]["informed_entity"][0]["stop"] = "70145"
     green["attributes"]["active_period"].append({"start": "2026-10-28T08:00:00-04:00", "end": None})
 
-    raw = run_job("mbta-alerts", [{"data": [green, alert("2", ["Red"])]}], table_id="mbta_alerts_raw")
+    raw = run_job("mbta-alerts", [{"data": [green, alert("2", ["Red"])]}])
 
     assert raw["alert_id"].tolist() == ["1", "2"]
     assert json.loads(raw["alert_json"].iloc[0]) == green  # stops and every active period survive
@@ -47,14 +47,13 @@ def test_alerts_one_row_per_alert_kept_whole(run_job):
 
 def test_alerts_keep_every_effect_for_bronze(run_job):
     """Non-service effects (notices, elevators) are filtered in silver, not here."""
-    raw = run_job("mbta-alerts", [{"data": [alert("1", ["Red"], effect="ELEVATOR_CLOSURE")]}],
-                  table_id="mbta_alerts_raw")
+    raw = run_job("mbta-alerts", [{"data": [alert("1", ["Red"], effect="ELEVATOR_CLOSURE")]}])
 
     assert json.loads(raw["alert_json"].iloc[0])["attributes"]["effect"] == "ELEVATOR_CLOSURE"
 
 
 def test_alerts_empty_feed_writes_nothing(run_job):
-    raw = run_job("mbta-alerts", [{"data": []}], table_id="mbta_alerts_raw")
+    raw = run_job("mbta-alerts", [{"data": []}])
 
     assert raw.empty
 

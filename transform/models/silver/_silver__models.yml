@@ -6,11 +6,13 @@ version: 2
 #
 #   __base           the cleaned copy (mbta_alerts__base, mbta_stops__base, …):
 #                    the latest version of each record, renamed and typed, no
-#                    business rules. Views, except the two incremental alert
-#                    tables (see their headers).
-#   __<step>         one business rule, named for what it produces
-#                    (mbta_alerts__resolved, mbta_alerts__grouped), built
-#                    from __base models or earlier steps. Views.
+#                    business rules. Views, except mbta_alerts__base.
+#   __<step>         one step, named for what it produces (mbta_alerts__by_route,
+#                    mbta_alerts__resolved, mbta_alerts__grouped), built from
+#                    __base models or earlier steps. Views, except
+#                    mbta_alerts__by_route.
+#   The two exceptions are incremental tables: they sit on every 15-minute
+#   alert snapshot, too much to re-read each run (see their headers).
 #
 # Tests run in `dbt build` before gold is rebuilt; an error-severity failure
 # skips everything downstream, so bad data never reaches the dashboard.
@@ -25,53 +27,8 @@ models:
 
   - name: mbta_alerts__base
     description: >
-      One row per alert × route ever seen: the latest snapshot, renamed to
-      project conventions (enum values as the API sends them), plus first/last
-      seen. Incremental table, so the transform reads only new snapshots
-      instead of re-reading all of bronze (see model header).
-    data_tests:
-      - unique_combination:
-          arguments:
-            columns: [alert_id, route_id]
-    columns:
-      - name: alert_id
-        description: "{{ doc('alert_id') }}"
-        data_tests: [not_null]
-      - name: route_id
-        description: "{{ doc('route_id') }}"
-        data_tests: [not_null]
-      - name: posted_start_at
-        description: Start the MBTA posted (UTC); NULL when unset (the API's epoch placeholder).
-      - name: posted_end_at
-        description: End the MBTA posted (UTC), an estimate usually on the hour; NULL when unset.
-      - name: alert_duration_certainty
-        description: MBTA enum (KNOWN, ESTIMATED, UNKNOWN).
-      - name: alert_header
-        description: Short alert text.
-      - name: alert_description
-        description: Long alert text.
-      - name: alert_cause
-        description: MBTA cause enum (e.g. SIGNAL_PROBLEM).
-      - name: alert_effect
-        description: MBTA effect enum (e.g. DELAY, SHUTTLE).
-      - name: alert_severity
-        description: MBTA severity, 0 (least) to 10 (most).
-      - name: alert_created_at
-        description: When MBTA created the alert (UTC).
-      - name: alert_updated_at
-        description: When MBTA last updated the alert (UTC).
-      - name: first_seen_at
-        description: First ingest run that included this alert (UTC).
-        data_tests: [not_null]
-      - name: last_seen_at
-        description: Latest ingest run that included this alert (UTC).
-        data_tests: [not_null]
-
-  - name: mbta_alerts_raw__base
-    description: >
-      One row per alert ever captured raw: its latest full JSON plus first/last
-      seen. Incremental table like mbta_alerts__base (see model header). Raw capture
-      began 2026-10-24.
+      One row per alert since full-JSON capture began (2026-10-24): its latest
+      JSON plus first/last seen. Incremental table (see model header).
     columns:
       - name: alert_id
         description: "{{ doc('alert_id') }}"
@@ -243,13 +200,58 @@ models:
       - name: ingested_by
         description: "{{ doc('ingested_by') }}"
 
-  # ── Logic steps ─────────────────────────────────────────────────────────────
+  # ── Steps ───────────────────────────────────────────────────────────────────
+
+  - name: mbta_alerts__by_route
+    description: >
+      One row per alert × route ever seen: the latest snapshot split by rail
+      route and renamed to project conventions (enum values as the API sends
+      them), plus first/last seen; history before raw capture comes from
+      mbta_alerts_legacy. Incremental table, so the transform reads only new
+      snapshots instead of re-reading all of bronze (see model header).
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [alert_id, route_id]
+    columns:
+      - name: alert_id
+        description: "{{ doc('alert_id') }}"
+        data_tests: [not_null]
+      - name: route_id
+        description: "{{ doc('route_id') }}"
+        data_tests: [not_null]
+      - name: posted_start_at
+        description: Start the MBTA posted (UTC); NULL when unset (the API's epoch placeholder).
+      - name: posted_end_at
+        description: End the MBTA posted (UTC), an estimate usually on the hour; NULL when unset.
+      - name: alert_duration_certainty
+        description: MBTA enum (KNOWN, ESTIMATED, UNKNOWN).
+      - name: alert_header
+        description: Short alert text.
+      - name: alert_description
+        description: Long alert text.
+      - name: alert_cause
+        description: MBTA cause enum (e.g. SIGNAL_PROBLEM).
+      - name: alert_effect
+        description: MBTA effect enum (e.g. DELAY, SHUTTLE).
+      - name: alert_severity
+        description: MBTA severity, 0 (least) to 10 (most).
+      - name: alert_created_at
+        description: When MBTA created the alert (UTC).
+      - name: alert_updated_at
+        description: When MBTA last updated the alert (UTC).
+      - name: first_seen_at
+        description: First ingest run that included this alert (UTC).
+        data_tests: [not_null]
+      - name: last_seen_at
+        description: Latest ingest run that included this alert (UTC).
+        data_tests: [not_null]
 
   - name: mbta_alerts__resolved
     description: >
       One row per service-affecting alert × route, with when it really started
       and ended and whether it's still in the feed (see model header). Effects
-      in var non_service_alert_effects are excluded. Enums as in mbta_alerts__base.
+      in var non_service_alert_effects are excluded. Enums as in mbta_alerts__by_route.
     data_tests:
       - unique_combination:
           arguments:
@@ -355,7 +357,7 @@ models:
         description: "{{ doc('ingested_by') }}"
 
 
-  - name: mbta_alerts__stations
+  - name: mbta_alerts__by_station
     description: >
       One row per alert × rail route × station the alert names. A bridge table
       beside mbta_alerts__grouped (which stays alert × route): platforms roll up to

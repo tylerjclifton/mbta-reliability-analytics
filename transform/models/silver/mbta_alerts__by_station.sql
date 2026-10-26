@@ -1,5 +1,5 @@
 {#
-  silver.mbta_alerts__stations — one row per alert × route × station
+  silver.mbta_alerts__by_station — one row per alert × route × station
 
   Which stations each alert affects, from the stop list (informed_entity) in
   its latest raw JSON. A bridge table: alerts stay one row per alert × route
@@ -9,7 +9,7 @@
   The MBTA lists stops mostly by platform (often one per direction); those
   roll up to their station here, with whether the alert affects one direction
   or both. Alerts that name no stops (most delays are line-wide) have no rows.
-  Covers every effect, like silver.mbta_alerts_raw__base; gold joins it to
+  Covers every effect, like silver.mbta_alerts__base; gold joins it to
   silver.mbta_alerts__grouped, which keeps only service-affecting alerts.
 
   Raw capture started 2026-10-24, so earlier alerts have no rows here either;
@@ -31,7 +31,7 @@ WITH
             JSON_VALUE(entity, '$.route')                          AS route_id,
             JSON_VALUE(entity, '$.stop')                           AS stop_id,
             SAFE_CAST(JSON_VALUE(entity, '$.direction_id') AS INT64) AS direction_id
-        FROM {{ ref('mbta_alerts_raw__base') }} AS a
+        FROM {{ ref('mbta_alerts__base') }} AS a
         CROSS JOIN UNNEST(JSON_QUERY_ARRAY(a.alert_json, '$.attributes.informed_entity')) AS entity
         WHERE JSON_VALUE(entity, '$.stop') IS NOT NULL
     ),

@@ -6,15 +6,15 @@
 #           source keeping its own history. Tables are defined here (not by dbt)
 #           so their schemas are owned in one place; ingest jobs load against
 #           the live table schema.
-#   silver  dbt views: the latest version of each record, cleaned and typed.
+#   silver  dbt models: each source's cleaned copy plus steps built on it
+#           (views, except two incremental alert tables).
 #   gold    dbt tables the dashboard reads, rebuilt every transform run.
 #
 # Naming: tables are `<source>_<entity>`; silver's models built from each are
 # `<source>_<entity>__<step>` (`__base` is the cleaned copy); the dataset says
-# which layer. A `_raw` suffix marks a table holding
-# the source's records whole, as JSON, rather than chosen columns. Columns
-# ending `_at` are TIMESTAMPs, `_date` are DATEs. Every bronze table ends with
-# the same two audit columns.
+# which layer. A `_legacy` suffix marks a frozen table kept as history, never
+# written again. Columns ending `_at` are TIMESTAMPs, `_date` are DATEs. Every
+# bronze table ends with the same two audit columns.
 # ══════════════════════════════════════════════════════════════════════════════
 
 locals {
@@ -28,7 +28,7 @@ locals {
   # to project conventions happens in silver.
   bronze_tables = {
     mbta_alerts_legacy = {
-      description = "FROZEN — never written since 2026-10-24, never delete. 15-minute snapshots of the MBTA alerts API (rail routes only) as the old ingest shaped them, 2026-06-07 to 2026-10-24; mbta_alerts_raw replaced it (decision 0002). Grain: alert × route × ingest run."
+      description = "FROZEN — never written since 2026-10-24, never delete. 15-minute snapshots of the MBTA alerts API (rail routes only) as the old ingest shaped them, 2026-06-07 to 2026-10-24; mbta_alerts replaced it (decision 0002). Grain: alert × route × ingest run."
       clustering  = ["alert_id", "route"]
       columns = [
         { name = "alert_id", type = "STRING", description = "MBTA alert ID" },
@@ -46,7 +46,7 @@ locals {
       ]
     }
 
-    mbta_alerts_raw = {
+    mbta_alerts = {
       description = "15-minute snapshots of the MBTA alerts API (rail routes only), each alert's full JSON as returned — including the stops it affects and every active period, which the legacy table dropped. Started 2026-10-24. Grain: alert × ingest run."
       clustering  = ["alert_id"]
       columns = [
@@ -193,4 +193,12 @@ resource "google_bigquery_table" "bronze" {
 import {
   to = google_bigquery_table.bronze["mbta_alerts_legacy"]
   id = "projects/${var.project_id}/datasets/bronze/tables/mbta_alerts_legacy"
+}
+
+# The live alerts table was renamed in BigQuery from mbta_alerts_raw to
+# mbta_alerts (ALTER TABLE … RENAME, 2026-10-26) once it was the only alerts
+# table written, matching the other bronze names. Adopted the same way.
+import {
+  to = google_bigquery_table.bronze["mbta_alerts"]
+  id = "projects/${var.project_id}/datasets/bronze/tables/mbta_alerts"
 }

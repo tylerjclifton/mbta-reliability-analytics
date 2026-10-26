@@ -52,7 +52,7 @@ Each layer is its own BigQuery dataset.
 
 | Bronze table (silver: `<name>__base`) | Grain (silver) | How bronze grows |
 |---|---|---|
-| `mbta_alerts_raw` | alert × route (split in silver) | The live alerts table: a 15-minute snapshot of the feed, each alert's full JSON — the only record of alerts once they end |
+| `mbta_alerts` | alert (`__base`); alert × route (`__by_route`) | The live alerts table: a 15-minute snapshot of the feed, each alert's full JSON — the only record of alerts once they end |
 | `mbta_alerts_legacy` | (history only) | Frozen: the same snapshots as the old ingest shaped them, 2026-06-07 to 2026-10-24; silver reads it for history before raw capture (below). Never written, never deleted |
 | `mbta_stops` | stop × route | Weekly snapshot of every rail station and its platforms, entrances, and nodes; silver maps each to its station |
 | `mbta_routes` | route | Yearly snapshot |
@@ -61,9 +61,10 @@ Each layer is its own BigQuery dataset.
 
 | Silver step (beyond `__base`) | Grain | What it produces |
 |---|---|---|
+| `mbta_alerts__by_route` | alert × route | Each alert split into one row per rail route, with history before raw capture from `mbta_alerts_legacy` |
 | `mbta_alerts__resolved` | alert × route | Service-affecting alerts with their real start and end, and whether they're still in the feed |
 | `mbta_alerts__grouped` | alert × route | Alerts grouped into incidents: each alert tagged with its incident, with readable labels and durations (gold reads this; `gold.rail_incidents` has one row per incident) |
-| `mbta_alerts__stations` | alert × route × station | Which stations each alert affects, and in which direction |
+| `mbta_alerts__by_station` | alert × route × station | Which stations each alert affects, and in which direction |
 
 | Gold table | Grain | Contents |
 |---|---|---|
@@ -72,11 +73,11 @@ Each layer is its own BigQuery dataset.
 | `rail_stations` | station × line | Every rail station's coordinates, the map's backdrop |
 | `rail_ridership` | service date × line | Gated entries, active incident count, the day's most severe alert effect, whether it was a calm day, and weather |
 
-**`silver.mbta_alerts__base` and `silver.mbta_alerts_raw__base` are tables, not views.** Everything else in silver is a view, recomputed every run ([0010](docs/decisions/0010-silver-naming-and-materialization.md)). Raw alert snapshots add ~2.6 GB/year to bronze, and a view would re-read all of it for every model and test that uses alerts (~9× per transform), outgrowing the free query tier within a year. The incremental tables read only snapshots added since the last run, so cost stays flat; `dbt build --full-refresh` rebuilds them from bronze.
+**`silver.mbta_alerts__by_route` and `silver.mbta_alerts__base` are tables, not views.** Everything else in silver is a view, recomputed every run ([0010](docs/decisions/0010-silver-naming-and-materialization.md)). Raw alert snapshots add ~2.6 GB/year to bronze, and a view would re-read all of it for every model and test that uses alerts (~9× per transform), outgrowing the free query tier within a year. The incremental tables read only snapshots added since the last run, so cost stays flat; `dbt build --full-refresh` rebuilds them from bronze.
 
-**Raw alerts.** Until 2026-10-24 the alerts job wrote only chosen fields to the table now named `bronze.mbta_alerts_legacy`, dropping the rest: the stops each alert affects, every active period after the first, and attributes like `lifecycle`. It now writes each alert's full JSON to `bronze.mbta_alerts_raw` instead (~2.6 GB/year), and `silver.mbta_alerts__base` splits it into one row per route. The old table is kept, frozen and renamed `_legacy`, as history: silver reads it for snapshots before raw capture began (`alerts_raw_capture_start` in `dbt_project.yml`) and raw from then on. Both were written in parallel for a day and matched row for row. Alerts that ended before raw capture have no stop data, since the API never returns them again ([0002](docs/decisions/0002-raw-alert-capture.md)).
+**Raw alerts.** Until 2026-10-24 the alerts job wrote only chosen fields to the table now named `bronze.mbta_alerts_legacy`, dropping the rest: the stops each alert affects, every active period after the first, and attributes like `lifecycle`. It now writes each alert's full JSON to `bronze.mbta_alerts` instead (~2.6 GB/year), and `silver.mbta_alerts__by_route` splits it into one row per route. The old table is kept, frozen and renamed `_legacy`, as history: silver reads it for snapshots before raw capture began (`alerts_raw_capture_start` in `dbt_project.yml`) and raw from then on. Both were written in parallel for a day and matched row for row. Alerts that ended before raw capture have no stop data, since the API never returns them again ([0002](docs/decisions/0002-raw-alert-capture.md)).
 
-**Alerts → stations.** Alerts name the stops they affect, mostly by platform and direction. `silver.mbta_alerts__stations` unpacks that list from the raw JSON and rolls platforms up to their station using `silver.mbta_stops__base`, one row per alert × route × station. It sits beside the alert × route models instead of changing their grain. Shuttles, suspensions, and station closures name their stations; most delays are line-wide and name none. `gold.rail_incidents.stations_affected` is NULL for incidents from before raw capture began (unknown) and 0 for ones that named no stations.
+**Alerts → stations.** Alerts name the stops they affect, mostly by platform and direction. `silver.mbta_alerts__by_station` unpacks that list from the raw JSON and rolls platforms up to their station using `silver.mbta_stops__base`, one row per alert × route × station. It sits beside the alert × route models instead of changing their grain. Shuttles, suspensions, and station closures name their stations; most delays are line-wide and name none. `gold.rail_incidents.stations_affected` is NULL for incidents from before raw capture began (unknown) and 0 for ones that named no stations.
 
 **Alert end times.** An alert ends at whichever comes first: the end time the MBTA posted (an estimate, usually rounded to the hour) or when it left the feed (midway between the last 15-minute run that saw it and the next). Since July 2026, 82% of alerts left the feed before their posted end.
 
@@ -111,8 +112,8 @@ The dashboard shows visitors the same thing: the dot beside "Alerts updated" is 
 | Thing | Convention | Example |
 |---|---|---|
 | Datasets | Medallion layer | `bronze`, `silver`, `gold` |
-| Bronze tables | `<source>_<entity>` (`_raw`: records stored whole; `_legacy`: frozen history) | `mbta_stops`, `mbta_alerts_raw` |
-| Silver models | `<bronze table>__<step>`; `__base` is the cleaned copy | `mbta_alerts__base`, `mbta_alerts__grouped` |
+| Bronze tables | `<source>_<entity>`; `_legacy` marks a frozen table kept as history | `mbta_alerts`, `mbta_alerts_legacy` |
+| Silver models | `<bronze table>__<step>`; `__base` is the cleaned copy | `mbta_alerts__base`, `mbta_alerts__by_route` |
 | Gold tables | `<domain>_<entity>` | `rail_ridership` |
 | Ingest jobs | `ingest/<source>-<entity>/main.py` → `bronze.<source>_<entity>` | `ingest/noaa-weather` → `bronze.noaa_weather` |
 | Bronze columns | Source system's names, plus audit columns | `route_or_line`, `tmax` |

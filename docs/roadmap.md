@@ -7,6 +7,7 @@ Planned work, roughly in order, with why. Move an item to a [decision record](de
 - **MBTA estimate accuracy model** (~January 2027). Are the MBTA's posted end times any good, and can a model beat them? This needs months of 15-minute snapshots (they began 2026-10-21). Early sign, from only 5 alerts: estimates sit ~2 hours out while delays clear in ~30 minutes.
 - **Riders affected per incident.** The ridership source is per station, but the ingest sums it per line. Station-level entries × stations affected would weight incidents by the riders they hit.
 - **Map line geometry.** Draw the lines themselves (MBTA shapes API) behind the station dots.
+- **Other modes** (revisit ~2027). Bronze has kept every mode's alerts since 2026-10-28 ([0011](decisions/0011-capture-every-mode.md)); none are modeled, and they stay off the dashboard: bus alerts are mostly planned detours across ~70 routes, ferry alerts are schedule notices, and neither has gated ridership. The promising thread is **commuter rail per-train delays** ("Train 6036 … operating 15 minutes behind"): with months of history, how late trains run by line. Needs the GTFS schedule for a denominator, and every commuter rail alert's cause is "unknown". Likely its own project.
 
 ## Dated upkeep
 

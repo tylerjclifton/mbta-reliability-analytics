@@ -10,9 +10,11 @@ The alerts job requested only the 7 rail routes (`filter[route]`). Two things we
 Modeling other modes isn't worth it: the core analysis needs gated ridership, which only the subway has. Keeping their history is cheap, though, and can't be done later.
 
 ## Decision
-- The alerts job requests the **whole feed, unfiltered**, starting 2026-10-28. Bronze keeps every mode and every effect.
+- The alerts job requests the **whole feed**, starting 2026-10-28: no route filter, and `filter[activity]=ALL`. Bronze keeps every mode and every effect.
+  - Why `ALL`: the API documents that a request without an activity filter defaults to board/exit/ride. In practice an otherwise unfiltered request already returned everything (150 alerts both ways on 2026-10-28), but `ALL` is the documented way to guarantee it, so the request doesn't rely on that behavior. Added the same day.
 - **Silver keeps rail**, as it already did: `mbta_alerts__by_route` splits alerts only into the rail routes, and `mbta_alerts__by_station` keeps only routes in `mbta_routes__base`. No model changed. Before the switch, the full feed and the rail-filtered feed (fetched together) were run through silver's split logic: every rail row matched, and every stop the full feed named mapped to a known station.
 - No bus, commuter rail, or ferry models. That data waits in bronze for a future project.
+- **Routes and stops stay rail-only.** Unlike alerts, they aren't lost when they change: the MBTA publishes every past version of its schedule data (routes, stops, schedules) as archived GTFS feeds, back to 2009 (`https://cdn.mbta.com/archive/archived_feeds.txt`, 1,026 feeds on 2026-10-28). A future project that needs other modes' routes or stops, current or historical, can fetch them then.
 
 ## Consequences
 - Bronze grows ~15 GB/year instead of ~2.6, measured from today's feed (415 KB per snapshot vs 74 KB). Storage is about $15–35 over five years, mostly at long-term rates (the table is partitioned by day).

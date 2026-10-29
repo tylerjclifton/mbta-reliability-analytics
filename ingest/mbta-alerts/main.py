@@ -15,9 +15,9 @@ disappears for good. Bronze's snapshots are therefore the only record of past
 alerts, and silver uses the last run an alert was seen in to tell when it ended
 (whichever comes first: that, or the end time the MBTA posted).
 
-Each alert is stored whole rather than as chosen columns, and the feed is
-requested unfiltered, so new questions never depend on what this script
-happened to keep. Filtering to rail and splitting alerts into one row per
+Each alert is stored whole rather than as chosen columns, and the whole feed
+is requested (no route filter, every activity), so new questions never depend
+on what this script happened to keep. Filtering to rail and splitting alerts into one row per
 route happen in silver (mbta_alerts__by_route). Until 2026-10-24 this job
 wrote only chosen columns to a table now named bronze.mbta_alerts_legacy, which
 dropped the stops each alert affects and more; it's kept, frozen, as history
@@ -37,10 +37,12 @@ from common.bronze import append_to_bronze, fetch
 
 # ── Fetch ─────────────────────────────────────────────────────────────────────
 
-# No filters: the whole feed. (A route filter also applies the API's default
-# activity filter, which silently drops escalator and elevator alerts.) The API
-# key is optional but removes the anonymous rate limit.
-params = {}
+# The whole feed: no route filter, and every activity. Without filter[activity]
+# the API documents a default of BOARD/EXIT/RIDE, which would drop alerts that
+# only affect escalators, elevators, parking, or bikes (a route filter does
+# apply it); ALL is the documented way to get everything. The API key is
+# optional but removes the anonymous rate limit.
+params = {'filter[activity]': 'ALL'}
 if os.getenv('MBTA_API_KEY'):
     params['api_key'] = os.getenv('MBTA_API_KEY')
 

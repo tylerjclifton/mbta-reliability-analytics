@@ -1,5 +1,6 @@
 """
-Tests for ingest/common/bronze.py — the shared fetch and append-to-bronze helpers.
+Tests for the shared ingest helpers in ingest/common/: run.py (failure
+reports), fetch.py, load.py (append to bronze), and mbta_api.py.
 """
 
 import json
@@ -9,7 +10,7 @@ from types import SimpleNamespace
 import pandas as pd
 import pytest
 
-import common.bronze as bronze
+from common import fetch, load, mbta_api, run
 
 
 class FakeClient:
@@ -21,7 +22,7 @@ class FakeClient:
         pass
 
     def get_table(self, table_ref):
-        return SimpleNamespace(schema=[bronze.bigquery.SchemaField("alert_id", "STRING")])
+        return SimpleNamespace(schema=[load.bigquery.SchemaField("alert_id", "STRING")])
 
     def load_table_from_dataframe(self, df, table_ref, job_config):
         FakeClient.loads.append(SimpleNamespace(df=df, table_ref=table_ref, job_config=job_config))
@@ -31,7 +32,7 @@ class FakeClient:
 @pytest.fixture
 def fake_bigquery(monkeypatch):
     FakeClient.loads = []
-    monkeypatch.setattr(bronze.bigquery, "Client", FakeClient)
+    monkeypatch.setattr(load.bigquery, "Client", FakeClient)
     monkeypatch.setenv("BQ_PROJECT_ID", "proj")
     monkeypatch.setenv("BQ_DATASET_ID", "bronze")
     monkeypatch.setenv("BQ_TABLE_ID", "mbta_stops")
@@ -39,34 +40,34 @@ def fake_bigquery(monkeypatch):
 
 
 def test_append_adds_audit_columns_and_appends(fake_bigquery):
-    bronze.append_to_bronze(pd.DataFrame({"alert_id": ["1", "2"]}))
+    load.append_to_bronze(pd.DataFrame({"alert_id": ["1", "2"]}))
 
-    load = fake_bigquery[0]
-    assert load.table_ref == "proj.bronze.mbta_stops"
-    assert load.job_config.write_disposition == "WRITE_APPEND"
+    load_job = fake_bigquery[0]
+    assert load_job.table_ref == "proj.bronze.mbta_stops"
+    assert load_job.job_config.write_disposition == "WRITE_APPEND"
     # Every row in a run shares one timestamp — silver depends on it
-    assert load.df["ingested_at"].nunique() == 1
-    assert load.df["ingested_at"].iloc[0] == bronze.RUN_STARTED_AT
-    assert load.df["ingested_by"].str.startswith("ingest-").all()
+    assert load_job.df["ingested_at"].nunique() == 1
+    assert load_job.df["ingested_at"].iloc[0] == run.RUN_STARTED_AT
+    assert load_job.df["ingested_by"].str.startswith("ingest-").all()
 
 
 def test_append_loads_against_the_live_table_schema(fake_bigquery):
-    bronze.append_to_bronze(pd.DataFrame({"alert_id": ["1"]}))
+    load.append_to_bronze(pd.DataFrame({"alert_id": ["1"]}))
 
     assert [field.name for field in fake_bigquery[0].job_config.schema] == ["alert_id"]
 
 
 def test_append_skips_empty_frames(fake_bigquery):
-    bronze.append_to_bronze(pd.DataFrame())
+    load.append_to_bronze(pd.DataFrame())
 
     assert fake_bigquery == []
 
 
 def test_fetch_exits_on_http_error(monkeypatch):
-    monkeypatch.setattr(bronze.requests, "get", lambda *a, **k: SimpleNamespace(status_code=503))
+    monkeypatch.setattr(fetch.requests, "get", lambda *a, **k: SimpleNamespace(status_code=503))
 
     with pytest.raises(SystemExit) as exit_info:
-        bronze.fetch("https://example.test")
+        fetch.fetch("https://example.test")
 
     assert exit_info.value.code == 1
 
@@ -83,7 +84,7 @@ def test_fail_on_final_attempt_reports_job_failed(monkeypatch, capsys):
     monkeypatch.setenv("MAX_RETRIES", "1")
 
     with pytest.raises(SystemExit):
-        bronze.fail("Request to https://example.test returned HTTP 503")
+        run.fail("Request to https://example.test returned HTTP 503")
 
     report = last_report(capsys)
     assert report["severity"] == "ERROR"
@@ -98,7 +99,7 @@ def test_fail_before_a_retry_only_warns(monkeypatch, capsys):
     monkeypatch.setenv("MAX_RETRIES", "1")
 
     with pytest.raises(SystemExit):
-        bronze.fail("Request to https://example.test returned HTTP 503")
+        run.fail("Request to https://example.test returned HTTP 503")
 
     report = last_report(capsys)
     assert report["severity"] == "WARNING"
@@ -106,7 +107,7 @@ def test_fail_before_a_retry_only_warns(monkeypatch, capsys):
 
 
 def test_uncaught_exception_reports_traceback(monkeypatch, capsys):
-    monkeypatch.setattr(bronze.sys, "__excepthook__", lambda *args: None)
+    monkeypatch.setattr(run.sys, "__excepthook__", lambda *args: None)
     try:
         {}["data"]
     except KeyError as error:
@@ -116,3 +117,19 @@ def test_uncaught_exception_reports_traceback(monkeypatch, capsys):
     assert report["event"] == "job_failed"
     assert report["message"].startswith("KeyError: 'data'")
     assert "Traceback (most recent call last)" in report["message"]
+
+
+# ── MBTA API settings (common/mbta_api.py) ────────────────────────────────────
+
+def test_api_params_adds_the_key_when_set(monkeypatch):
+    monkeypatch.setenv("MBTA_API_KEY", "test-key")
+
+    assert mbta_api.api_params({"filter[id]": "Red"}) == {"filter[id]": "Red", "api_key": "test-key"}
+
+
+def test_api_params_without_a_key_leaves_params_alone(monkeypatch):
+    monkeypatch.delenv("MBTA_API_KEY", raising=False)
+    params = {"filter[id]": "Red"}
+
+    assert mbta_api.api_params(params) == {"filter[id]": "Red"}
+    assert mbta_api.api_params(params) is not params  # a copy, never the caller's dict

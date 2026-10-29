@@ -1,7 +1,7 @@
 # Tooling config for the whole repo (each component keeps its own requirements.txt)
 
 [tool.pytest.ini_options]
-# Ingest tests import `common.bronze`; dashboard tests import `helpers`
+# Ingest tests import `common.*` (ingest/common/); dashboard tests import `helpers`
 pythonpath = ["ingest", "serve"]
 testpaths = ["ingest/tests", "serve/tests"]
 addopts = "--import-mode=importlib"

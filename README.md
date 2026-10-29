@@ -127,7 +127,7 @@ The dashboard shows visitors the same thing: the dot beside "Alerts updated" is 
 | Silver / gold columns | `snake_case`; keys `<entity>_id`; `_at` = TIMESTAMP (UTC); `_date` = DATE (Eastern); measures carry their unit; booleans `is_` | `alert_start_at`, `precipitation_in`, `is_in_feed` |
 | Audit columns | On every bronze table, carried into silver and gold where a row has one source version (alert models track `first_seen_at` / `last_seen_at` instead) | `ingested_at`, `ingested_by` |
 | dbt models | Header comment (purpose, grain, numbered steps); CTEs named after the step | `latest_versions`, `quality_checked` |
-| Ingest scripts | Docstring (source, cadence, each run, writes to); Fetch → Shape → Write sections | |
+| Ingest scripts | Docstring (source, cadence, each run, writes to); Fetch → Shape → Load sections | |
 
 ---
 
@@ -218,7 +218,10 @@ infra/                  Terraform — all GCP infrastructure
   artifact-registry.tf  Image repositories + cleanup policy
   cloud-storage.tf      Terraform state bucket
 ingest/                 One shared image for every ingest job
-  common/bronze.py      Shared fetch + append-to-bronze helpers
+  common/run.py         What every run shares: job name, run timestamp, logging, failure reports
+  common/fetch.py       fetch(): HTTP GET that fails the job cleanly (step 1)
+  common/load.py        append_to_bronze(): load into bronze (step 3)
+  common/mbta_api.py    MBTA API settings: base URL, rail routes, API key
   tests/                Job tests against canned API responses
   mbta-alerts/          MBTA service alert snapshots (every 15 minutes)
   mbta-routes/          MBTA route metadata snapshots (yearly)
@@ -230,12 +233,13 @@ transform/              dbt Core project
   models/bronze/        Source declarations + freshness thresholds
   models/silver/        __base cleaned copies + steps + tests
   models/gold/          Dashboard tables (rail_incidents, rail_incident_stations, rail_stations, rail_ridership) + tests
-  macros/               keep_latest_version, null_if_failed_ghcn_qc
+  macros/               keep_latest_version, last_processed_snapshot, null_if_epoch, null_if_failed_ghcn_qc
   tests/generic/        unique_combination, accepted_range
 serve/                  Streamlit dashboard (app.py; pure helpers in helpers.py, tested in tests/)
 scripts/build-image.sh  Build + push a component's image (used by CI/CD)
 .github/workflows/      CI/CD: lint, tests, dbt parse, terraform validate; deploy on main
 requirements.txt        Local environment: every component + dev tools
+requirements-dev.txt    Dev tool pins (ruff, sqlfluff, pytest), shared with CI
 pyproject.toml          pytest + ruff config
 CLAUDE.md               Rules and pointers for AI coding sessions
 docs/                   Setup, runbook, decision records, roadmap

@@ -29,13 +29,9 @@
     )
 }}
 
-{#- The newest snapshot already processed, compiled into the query as a literal
-    so BigQuery prunes bronze's ingested_at partitions (a subquery wouldn't) -#}
-{%- set processed_through = none -%}
-{%- if is_incremental() and execute -%}
-    {%- set result = run_query("SELECT FORMAT_TIMESTAMP('%Y-%m-%d %H:%M:%E6S', MAX(last_seen_at)) FROM " ~ this) -%}
-    {%- set processed_through = result.columns[0].values()[0] -%}
-{%- endif %}
+{#- The newest snapshot already processed (none on a first build), compiled
+    in as a literal so bronze's partitions are pruned -#}
+{%- set processed_through = last_processed_snapshot() %}
 
 WITH
 

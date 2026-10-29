@@ -3,10 +3,4 @@
 -r ingest/requirements.txt
 -r transform/requirements.txt
 -r serve/requirements.txt
-
-# Linting (config: pyproject.toml, transform/.sqlfluff)
-ruff==0.17.2
-sqlfluff==4.4.0
-
-# Testing (config: pyproject.toml)
-pytest==9.1.1
+-r requirements-dev.txt

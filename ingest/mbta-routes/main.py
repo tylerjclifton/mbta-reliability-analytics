@@ -9,26 +9,21 @@ Writes to:  bronze.mbta_routes (append) — one row per route per run
 
 # Import standard libraries
 import logging
-import os
 
 # Import third party libraries
 import pandas
 
 # Import shared ingest helpers
-from common.bronze import append_to_bronze, fetch
-
-# Rail routes to snapshot — must match rail_routes in silver/mbta_alerts__by_route.sql
-TARGET_ROUTES = ['Red', 'Blue', 'Orange', 'Green-B', 'Green-C', 'Green-D', 'Green-E']
+from common.fetch import fetch
+from common.load import append_to_bronze
+from common.mbta_api import API_URL, RAIL_ROUTES, api_params
 
 # ── Fetch ─────────────────────────────────────────────────────────────────────
 
-# Filter to target routes server-side; the API key is optional but removes the
-# anonymous rate limit
-params = {'filter[id]': ','.join(TARGET_ROUTES)}
-if os.getenv('MBTA_API_KEY'):
-    params['api_key'] = os.getenv('MBTA_API_KEY')
+# The project's rail routes (common/mbta_api.py), filtered server-side
+params = api_params({'filter[id]': ','.join(RAIL_ROUTES)})
 
-routes = fetch('https://api-v3.mbta.com/routes', params=params, timeout=30).json()['data']
+routes = fetch(f'{API_URL}/routes', params=params, timeout=30).json()['data']
 
 # ── Shape ─────────────────────────────────────────────────────────────────────
 
@@ -47,6 +42,6 @@ for route in routes:
 
 logging.info(f"{len(rows)} routes in response")
 
-# ── Write ─────────────────────────────────────────────────────────────────────
+# ── Load ──────────────────────────────────────────────────────────────────────
 
 append_to_bronze(pandas.DataFrame(rows))

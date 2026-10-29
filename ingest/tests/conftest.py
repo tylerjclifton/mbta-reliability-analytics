@@ -43,7 +43,8 @@ def run_job(monkeypatch):
     """
 
     def _run(job, responses):
-        import common.bronze as bronze
+        import common.fetch as fetch
+        import common.load as load
 
         bodies = iter(responses)
         captured = {}
@@ -53,8 +54,8 @@ def run_job(monkeypatch):
             _run.requests.append({"url": url, "params": params or {}})
             return FakeResponse(next(bodies))
 
-        monkeypatch.setattr(bronze.requests, "get", fake_get)
-        monkeypatch.setattr(bronze, "append_to_bronze", lambda df: captured.setdefault("df", df))
+        monkeypatch.setattr(fetch.requests, "get", fake_get)
+        monkeypatch.setattr(load, "append_to_bronze", lambda df: captured.setdefault("df", df))
 
         script = INGEST_DIR / job / "main.py"
         with mock.patch.object(sys, "argv", [str(script)]):

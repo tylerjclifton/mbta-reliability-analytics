@@ -19,7 +19,9 @@ import logging
 import pandas
 
 # Import shared ingest helpers
-from common.bronze import append_to_bronze, fail, fetch
+from common.fetch import fetch
+from common.load import append_to_bronze
+from common.run import fail
 
 # ArcGIS Feature Service endpoint for MBTA Gated Station Entries
 ARCGIS_URL = 'https://services1.arcgis.com/ceiitspzDAHrdGO1/arcgis/rest/services/GSE/FeatureServer/0/query'
@@ -86,6 +88,6 @@ df = pandas.DataFrame(rows)
 if not df.empty:
     logging.info(f"Pulled {df['service_date'].min()} to {df['service_date'].max()}")
 
-# ── Write ─────────────────────────────────────────────────────────────────────
+# ── Load ──────────────────────────────────────────────────────────────────────
 
 append_to_bronze(df)

@@ -35,3 +35,75 @@ Day the weather values summarize: midnight to midnight local standard time (1amâ
 {% docs incident_id %}
 One real-world event the MBTA may have posted as several alerts (updates, "earlier disabled train" follow-ups). Alerts share an incident when they have the same route, cause, effect, and location and follow on within 2 hours (6 hours for "earlier"/"residual" follow-ups). The value is the incident's first alert ID. See silver.mbta_alerts__by_route.
 {% enddocs %}
+
+{% docs first_seen_at %}
+First ingest run that included this alert (UTC).
+{% enddocs %}
+
+{% docs last_seen_at %}
+Latest ingest run that included this alert (UTC).
+{% enddocs %}
+
+{% docs alert_header %}
+Short alert text.
+{% enddocs %}
+
+{% docs alert_description %}
+Long alert text.
+{% enddocs %}
+
+{% docs alert_severity %}
+MBTA severity, 0 (least) to 10 (most).
+{% enddocs %}
+
+{% docs alert_created_at %}
+When MBTA created the alert (UTC).
+{% enddocs %}
+
+{% docs alert_updated_at %}
+When MBTA last updated the alert (UTC).
+{% enddocs %}
+
+{% docs alert_start_at %}
+When the alert took effect (UTC). Posted start, else when MBTA created the alert.
+{% enddocs %}
+
+{% docs alert_is_in_feed %}
+True when the alert was in the latest ingest run, i.e. still listed by the API.
+{% enddocs %}
+
+{% docs incident_header %}
+Short text of the incident's most recent alert.
+{% enddocs %}
+
+{% docs incident_start_at %}
+Earliest start among the incident's alerts (UTC).
+{% enddocs %}
+
+{% docs incident_end_at %}
+Latest end among the incident's alerts (UTC); NULL while any is ongoing.
+{% enddocs %}
+
+{% docs incident_is_in_feed %}
+True when any of the incident's alerts is still listed by the API.
+{% enddocs %}
+
+{% docs route_name %}
+Route display name (e.g. "Green Line B").
+{% enddocs %}
+
+{% docs station_name %}
+Station name.
+{% enddocs %}
+
+{% docs station_latitude %}
+Station latitude (WGS84).
+{% enddocs %}
+
+{% docs station_longitude %}
+Station longitude (WGS84).
+{% enddocs %}
+
+{% docs is_wheelchair_accessible %}
+True/False per the MBTA; NULL when it has no information.
+{% enddocs %}

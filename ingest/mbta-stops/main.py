@@ -21,16 +21,14 @@ not which route stops at it.
 
 # Import standard libraries
 import logging
-import os
 
 # Import third party libraries
 import pandas
 
 # Import shared ingest helpers
-from common.bronze import append_to_bronze, fetch
-
-# Rail routes to snapshot — must match rail_routes in silver/mbta_alerts__by_route.sql
-TARGET_ROUTES = ['Red', 'Blue', 'Orange', 'Green-B', 'Green-C', 'Green-D', 'Green-E']
+from common.fetch import fetch
+from common.load import append_to_bronze
+from common.mbta_api import API_URL, RAIL_ROUTES, api_params
 
 
 def stop_row(route_id, stop):
@@ -59,26 +57,24 @@ def stop_row(route_id, stop):
 
 # ── Fetch + Shape ─────────────────────────────────────────────────────────────
 
-# The API key is optional but removes the anonymous rate limit
-api_key = {'api_key': os.getenv('MBTA_API_KEY')} if os.getenv('MBTA_API_KEY') else {}
-
+# One request per rail route (common/mbta_api.py)
 rows = []
-for route_id in TARGET_ROUTES:
+for route_id in RAIL_ROUTES:
     # filter[route] returns the route's stations; include=child_stops adds
     # everything inside them (as JSON:API "included" resources)
-    params = {'filter[route]': route_id, 'include': 'child_stops', **api_key}
-    body = fetch('https://api-v3.mbta.com/stops', params=params, timeout=30).json()
+    params = api_params({'filter[route]': route_id, 'include': 'child_stops'})
+    body = fetch(f'{API_URL}/stops', params=params, timeout=30).json()
 
     stations = body.get('data', [])
     children = body.get('included', [])
     rows += [stop_row(route_id, stop) for stop in stations + children]
     logging.info(f"{route_id}: {len(stations)} stations, {len(children)} child stops")
 
-# ── Write ─────────────────────────────────────────────────────────────────────
-
 df = pandas.DataFrame(rows)
 # Nullable integers: a missing enum stays NULL instead of turning the column to float
 for column in ['location_type', 'vehicle_type', 'wheelchair_boarding']:
     df[column] = df[column].astype('Int64')
+
+# ── Load ──────────────────────────────────────────────────────────────────────
 
 append_to_bronze(df)

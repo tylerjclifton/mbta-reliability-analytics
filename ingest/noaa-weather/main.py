@@ -24,7 +24,8 @@ import os
 import pandas
 
 # Import shared ingest helpers
-from common.bronze import append_to_bronze, fetch
+from common.fetch import fetch
+from common.load import append_to_bronze
 
 # Boston Logan International Airport
 STATION_ID = 'USW00014739'
@@ -63,6 +64,6 @@ for element in ELEMENTS:
 if not df.empty:
     logging.info(f"Pulled {df['observation_date'].min()} to {df['observation_date'].max()}")
 
-# ── Write ─────────────────────────────────────────────────────────────────────
+# ── Load ──────────────────────────────────────────────────────────────────────
 
 append_to_bronze(df)

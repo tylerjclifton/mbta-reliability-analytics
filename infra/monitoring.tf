@@ -8,7 +8,7 @@
 #                          starting it. An ingest job failing that way is
 #                          caught by the transform's freshness check instead.
 #
-# Failure report contract (ingest/common/bronze.py, transform/run.py): a failed
+# Failure report contract (ingest/common/run.py, transform/run.py): a failed
 # run prints one JSON line to stdout, which Cloud Run logs as structured data:
 #   {"severity": "ERROR", "event": "job_failed", "job": "<job>", "message": "<summary>\n\n<details>"}
 # Only a task's final attempt reports job_failed; an attempt Cloud Run will

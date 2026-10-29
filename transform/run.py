@@ -79,7 +79,7 @@ def failure_details(lines):
 def report_failure(summary, details):
     """
     Log the failure as one structured entry: event "job_failed" emails an alert.
-    Same contract as ingest/common/bronze.py; the transform never retries
+    Same contract as ingest/common/run.py; the transform never retries
     (MAX_RETRIES = 0), so every failure is final.
     """
     is_final_attempt = int(os.getenv('CLOUD_RUN_TASK_ATTEMPT', '0')) >= int(os.getenv('MAX_RETRIES', '0'))

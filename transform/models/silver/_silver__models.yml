@@ -37,10 +37,10 @@ models:
         description: The alert's latest JSON:API object, exactly as the API returned it.
         data_tests: [not_null]
       - name: first_seen_at
-        description: First ingest run that included this alert (UTC).
+        description: "{{ doc('first_seen_at') }}"
         data_tests: [not_null]
       - name: last_seen_at
-        description: Latest ingest run that included this alert (UTC).
+        description: "{{ doc('last_seen_at') }}"
         data_tests: [not_null]
 
   - name: mbta_routes__base
@@ -50,7 +50,7 @@ models:
         description: "{{ doc('route_id') }}"
         data_tests: [unique, not_null]
       - name: route_name
-        description: Route display name (e.g. "Green Line B").
+        description: "{{ doc('route_name') }}"
       - name: line_name
         description: "{{ doc('line_name') }}"
         data_tests:
@@ -124,7 +124,7 @@ models:
       - name: stop_municipality
         description: City or town.
       - name: is_wheelchair_accessible
-        description: True/False per the MBTA; NULL when it has no information.
+        description: "{{ doc('is_wheelchair_accessible') }}"
       - name: ingested_at
         description: "{{ doc('ingested_at') }}"
       - name: ingested_by
@@ -227,24 +227,24 @@ models:
       - name: alert_duration_certainty
         description: MBTA enum (KNOWN, ESTIMATED, UNKNOWN).
       - name: alert_header
-        description: Short alert text.
+        description: "{{ doc('alert_header') }}"
       - name: alert_description
-        description: Long alert text.
+        description: "{{ doc('alert_description') }}"
       - name: alert_cause
         description: MBTA cause enum (e.g. SIGNAL_PROBLEM).
       - name: alert_effect
         description: MBTA effect enum (e.g. DELAY, SHUTTLE).
       - name: alert_severity
-        description: MBTA severity, 0 (least) to 10 (most).
+        description: "{{ doc('alert_severity') }}"
       - name: alert_created_at
-        description: When MBTA created the alert (UTC).
+        description: "{{ doc('alert_created_at') }}"
       - name: alert_updated_at
-        description: When MBTA last updated the alert (UTC).
+        description: "{{ doc('alert_updated_at') }}"
       - name: first_seen_at
-        description: First ingest run that included this alert (UTC).
+        description: "{{ doc('first_seen_at') }}"
         data_tests: [not_null]
       - name: last_seen_at
-        description: Latest ingest run that included this alert (UTC).
+        description: "{{ doc('last_seen_at') }}"
         data_tests: [not_null]
 
   - name: mbta_alerts__resolved
@@ -258,7 +258,7 @@ models:
             columns: [alert_id, route_id]
     columns:
       - name: is_in_feed
-        description: True when the alert was in the latest ingest run, i.e. still listed by the API.
+        description: "{{ doc('alert_is_in_feed') }}"
         data_tests: [not_null]
       - name: left_feed_at
         description: >
@@ -266,7 +266,7 @@ models:
           saw it and the next, at most 30 minutes after last seen. Meaningless
           while is_in_feed.
       - name: alert_start_at
-        description: When the alert took effect (UTC). Posted start, else when MBTA created the alert.
+        description: "{{ doc('alert_start_at') }}"
         data_tests: [not_null]
       - name: alert_end_at
         description: >
@@ -298,15 +298,15 @@ models:
         description: "{{ doc('incident_id') }}"
         data_tests: [not_null]
       - name: alert_header
-        description: Short alert text.
+        description: "{{ doc('alert_header') }}"
       - name: alert_description
-        description: Long alert text.
+        description: "{{ doc('alert_description') }}"
       - name: alert_cause
         description: Cause, title-cased from the MBTA enum (e.g. "Signal Problem").
       - name: alert_effect
         description: Effect, title-cased from the MBTA enum (e.g. "Delay", "Shuttle").
       - name: alert_severity
-        description: MBTA severity, 0 (least) to 10 (most).
+        description: "{{ doc('alert_severity') }}"
         data_tests:
           - accepted_range:
               arguments:
@@ -315,7 +315,7 @@ models:
       - name: alert_duration_certainty
         description: Whether MBTA considers the end time Known, Estimated, or Unknown.
       - name: alert_start_at
-        description: When the alert took effect (UTC). Posted start, else when MBTA created the alert.
+        description: "{{ doc('alert_start_at') }}"
         data_tests: [not_null]
       - name: alert_end_at
         description: >
@@ -342,13 +342,13 @@ models:
           lower-cased with punctuation removed (e.g. "jfkumass"); NULL if none.
           Used to group alerts into incidents.
       - name: alert_created_at
-        description: When MBTA created the alert (UTC).
+        description: "{{ doc('alert_created_at') }}"
       - name: alert_updated_at
-        description: When MBTA last updated the alert (UTC).
+        description: "{{ doc('alert_updated_at') }}"
       - name: is_in_feed
-        description: True when the alert was in the latest ingest run, i.e. still listed by the API.
+        description: "{{ doc('alert_is_in_feed') }}"
       - name: first_seen_at
-        description: First ingest run that included this alert (UTC).
+        description: "{{ doc('first_seen_at') }}"
       - name: last_seen_at
         description: Last ingest run that included this alert (UTC). Equals ingested_at.
       - name: ingested_at
@@ -392,4 +392,3 @@ models:
         description: >
           The one direction affected (0 or 1, indexing the route's
           route_destinations); NULL when both are.
-

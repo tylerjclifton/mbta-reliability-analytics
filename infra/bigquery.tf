@@ -18,7 +18,7 @@
 # ══════════════════════════════════════════════════════════════════════════════
 
 locals {
-  # Audit columns appended to every bronze table by ingest/common/bronze.py
+  # Audit columns appended to every bronze table by ingest/common/load.py
   bronze_audit_columns = [
     { name = "ingested_at", type = "TIMESTAMP", description = "When the ingest run started (UTC); shared by every row written in that run" },
     { name = "ingested_by", type = "STRING", description = "Cloud Run job that wrote the row" },

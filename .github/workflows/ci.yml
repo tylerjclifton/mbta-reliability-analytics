@@ -28,7 +28,7 @@ jobs:
           python-version: "3.13"   # matches the Docker images
           cache: pip
       - name: Install
-        run: pip install -r ingest/requirements.txt pytest==9.1.1 ruff==0.17.2
+        run: pip install -r ingest/requirements.txt -r requirements-dev.txt
       - name: Lint
         run: ruff check ingest serve transform
       - name: Test
@@ -47,7 +47,7 @@ jobs:
           python-version: "3.13"
           cache: pip
       - name: Install
-        run: pip install -r requirements.txt sqlfluff==4.4.0
+        run: pip install -r requirements.txt -r ../requirements-dev.txt
       - name: Parse
         # Parsing checks refs, sources, macros, and YAML without a warehouse
         run: dbt parse --profiles-dir . --target gcp

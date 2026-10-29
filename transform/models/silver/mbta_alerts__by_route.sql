@@ -56,19 +56,11 @@
     'alert_created_at', 'alert_updated_at',
 ] -%}
 
-{#- Rail routes kept from the all-mode feed; must match TARGET_ROUTES in the
-    routes and stops ingests (ingest/mbta-routes, ingest/mbta-stops) -#}
-{%- set rail_routes = ['Red', 'Blue', 'Orange', 'Green-B', 'Green-C', 'Green-D', 'Green-E'] -%}
-
 {%- set capture_start = var('alerts_raw_capture_start') -%}
 
-{#- The newest snapshot already processed, compiled into the query as a literal
-    so BigQuery prunes bronze's ingested_at partitions (a subquery wouldn't) -#}
-{%- set processed_through = none -%}
-{%- if is_incremental() and execute -%}
-    {%- set result = run_query("SELECT FORMAT_TIMESTAMP('%Y-%m-%d %H:%M:%E6S', MAX(last_seen_at)) FROM " ~ this) -%}
-    {%- set processed_through = result.columns[0].values()[0] -%}
-{%- endif -%}
+{#- The newest snapshot already processed (none on a first build), compiled
+    in as a literal so bronze's partitions are pruned -#}
+{%- set processed_through = last_processed_snapshot() -%}
 
 {#- The frozen table only holds snapshots before the capture start, so skip it
     entirely once this table has processed past it (both strings share one
@@ -84,17 +76,17 @@ WITH
         -- Before the capture start: the frozen shaped table
         SELECT
             alert_id,
-            route                                                                   AS route_id,
-            IF(active_period_start > TIMESTAMP '1970-01-02', active_period_start, NULL) AS posted_start_at,
-            IF(active_period_end   > TIMESTAMP '1970-01-02', active_period_end,   NULL) AS posted_end_at,
-            duration_certainty                                                      AS alert_duration_certainty,
-            header                                                                  AS alert_header,
-            description                                                             AS alert_description,
-            cause                                                                   AS alert_cause,
-            effect                                                                  AS alert_effect,
-            severity                                                                AS alert_severity,
-            created_at                                                              AS alert_created_at,
-            updated_at                                                              AS alert_updated_at,
+            route                                      AS route_id,
+            {{ null_if_epoch('active_period_start') }} AS posted_start_at,
+            {{ null_if_epoch('active_period_end') }}   AS posted_end_at,
+            duration_certainty                         AS alert_duration_certainty,
+            header                                     AS alert_header,
+            description                                AS alert_description,
+            cause                                      AS alert_cause,
+            effect                                     AS alert_effect,
+            severity                                   AS alert_severity,
+            created_at                                 AS alert_created_at,
+            updated_at                                 AS alert_updated_at,
             ingested_at
         FROM {{ source('bronze', 'mbta_alerts_legacy') }}
         WHERE
@@ -110,8 +102,8 @@ WITH
         SELECT
             alert_id,
             route_id,
-            IF(posted_start_at > TIMESTAMP '1970-01-02', posted_start_at, NULL) AS posted_start_at,
-            IF(posted_end_at   > TIMESTAMP '1970-01-02', posted_end_at,   NULL) AS posted_end_at,
+            {{ null_if_epoch('posted_start_at') }} AS posted_start_at,
+            {{ null_if_epoch('posted_end_at') }}   AS posted_end_at,
             alert_duration_certainty,
             alert_header,
             alert_description,
@@ -124,7 +116,7 @@ WITH
         FROM (
             SELECT
                 r.alert_id,
-                route_id,
+                rail.route_id,
                 -- Only the first active period, as the shaped table kept
                 TIMESTAMP(JSON_VALUE(r.alert_json, '$.attributes.active_period[0].start')) AS posted_start_at,
                 TIMESTAMP(JSON_VALUE(r.alert_json, '$.attributes.active_period[0].end'))   AS posted_end_at,
@@ -138,13 +130,16 @@ WITH
                 TIMESTAMP(JSON_VALUE(r.alert_json, '$.attributes.updated_at'))             AS alert_updated_at,
                 r.ingested_at
             FROM {{ source('bronze', 'mbta_alerts') }} AS r
-            -- One row per distinct rail route among the alert's informed entities
+            -- One row per distinct route among the alert's informed entities...
             CROSS JOIN UNNEST(ARRAY(
                 SELECT DISTINCT JSON_VALUE(entity, '$.route')
                 FROM UNNEST(JSON_QUERY_ARRAY(r.alert_json, '$.attributes.informed_entity')) AS entity
-                -- Exempt from the length rule: the line is only long once the route list is rendered
-                WHERE JSON_VALUE(entity, '$.route') IN ('{{ rail_routes | join("', '") }}')  -- noqa: LT05
-            )) AS route_id
+            )) AS entity_route_id
+            -- ...kept only for rail routes: those in the routes table (the
+            -- project's rail routes, ingest/common/mbta_api.py), as in
+            -- mbta_alerts__by_station
+            INNER JOIN {{ ref('mbta_routes__base') }} AS rail
+                ON entity_route_id = rail.route_id
             WHERE
                 r.ingested_at >= TIMESTAMP '{{ capture_start }}'
                 {%- if processed_through %}

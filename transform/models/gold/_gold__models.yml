@@ -32,16 +32,16 @@ models:
       - name: incident_effect
         description: Effect shared by the incident's alerts (e.g. "Delay").
       - name: incident_header
-        description: Short text of the incident's most recent alert.
+        description: "{{ doc('incident_header') }}"
       - name: incident_description
         description: Long text of the incident's most recent alert.
       - name: incident_severity
         description: Highest severity among the incident's alerts (0–10).
       - name: incident_start_at
-        description: Earliest start among the incident's alerts (UTC).
+        description: "{{ doc('incident_start_at') }}"
         data_tests: [not_null]
       - name: incident_end_at
-        description: Latest end among the incident's alerts (UTC); NULL while any is ongoing.
+        description: "{{ doc('incident_end_at') }}"
       - name: incident_duration_minutes
         description: Minutes from start to end, or to now while ongoing.
       - name: alert_count
@@ -51,7 +51,7 @@ models:
               arguments:
                 min_value: 1
       - name: is_in_feed
-        description: True when any of the incident's alerts is still listed by the API.
+        description: "{{ doc('incident_is_in_feed') }}"
       - name: stations_affected
         description: >
           Distinct stations the incident's alerts name on this route. NULL when
@@ -85,21 +85,21 @@ models:
         description: "{{ doc('station_id') }}"
         data_tests: [not_null]
       - name: route_name
-        description: Route display name (e.g. "Green Line B").
+        description: "{{ doc('route_name') }}"
       - name: line_name
         description: "{{ doc('line_name') }}"
         data_tests: [not_null]
       - name: station_name
-        description: Station name.
+        description: "{{ doc('station_name') }}"
         data_tests:
           # NULL only for a stop the stops reference doesn't know yet
           - not_null:
               config:
                 severity: warn
       - name: station_latitude
-        description: Station latitude (WGS84).
+        description: "{{ doc('station_latitude') }}"
       - name: station_longitude
-        description: Station longitude (WGS84).
+        description: "{{ doc('station_longitude') }}"
       - name: affects_both_directions
         description: True when service at the station is affected both ways.
       - name: direction_destination
@@ -111,13 +111,13 @@ models:
       - name: incident_effect
         description: Effect shared by the incident's alerts (e.g. "Shuttle").
       - name: incident_header
-        description: Short text of the incident's most recent alert.
+        description: "{{ doc('incident_header') }}"
       - name: incident_start_at
-        description: Earliest start among the incident's alerts (UTC).
+        description: "{{ doc('incident_start_at') }}"
       - name: incident_end_at
-        description: Latest end among the incident's alerts (UTC); NULL while any is ongoing.
+        description: "{{ doc('incident_end_at') }}"
       - name: is_in_feed
-        description: True when any of the incident's alerts is still listed by the API.
+        description: "{{ doc('incident_is_in_feed') }}"
       - name: ingested_at
         description: "{{ doc('ingested_at') }}"
 
@@ -137,16 +137,16 @@ models:
         description: "{{ doc('line_name') }}"
         data_tests: [not_null]
       - name: station_name
-        description: Station name.
+        description: "{{ doc('station_name') }}"
         data_tests: [not_null]
       - name: station_latitude
-        description: Station latitude (WGS84).
+        description: "{{ doc('station_latitude') }}"
         data_tests: [not_null]
       - name: station_longitude
-        description: Station longitude (WGS84).
+        description: "{{ doc('station_longitude') }}"
         data_tests: [not_null]
       - name: is_wheelchair_accessible
-        description: True/False per the MBTA; NULL when it has no information.
+        description: "{{ doc('is_wheelchair_accessible') }}"
       - name: ingested_at
         description: "{{ doc('ingested_at') }}"
 

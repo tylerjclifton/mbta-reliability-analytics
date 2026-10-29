@@ -27,26 +27,24 @@ dropped the stops each alert affects and more; it's kept, frozen, as history
 # Import standard libraries
 import json
 import logging
-import os
 
 # Import third party libraries
 import pandas
 
 # Import shared ingest helpers
-from common.bronze import append_to_bronze, fetch
+from common.fetch import fetch
+from common.load import append_to_bronze
+from common.mbta_api import API_URL, api_params
 
 # ── Fetch ─────────────────────────────────────────────────────────────────────
 
 # The whole feed: no route filter, and every activity. Without filter[activity]
 # the API documents a default of BOARD/EXIT/RIDE, which would drop alerts that
 # only affect escalators, elevators, parking, or bikes (a route filter does
-# apply it); ALL is the documented way to get everything. The API key is
-# optional but removes the anonymous rate limit.
-params = {'filter[activity]': 'ALL'}
-if os.getenv('MBTA_API_KEY'):
-    params['api_key'] = os.getenv('MBTA_API_KEY')
+# apply it); ALL is the documented way to get everything.
+params = api_params({'filter[activity]': 'ALL'})
 
-alerts = fetch('https://api-v3.mbta.com/alerts', params=params, timeout=30).json()['data']
+alerts = fetch(f'{API_URL}/alerts', params=params, timeout=30).json()['data']
 
 # ── Shape ─────────────────────────────────────────────────────────────────────
 
@@ -56,6 +54,6 @@ rows = [{'alert_id': alert.get('id'), 'alert_json': json.dumps(alert, separators
 
 logging.info(f"{len(rows)} alerts in feed")
 
-# ── Write ─────────────────────────────────────────────────────────────────────
+# ── Load ──────────────────────────────────────────────────────────────────────
 
 append_to_bronze(pandas.DataFrame(rows))

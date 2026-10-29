@@ -8,7 +8,7 @@ Safe, and touches no data. It fails the yearly routes job on purpose: attempt 1 
 
 ```bash
 gcloud run jobs execute ingest-mbta-routes --region us-east1 --wait \
-  --args=-c,"import sys; sys.argv = ['mbta-routes/main.py']; from common import bronze; raise RuntimeError('TEST ALERT - deliberate failure; no data was touched')"
+  --args=-c,"import sys; sys.argv = ['mbta-routes/main.py']; from common import run; raise RuntimeError('TEST ALERT - deliberate failure; no data was touched')"
 ```
 
 Don't put commas in the Python code, since `--args` splits on them. The email arrives within about a minute. The test leaves a failed execution in the job's history, which is expected.

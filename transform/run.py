@@ -2,8 +2,8 @@
 Transform job entrypoint (Dockerfile CMD)
 
 Runs, in order, stopping at the first failure:
-  1. `dbt build` — models + tests in DAG order; a failing test skips everything
-     downstream of it, so bad data never reaches gold
+  1. `dbt build` — models + data and unit tests in DAG order; a failing test
+     skips everything downstream of it, so bad data never reaches gold
   2. `dbt source freshness` — fails the run if an ingest job has stopped
      writing to bronze (thresholds in models/bronze/_bronze__sources.yml)
 Both use the gcp target (attached service account, no keyfile) unless

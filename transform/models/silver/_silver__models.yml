@@ -19,6 +19,7 @@ version: 2
 #   unique_combination / unique + not_null  → the model's grain holds
 #   accepted_values / relationships         → keys join cleanly across sources
 #   accepted_range                          → values are physically plausible
+# The alert rules also have unit tests on made-up rows (_silver__unit_tests.yml).
 # ══════════════════════════════════════════════════════════════════════════════
 
 models:

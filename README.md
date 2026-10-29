@@ -88,7 +88,7 @@ Silver models are named `<bronze table>__<step>`. `__base` is each source's clea
 
 **Alert end times.** An alert ends at whichever comes first: the end time the MBTA posted (an estimate, usually rounded to the hour) or when it left the feed (midway between the last 15-minute run that saw it and the next). Since July 2026, 82% of alerts left the feed before their posted end.
 
-**Alerts → incidents.** The MBTA often posts several alerts for one event (an update, or "delays due to an earlier disabled train at JFK/UMass"). `silver.mbta_alerts__grouped` groups them: same route, cause, effect, and station named in the header, starting within 2 hours of the previous alert's end (6 hours for "earlier"/"residual" follow-ups). Alerts that don't affect train service (notices, elevator/parking issues — `non_service_alert_effects` in `dbt_project.yml`) are excluded in `silver.mbta_alerts__resolved`; bronze keeps them.
+**Alerts → incidents.** The MBTA often posts several alerts for one event (an update, or "delays due to an earlier disabled train at JFK/UMass"). `silver.mbta_alerts__grouped` groups them: same route, cause, effect, and station named in the header, starting within 2 hours of the incident's latest end (6 hours for "earlier"/"residual" follow-ups). Alerts that don't affect train service (notices, elevator/parking issues — `non_service_alert_effects` in `dbt_project.yml`) are excluded in `silver.mbta_alerts__resolved`; bronze keeps them.
 
 ### Data quality
 
@@ -99,6 +99,7 @@ The transform job (`transform/run.py`) runs `dbt build` then `dbt source freshne
 - **Range tests** — temperatures, precipitation, gated entries, and severities are physically plausible
 - **Coverage** — warns if any ridership day has no weather
 - **Incidents** — every incident has at least one alert and a start time
+- **Unit tests** — the alert rules (end times, the 30-minute cap, the 2- and 6-hour grouping windows, what keeps incidents apart) are checked on hand-written alerts with known answers (`transform/models/silver/_silver__unit_tests.yml`), so a change that breaks a rule fails the build instead of quietly shifting the dashboard's numbers. They need BigQuery, so they run in the transform, not in CI's credential-free checks; a broken rule fails the deploy's transform run
 - **Freshness** — fails the run if an ingest job stops writing to bronze (thresholds per source in `transform/models/bronze/_bronze__sources.yml`)
 
 A failing test skips everything downstream of it, so bad data never reaches gold.
@@ -231,7 +232,7 @@ ingest/                 One shared image for every ingest job
 transform/              dbt Core project
   run.py                Job entrypoint: dbt build + freshness, failure reports
   models/bronze/        Source declarations + freshness thresholds
-  models/silver/        __base cleaned copies + steps + tests
+  models/silver/        __base cleaned copies + steps + data tests; unit tests for the alert rules
   models/gold/          Dashboard tables (rail_incidents, rail_incident_stations, rail_stations, rail_ridership) + tests
   macros/               keep_latest_version, last_processed_snapshot, null_if_epoch, null_if_failed_ghcn_qc
   tests/generic/        unique_combination, accepted_range

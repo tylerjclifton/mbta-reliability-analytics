@@ -1,0 +1,242 @@
+version: 2
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Silver unit tests — the alert rules, checked on made-up rows
+#
+# The data tests in _silver__models.yml check that real data is sane (grain,
+# joins, ranges); they can't tell whether a rule is right. These feed a model a
+# few hand-written rows with known answers and compare its output, so a change
+# that breaks a rule fails the build instead of quietly shifting the
+# dashboard's incident counts and durations.
+#
+#   mbta_alerts__resolved  end time (posted end vs leaving the feed, the 30-minute
+#                          midpoint cap), start fallback, which alerts are dropped
+#   mbta_alerts__grouped   2- and 6-hour follow-up windows (and their edges),
+#                          what keeps alerts apart (route, cause, location)
+#
+# They run in `dbt build` before the model they test; a failure skips the model
+# and everything downstream, like a data test. They read no tables (dbt only
+# looks up the inputs' column types), so they cost nothing to run. Only the
+# columns a test lists are set or compared; the rest are NULL / ignored.
+# See: https://docs.getdbt.com/docs/build/unit-tests
+# ══════════════════════════════════════════════════════════════════════════════
+
+unit_tests:
+
+  # ── mbta_alerts__resolved ─────────────────────────────────────────────────
+  # Every test uses the same ingest runs, from both bronze alert tables:
+  #   legacy  06:00            (a pre-2026-10 gap: the next run is 4 hours later)
+  #   live    10:00, 10:15, 10:30  (10:30 is the latest run: "still in the feed")
+
+  - name: resolved_end_time_rules
+    description: >
+      Still in the feed → the posted end (NULL if none). Left the feed →
+      whichever came first: the posted end, or midway to the next run, capped
+      at 30 minutes after last seen.
+    model: mbta_alerts__resolved
+    given:
+      - input: source('bronze', 'mbta_alerts_legacy')
+        rows: &legacy_runs
+          - {ingested_at: '2026-01-05 06:00:00'}
+      - input: source('bronze', 'mbta_alerts')
+        rows: &live_runs
+          - {ingested_at: '2026-01-05 10:00:05'}
+          - {ingested_at: '2026-01-05 10:15:05'}
+          - {ingested_at: '2026-01-05 10:30:05'}
+      - input: ref('mbta_alerts__by_route')
+        rows:
+          # In the latest run, no posted end → ongoing
+          - {alert_id: in_feed_ongoing, route_id: Red, alert_effect: DELAY,
+             posted_start_at: '2026-01-05 09:00:00', posted_end_at: null, last_seen_at: '2026-01-05 10:30:05'}
+          # In the latest run → its posted end, even though that's still ahead
+          - {alert_id: in_feed_posted_end, route_id: Red, alert_effect: DELAY,
+             posted_start_at: '2026-01-05 09:00:00', posted_end_at: '2026-01-05 12:00:00', last_seen_at: '2026-01-05 10:30:05'}
+          # Last seen 10:00:05, next run 15 minutes later → left 7.5 minutes after
+          - {alert_id: left_feed, route_id: Red, alert_effect: DELAY,
+             posted_start_at: '2026-01-05 09:00:00', posted_end_at: null, last_seen_at: '2026-01-05 10:00:05'}
+          # Posted end (10:05) came before leaving (10:07:35) → the posted end
+          - {alert_id: posted_end_first, route_id: Red, alert_effect: DELAY,
+             posted_start_at: '2026-01-05 09:00:00', posted_end_at: '2026-01-05 10:05:00', last_seen_at: '2026-01-05 10:00:05'}
+          # Left (10:22:35) well before its posted end (18:00) → leaving
+          - {alert_id: left_before_posted_end, route_id: Red, alert_effect: DELAY,
+             posted_start_at: '2026-01-05 09:00:00', posted_end_at: '2026-01-05 18:00:00', last_seen_at: '2026-01-05 10:15:05'}
+          # Next run 4 hours later → the midpoint would be 08:00; capped at 06:30
+          - {alert_id: midpoint_capped, route_id: Red, alert_effect: DELAY,
+             posted_start_at: '2026-01-05 05:00:00', posted_end_at: null, last_seen_at: '2026-01-05 06:00:00'}
+    expect:
+      rows:
+        - {alert_id: in_feed_ongoing,        is_in_feed: true,  alert_end_at: null}
+        - {alert_id: in_feed_posted_end,     is_in_feed: true,  alert_end_at: '2026-01-05 12:00:00'}
+        - {alert_id: left_feed,              is_in_feed: false, alert_end_at: '2026-01-05 10:07:35'}
+        - {alert_id: posted_end_first,       is_in_feed: false, alert_end_at: '2026-01-05 10:05:00'}
+        - {alert_id: left_before_posted_end, is_in_feed: false, alert_end_at: '2026-01-05 10:22:35'}
+        - {alert_id: midpoint_capped,        is_in_feed: false, alert_end_at: '2026-01-05 06:30:00'}
+
+  - name: resolved_start_falls_back_to_created
+    description: An alert with no posted start starts when the MBTA created it.
+    model: mbta_alerts__resolved
+    given:
+      - input: source('bronze', 'mbta_alerts_legacy')
+        rows: *legacy_runs
+      - input: source('bronze', 'mbta_alerts')
+        rows: *live_runs
+      - input: ref('mbta_alerts__by_route')
+        rows:
+          - {alert_id: posted_start, route_id: Red, alert_effect: DELAY,
+             posted_start_at: '2026-01-05 09:00:00', alert_created_at: '2026-01-05 08:50:00', last_seen_at: '2026-01-05 10:30:05'}
+          - {alert_id: no_posted_start, route_id: Red, alert_effect: DELAY,
+             posted_start_at: null, alert_created_at: '2026-01-05 09:30:00', last_seen_at: '2026-01-05 10:30:05'}
+    expect:
+      rows:
+        - {alert_id: posted_start,    alert_start_at: '2026-01-05 09:00:00'}
+        - {alert_id: no_posted_start, alert_start_at: '2026-01-05 09:30:00'}
+
+  - name: resolved_drops_non_service_and_never_started
+    description: >
+      Effects in var non_service_alert_effects are dropped. An announced alert
+      that left the feed before its start never took effect and is dropped;
+      one still in the feed is kept.
+    model: mbta_alerts__resolved
+    given:
+      - input: source('bronze', 'mbta_alerts_legacy')
+        rows: *legacy_runs
+      - input: source('bronze', 'mbta_alerts')
+        rows: *live_runs
+      - input: ref('mbta_alerts__by_route')
+        rows:
+          - {alert_id: service_alert, route_id: Red, alert_effect: DELAY,
+             posted_start_at: '2026-01-05 09:00:00', last_seen_at: '2026-01-05 10:30:05'}
+          - {alert_id: escalator_closure, route_id: Red, alert_effect: ESCALATOR_CLOSURE,
+             posted_start_at: '2026-01-05 09:00:00', last_seen_at: '2026-01-05 10:30:05'}
+          # Announced for tomorrow, gone from the feed today → cancelled or re-posted
+          - {alert_id: announced_then_gone, route_id: Red, alert_effect: SHUTTLE,
+             posted_start_at: '2026-01-06 09:00:00', last_seen_at: '2026-01-05 10:00:05'}
+          # Announced for tomorrow and still in the feed → kept
+          - {alert_id: announced_in_feed, route_id: Red, alert_effect: SHUTTLE,
+             posted_start_at: '2026-01-06 09:00:00', last_seen_at: '2026-01-05 10:30:05'}
+    expect:
+      rows:
+        - {alert_id: service_alert}
+        - {alert_id: announced_in_feed}
+
+  # ── mbta_alerts__grouped ──────────────────────────────────────────────────
+  # Alerts are Red Line, cause DISABLED_TRAIN, effect DELAY unless a test is
+  # about one of those differing. incident_id is the incident's first alert.
+
+  - name: grouped_follow_up_windows
+    description: >
+      An alert joins the incident when it starts within 2 hours of its latest
+      end (the edge counts), or 6 hours when its header says "earlier" or
+      "residual"; otherwise it starts a new one.
+    model: mbta_alerts__grouped
+    given:
+      - input: ref('mbta_alerts__resolved')
+        rows:
+          - {alert_id: first, route_id: Red, alert_cause: DISABLED_TRAIN, alert_effect: DELAY,
+             alert_header: 'Red Line delays at Harvard due to a disabled train',
+             alert_start_at: '2026-01-05 10:00:00', alert_end_at: '2026-01-05 11:00:00'}
+          # Starts exactly 2 hours after 11:00 → same incident
+          - {alert_id: at_two_hours, route_id: Red, alert_cause: DISABLED_TRAIN, alert_effect: DELAY,
+             alert_header: 'Red Line delays at Harvard due to a disabled train',
+             alert_start_at: '2026-01-05 13:00:00', alert_end_at: '2026-01-05 13:30:00'}
+          # Starts 2 hours 1 minute after 13:30 → new incident
+          - {alert_id: past_two_hours, route_id: Red, alert_cause: DISABLED_TRAIN, alert_effect: DELAY,
+             alert_header: 'Red Line delays at Harvard due to a disabled train',
+             alert_start_at: '2026-01-05 15:31:00', alert_end_at: '2026-01-05 16:00:00'}
+          # "Residual", 5 hours after 16:00 → within 6 hours, same incident
+          - {alert_id: residual_follow_up, route_id: Red, alert_cause: DISABLED_TRAIN, alert_effect: DELAY,
+             alert_header: 'Residual delays at Harvard from an earlier disabled train',
+             alert_start_at: '2026-01-05 21:00:00', alert_end_at: '2026-01-05 21:30:00'}
+          # Same 5-hour gap without the wording → new incident
+          - {alert_id: plain_after_five_hours, route_id: Red, alert_cause: DISABLED_TRAIN, alert_effect: DELAY,
+             alert_header: 'Red Line delays at Harvard due to a disabled train',
+             alert_start_at: '2026-01-06 02:30:00', alert_end_at: '2026-01-06 03:00:00'}
+    expect:
+      rows:
+        - {alert_id: first,                  incident_id: first}
+        - {alert_id: at_two_hours,           incident_id: first}
+        - {alert_id: past_two_hours,         incident_id: past_two_hours}
+        - {alert_id: residual_follow_up,     incident_id: past_two_hours}
+        - {alert_id: plain_after_five_hours, incident_id: plain_after_five_hours}
+
+  - name: grouped_window_runs_from_latest_end
+    description: >
+      The window runs from the latest end among the incident's alerts so far,
+      not the previous alert's end; an ongoing alert counts as ending now.
+    model: mbta_alerts__grouped
+    given:
+      - input: ref('mbta_alerts__resolved')
+        rows:
+          - {alert_id: long_alert, route_id: Red, alert_cause: DISABLED_TRAIN, alert_effect: DELAY,
+             alert_header: 'Red Line delays at Harvard due to a disabled train',
+             alert_start_at: '2026-01-05 10:00:00', alert_end_at: '2026-01-05 14:00:00'}
+          # Ends at 11:00, inside long_alert
+          - {alert_id: short_update, route_id: Red, alert_cause: DISABLED_TRAIN, alert_effect: DELAY,
+             alert_header: 'Red Line delays at Harvard due to a disabled train',
+             alert_start_at: '2026-01-05 10:30:00', alert_end_at: '2026-01-05 11:00:00'}
+          # 4.5 hours after short_update's end, but 1.5 after long_alert's → same incident
+          - {alert_id: after_latest_end, route_id: Red, alert_cause: DISABLED_TRAIN, alert_effect: DELAY,
+             alert_header: 'Red Line delays at Harvard due to a disabled train',
+             alert_start_at: '2026-01-05 15:30:00', alert_end_at: '2026-01-05 16:00:00'}
+          # Ongoing (no end) → any later alert at the same place joins it
+          - {alert_id: ongoing, route_id: Red, alert_cause: DISABLED_TRAIN, alert_effect: DELAY,
+             alert_header: 'Red Line delays at Kendall/MIT due to a disabled train',
+             alert_start_at: '2026-01-05 10:00:00', alert_end_at: null}
+          - {alert_id: days_later, route_id: Red, alert_cause: DISABLED_TRAIN, alert_effect: DELAY,
+             alert_header: 'Red Line delays at Kendall/MIT due to a disabled train',
+             alert_start_at: '2026-01-08 10:00:00', alert_end_at: '2026-01-08 11:00:00'}
+    expect:
+      rows:
+        - {alert_id: long_alert,       incident_id: long_alert}
+        - {alert_id: short_update,     incident_id: long_alert}
+        - {alert_id: after_latest_end, incident_id: long_alert}
+        - {alert_id: ongoing,          incident_id: ongoing}
+        - {alert_id: days_later,       incident_id: ongoing}
+
+  - name: grouped_keeps_different_events_apart
+    description: >
+      Overlapping alerts group only with the same route, cause, effect, and
+      location. The location is the capitalized name after at/near/between/from,
+      normalized so "at Harvard" and "near Harvard." match; alerts naming no
+      location never group.
+    model: mbta_alerts__grouped
+    given:
+      - input: ref('mbta_alerts__resolved')
+        rows:
+          - {alert_id: harvard, route_id: Red, alert_cause: DISABLED_TRAIN, alert_effect: DELAY,
+             alert_header: 'Red Line delays at Harvard due to a disabled train',
+             alert_start_at: '2026-01-05 10:00:00', alert_end_at: '2026-01-05 11:00:00'}
+          # Different wording, same place → same incident
+          - {alert_id: near_harvard, route_id: Red, alert_cause: DISABLED_TRAIN, alert_effect: DELAY,
+             alert_header: 'Red Line delays near Harvard.',
+             alert_start_at: '2026-01-05 10:30:00', alert_end_at: '2026-01-05 11:00:00'}
+          # Each of these differs in one way → its own incident
+          - {alert_id: other_station, route_id: Red, alert_cause: DISABLED_TRAIN, alert_effect: DELAY,
+             alert_header: 'Red Line delays at Kendall/MIT due to a disabled train',
+             alert_start_at: '2026-01-05 10:30:00', alert_end_at: '2026-01-05 11:00:00'}
+          - {alert_id: other_cause, route_id: Red, alert_cause: SIGNAL_PROBLEM, alert_effect: DELAY,
+             alert_header: 'Red Line delays at Harvard due to a signal problem',
+             alert_start_at: '2026-01-05 10:30:00', alert_end_at: '2026-01-05 11:00:00'}
+          - {alert_id: other_effect, route_id: Red, alert_cause: DISABLED_TRAIN, alert_effect: SUSPENSION,
+             alert_header: 'Red Line suspended at Harvard due to a disabled train',
+             alert_start_at: '2026-01-05 10:30:00', alert_end_at: '2026-01-05 11:00:00'}
+          - {alert_id: other_route, route_id: Orange, alert_cause: DISABLED_TRAIN, alert_effect: DELAY,
+             alert_header: 'Orange Line delays at Harvard due to a disabled train',
+             alert_start_at: '2026-01-05 10:30:00', alert_end_at: '2026-01-05 11:00:00'}
+          # No location named → never grouped, even with each other
+          - {alert_id: no_location, route_id: Red, alert_cause: DISABLED_TRAIN, alert_effect: DELAY,
+             alert_header: 'Red Line delays due to a disabled train',
+             alert_start_at: '2026-01-05 10:00:00', alert_end_at: '2026-01-05 11:00:00'}
+          - {alert_id: no_location_again, route_id: Red, alert_cause: DISABLED_TRAIN, alert_effect: DELAY,
+             alert_header: 'Red Line delays due to a disabled train',
+             alert_start_at: '2026-01-05 10:30:00', alert_end_at: '2026-01-05 11:00:00'}
+    expect:
+      rows:
+        - {alert_id: harvard,           incident_id: harvard,           alert_location_key: harvard}
+        - {alert_id: near_harvard,      incident_id: harvard,           alert_location_key: harvard}
+        - {alert_id: other_station,     incident_id: other_station,     alert_location_key: kendallmit}
+        - {alert_id: other_cause,       incident_id: other_cause,       alert_location_key: harvard}
+        - {alert_id: other_effect,      incident_id: other_effect,      alert_location_key: harvard}
+        - {alert_id: other_route,       incident_id: other_route,       alert_location_key: harvard}
+        - {alert_id: no_location,       incident_id: no_location,       alert_location_key: null}
+        - {alert_id: no_location_again, incident_id: no_location_again, alert_location_key: null}

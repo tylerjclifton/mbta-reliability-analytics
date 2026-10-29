@@ -16,6 +16,8 @@
     2. incident_breaks — flag alerts that start a new incident (see above)
     3. incidents       — number incidents and assign incident_id
     4. final select    — human-readable enums, derive dates and duration
+
+  Unit tests for the grouping: _silver__unit_tests.yml (grouped_*).
 #}
 
 WITH

@@ -21,6 +21,8 @@
                   when each alert left the feed
     3. resolved — start/end per the rules above; drop alerts that left the
                   feed before they started
+
+  Unit tests for these rules: _silver__unit_tests.yml (resolved_*).
 #}
 
 WITH

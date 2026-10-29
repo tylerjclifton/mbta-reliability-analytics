@@ -19,6 +19,12 @@ Don't put commas in the Python code, since `--args` splits on them. The email ar
 gcloud run jobs execute <job> --region us-east1 --wait   # ingest-mbta-alerts, ingest-mbta-stops, transform, …
 ```
 
+An ingest job run this way appends to production bronze, which is permanent ([0001](decisions/0001-append-only-bronze.md)). To try out an ingest change, run the script locally instead: it writes to `dev_bronze` ([0012](decisions/0012-local-ingest-writes-dev-bronze.md)).
+
+```bash
+PYTHONPATH=ingest python ingest/<job>/main.py   # → dev_bronze.<table>; rows expire after 7 days
+```
+
 ## Backfill weather
 
 NOAA revises recent days, so the job re-pulls a window. Widen it for a one-off backfill:

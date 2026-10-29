@@ -42,7 +42,7 @@ Everything is defined in Terraform and deployed by GitHub Actions on every push 
 
 ### Medallion layers
 
-Each layer is its own BigQuery dataset.
+Each layer is its own BigQuery dataset, with a dev sandbox beside it for local work (`dev_bronze`, `dev_silver`, `dev_gold`; see [Development & Deployment](#development--deployment)).
 
 | Layer | Stored as | Written by | Role |
 |---|---|---|---|
@@ -260,11 +260,14 @@ ruff check ingest serve transform && pytest                            # Python
 (cd transform && dbt parse --profiles-dir . && sqlfluff lint models)   # SQL
 (cd infra && terraform fmt -check -recursive && terraform validate)    # Terraform
 
-# Run an ingest job locally (writes to the real bronze table)
+# Run an ingest job locally. It writes to dev_bronze (same tables as bronze; rows
+# expire after 7 days), never production bronze (decision 0012). To write real
+# bronze, run the Cloud Run job instead (docs/runbook.md, "Run a job now").
 PYTHONPATH=ingest python ingest/noaa-weather/main.py
 
 # Build/test dbt models locally (uses gcloud application-default credentials).
-# The local target writes to dev_silver / dev_gold — never the live datasets.
+# The local target reads the real bronze and writes to dev_silver / dev_gold —
+# never the live datasets.
 cd transform && dbt build --profiles-dir . --target local
 
 # Preview the dashboard against dev_gold in the production image

@@ -10,6 +10,10 @@
 #           (views, except two incremental alert tables).
 #   gold    dbt tables the dashboard reads, rebuilt every transform run.
 #
+# Dev sandboxes mirror the layers for local work, so nothing local touches the
+# live datasets: dev_bronze (local ingest runs, ingest/common/load.py), and
+# dev_silver / dev_gold (local dbt builds, which read the real bronze).
+#
 # Naming: tables are `<source>_<entity>`; silver's models built from each are
 # `<source>_<entity>__<step>` (`__base` is the cleaned copy); the dataset says
 # which layer. A `_legacy` suffix marks a frozen table kept as history, never
@@ -23,6 +27,9 @@ locals {
     { name = "ingested_at", type = "TIMESTAMP", description = "When the ingest run started (UTC); shared by every row written in that run" },
     { name = "ingested_by", type = "STRING", description = "Cloud Run job that wrote the row" },
   ]
+
+  # How long local test data lives in the dev sandboxes
+  dev_retention_ms = 7 * 24 * 60 * 60 * 1000
 
   # One entry per bronze table. Column names follow the source system; renaming
   # to project conventions happens in silver.
@@ -148,17 +155,26 @@ resource "google_bigquery_dataset" "gold" {
   location      = var.location
 }
 
-# Sandboxes for local dbt builds (`--target local` writes dev_silver/dev_gold,
-# see transform/macros/generate_schema_name.sql). Tables expire after 7 days so
-# test builds never accumulate; rebuilding recreates them.
+# Sandboxes for local work (decision 0012), so test data never accumulates:
+#   dev_bronze           local ingest runs: ingest/common/load.py writes here
+#                        unless BQ_DATASET_ID says otherwise (the Cloud Run jobs
+#                        set it to bronze). Its tables are defined below, so
+#                        rows expire by partition instead of whole tables.
+#   dev_silver, dev_gold local dbt builds (`--target local`, see
+#                        transform/macros/generate_schema_name.sql); whole
+#                        tables expire, and rebuilding recreates them.
 resource "google_bigquery_dataset" "dev" {
-  for_each = toset(["dev_silver", "dev_gold"])
+  for_each = {
+    dev_bronze = "Local ingest runs (ingest/common/load.py's default); rows expire after 7 days"
+    dev_silver = "Local dbt builds (target local); tables expire after 7 days"
+    dev_gold   = "Local dbt builds (target local); tables expire after 7 days"
+  }
 
   dataset_id                  = each.key
   friendly_name               = "Dev ${title(trimprefix(each.key, "dev_"))}"
-  description                 = "Local dbt builds (target local); tables expire after 7 days"
+  description                 = each.value
   location                    = var.location
-  default_table_expiration_ms = 7 * 24 * 60 * 60 * 1000
+  default_table_expiration_ms = each.key == "dev_bronze" ? null : local.dev_retention_ms
 }
 
 # ── Bronze tables ─────────────────────────────────────────────────────────────
@@ -184,4 +200,25 @@ resource "google_bigquery_table" "bronze" {
   lifecycle {
     prevent_destroy = true
   }
+}
+
+# The same tables and schemas in dev_bronze, for local ingest runs. Frozen
+# (_legacy) tables are left out, since nothing writes them. A run's rows
+# expire with their ingest-day partition; the tables themselves stay.
+resource "google_bigquery_table" "dev_bronze" {
+  for_each = { for name, table in local.bronze_tables : name => table if !endswith(name, "_legacy") }
+
+  dataset_id          = google_bigquery_dataset.dev["dev_bronze"].dataset_id
+  table_id            = each.key
+  description         = "Dev copy of bronze.${each.key} for local ingest runs; rows expire after 7 days."
+  deletion_protection = false
+
+  clustering = each.value.clustering
+  time_partitioning {
+    type          = "DAY"
+    field         = "ingested_at"
+    expiration_ms = local.dev_retention_ms
+  }
+
+  schema = jsonencode(concat(each.value.columns, local.bronze_audit_columns))
 }

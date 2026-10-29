@@ -57,6 +57,15 @@ def test_append_loads_against_the_live_table_schema(fake_bigquery):
     assert [field.name for field in fake_bigquery[0].job_config.schema] == ["alert_id"]
 
 
+def test_append_defaults_to_dev_bronze(fake_bigquery, monkeypatch):
+    """Without BQ_DATASET_ID (a local run), rows go to dev_bronze, never production (decision 0012)."""
+    monkeypatch.delenv("BQ_DATASET_ID")
+
+    load.append_to_bronze(pd.DataFrame({"alert_id": ["1"]}))
+
+    assert fake_bigquery[0].table_ref == "proj.dev_bronze.mbta_stops"
+
+
 def test_append_skips_empty_frames(fake_bigquery):
     load.append_to_bronze(pd.DataFrame())
 

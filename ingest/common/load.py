@@ -6,7 +6,9 @@ loads against the live table's schema, so column names and types are owned in
 that one place: a DataFrame with a missing or misnamed column fails the load
 instead of silently creating a mismatched table.
 
-Bronze is append-only: jobs never update or delete rows (decision 0001).
+Bronze is append-only: jobs never update or delete rows (decision 0001). So a
+local run writes to dev_bronze unless told otherwise (decision 0012): a bug
+tried out on a laptop can't leave permanent rows in production bronze.
 """
 
 # Import standard libraries
@@ -25,8 +27,10 @@ def append_to_bronze(df: pandas.DataFrame):
     """
     Append a DataFrame to this job's bronze table, adding the audit columns.
 
-    The target comes from BQ_PROJECT_ID / BQ_DATASET_ID / BQ_TABLE_ID (set by
-    Terraform), falling back to the naming convention for local runs.
+    The target comes from BQ_PROJECT_ID / BQ_DATASET_ID / BQ_TABLE_ID, which
+    the Cloud Run jobs set (infra/cloud-run-jobs.tf). Without them, as in a
+    local run, it's this job's table in dev_bronze (same schema as bronze,
+    rows expire after 7 days; infra/bigquery.tf).
     """
     if df.empty:
         logging.info("No rows to write")
@@ -34,7 +38,7 @@ def append_to_bronze(df: pandas.DataFrame):
 
     # Resolve the target table
     project_id = os.getenv('BQ_PROJECT_ID', 'mbta-reliability-analytics')
-    dataset_id = os.getenv('BQ_DATASET_ID', 'bronze')
+    dataset_id = os.getenv('BQ_DATASET_ID', 'dev_bronze')
     table_id   = os.getenv('BQ_TABLE_ID', JOB_NAME.replace('-', '_'))
     table_ref  = f"{project_id}.{dataset_id}.{table_id}"
 

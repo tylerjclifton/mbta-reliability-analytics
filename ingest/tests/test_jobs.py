@@ -72,6 +72,31 @@ def test_alerts_empty_feed_writes_nothing(run_job):
     assert raw.empty
 
 
+# ── mbta-routes ───────────────────────────────────────────────────────────────
+
+def test_routes_request_the_rail_routes_and_shape_one_row_each(run_job, monkeypatch):
+    """The yearly job: asks for exactly the project's rail routes (common/mbta_api.py)."""
+    monkeypatch.delenv("MBTA_API_KEY", raising=False)
+    red = {
+        "id": "Red",
+        "attributes": {
+            "long_name": "Red Line", "type": 1, "color": "DA291C", "description": "Rapid Transit",
+            "direction_destinations": ["Ashmont/Braintree", "Alewife"],
+        },
+    }
+
+    rows = run_job("mbta-routes", [{"data": [red]}])
+
+    assert run_job.requests == [{
+        "url": "https://api-v3.mbta.com/routes",
+        "params": {"filter[id]": "Red,Blue,Orange,Green-B,Green-C,Green-D,Green-E"},
+    }]
+    assert rows.to_dict("records") == [{
+        "route_id": "Red", "long_name": "Red Line", "route_type": 1, "color": "DA291C",
+        "description": "Rapid Transit", "direction_destinations": "['Ashmont/Braintree', 'Alewife']",
+    }]
+
+
 # ── mbta-stops ────────────────────────────────────────────────────────────────
 
 def stop(stop_id, name, location_type, parent=None, platform=None):

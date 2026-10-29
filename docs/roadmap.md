@@ -15,5 +15,6 @@ Planned work, roughly in order, with why. Move an item to a [decision record](de
 |---|---|
 | Before **2027-07-15** | Upgrade dbt (1.12 support ends); consider v2 ([0009](decisions/0009-runtime-versions.md)) |
 | Before **2027-08-03** | tylerclifton.com renews; confirm auto-renew ([setup](setup.md#things-that-live-outside-the-repo)) |
+| Next ingest library upgrade | Add `pandas-gbq` to `ingest/requirements.txt` with any newer `google-cloud-bigquery`: newer versions will need it to load DataFrames (a deprecation warning since 2026-10). The current pins don't need it |
 | ~2029-10 | Python 3.13 support ends |
 | ~2030 (mid) | A full rebuild of the alert tables exceeds the 50 GiB per-query limit (bronze alerts grow ~15 GB/year). Hourly runs are unaffected; before any `--full-refresh`, raise `maximum_bytes_billed` in `transform/profiles.yml` ([0011](decisions/0011-capture-every-mode.md)) |

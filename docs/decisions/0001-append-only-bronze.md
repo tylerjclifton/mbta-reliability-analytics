@@ -15,4 +15,5 @@ Several sources keep little or no history. The MBTA alerts API drops an alert th
 ## Consequences
 - Bronze grows with every run (alerts: ~15 GB/year of full JSON in `bronze.mbta_alerts`, every mode since [0011](0011-capture-every-mode.md); the frozen `mbta_alerts_legacy` no longer grows). That's fine, and storage stays near-free for years.
 - Since rows can't be removed, a local run can't write to production bronze by accident: it goes to `dev_bronze` ([0012](0012-local-ingest-writes-dev-bronze.md), 2026-10-29).
+- One deliberate exception: other modes' route and stop history comes from the MBTA's own GTFS archive rather than bronze ([0011](0011-capture-every-mode.md)).
 - Bronze should hold what the source said, not a selection of it. Where an ingest only kept chosen columns, the rest was lost (see [0002](0002-raw-alert-capture.md)).

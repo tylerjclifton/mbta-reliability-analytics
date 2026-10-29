@@ -7,7 +7,7 @@
   silver.mbta_alerts__by_station) read this table.
 
   Incremental for the same reason as silver.mbta_alerts__by_route: bronze.mbta_alerts
-  gains a full snapshot every 15 minutes (~2.6 GB/year), and a view would
+  gains a full snapshot every 15 minutes (~15 GB/year), and a view would
   re-read all of it on every transform. Each run reads only the snapshots added
   since the last one; `dbt build --full-refresh` rebuilds it from bronze.
 

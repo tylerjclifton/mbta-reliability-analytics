@@ -16,7 +16,7 @@ The prefix is the source a model is *about*, and the double underscore separates
 
 How it got here: on 2026-10-24, logic steps were first named on their own (`alerts_resolved`) and cleaned copies kept their bronze name exactly (`silver.mbta_alerts`). The steps scattered alphabetically and hid their source, and a bare name didn't say it was the cleaned copy, so both were standardized to the pattern above the same day. On 2026-10-26, the live alerts table was renamed `bronze.mbta_alerts` ([0002](0002-raw-alert-capture.md)). Its cleaned copy (latest JSON per alert) became `mbta_alerts__base`, and the per-route split became `mbta_alerts__by_route`; `__stations` became `__by_station` to match.
 
-**Materialization:** everything in silver is a **view**, recomputed every run, except tables that would cost too much to recompute: today `mbta_alerts__base` and `mbta_alerts__by_route`, which sit on 15-minute snapshots growing ~2.6 GB/year. Those are incremental tables that process only new snapshots.
+**Materialization:** everything in silver is a **view**, recomputed every run, except tables that would cost too much to recompute: today `mbta_alerts__base` and `mbta_alerts__by_route`, which sit on 15-minute snapshots growing ~15 GB/year. Those are incremental tables that process only new snapshots.
 
 ## Consequences
 - The refactor was proven pure: old and new code built against the same bronze produced identical gold (all 3,691 rows across four tables, compared both ways).

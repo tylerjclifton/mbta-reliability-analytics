@@ -14,6 +14,7 @@ One short file per decision that shaped this project: the situation, what was de
 | [0008](0008-build-for-the-end-state.md) | Build metrics for the end state, with data thresholds | Accepted |
 | [0009](0009-runtime-versions.md) | dbt 1.12 and Python 3.13; dbt v2 skipped for now | Accepted |
 | [0010](0010-silver-naming-and-materialization.md) | Silver models are `<bronze table>__<step>` (`__base` = cleaned copy); views unless too costly to recompute | Accepted |
+| [0011](0011-capture-every-mode.md) | Capture the whole alerts feed (every mode); silver keeps rail | Accepted |
 
 **Adding one:** copy the shape of an existing file, take the next number, add a row here.
 

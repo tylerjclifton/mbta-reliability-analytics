@@ -16,7 +16,7 @@ Ingests data from five sources on an automated schedule, transforms it through a
 
 | Source | Data | Schedule | Each run pulls |
 |---|---|---|---|
-| MBTA Alerts API | Service alerts (delays, suspensions, closures) | Every 15 minutes | Current live feed (snapshot) |
+| MBTA Alerts API | Service alerts (delays, suspensions, closures) | Every 15 minutes | Whole live feed, every mode (snapshot); the dashboard uses rail |
 | MBTA Routes API | Route metadata (names, types, colors) | Yearly — Jan 1 | Full route list (snapshot) |
 | MBTA Stops API | Stations and their platforms, with coordinates | Weekly — Mondays 6:30AM ET | Every rail station and the stops inside it (snapshot) |
 | NOAA GHCN-Daily | Daily temperature, precipitation, snowfall at Boston Logan | Daily — 6AM ET | Last 10 days (NOAA revises recent days) |
@@ -52,7 +52,7 @@ Each layer is its own BigQuery dataset.
 
 | Bronze table | Grain | How it grows |
 |---|---|---|
-| `mbta_alerts` | alert × ingest run | The live alerts table: a 15-minute snapshot of the feed, each alert's full JSON — the only record of alerts once they end |
+| `mbta_alerts` | alert × ingest run | The live alerts table: a 15-minute snapshot of the whole feed (every mode since 2026-10-28), each alert's full JSON — the only record of alerts once they end |
 | `mbta_alerts_legacy` | alert × route × ingest run | Frozen: the same snapshots as the old ingest shaped them, 2026-06-07 to 2026-10-24 (below). Never written, never deleted |
 | `mbta_stops` | stop × route × ingest run | Weekly snapshot of every rail station and its platforms, entrances, and nodes |
 | `mbta_routes` | route × ingest run | Yearly snapshot |
@@ -80,9 +80,9 @@ Silver models are named `<bronze table>__<step>`. `__base` is each source's clea
 | `rail_stations` | station × line | Every rail station's coordinates, the map's backdrop |
 | `rail_ridership` | service date × line | Gated entries, active incident count, the day's most severe alert effect, whether it was a calm day, and weather |
 
-**`silver.mbta_alerts__by_route` and `silver.mbta_alerts__base` are tables, not views.** Everything else in silver is a view, recomputed every run ([0010](docs/decisions/0010-silver-naming-and-materialization.md)). Alert snapshots add ~2.6 GB/year to bronze, and a view would re-read all of it for every model and test that uses alerts (~9× per transform), outgrowing the free query tier within a year. The incremental tables read only snapshots added since the last run, so cost stays flat; `dbt build --full-refresh` rebuilds them from bronze.
+**`silver.mbta_alerts__by_route` and `silver.mbta_alerts__base` are tables, not views.** Everything else in silver is a view, recomputed every run ([0010](docs/decisions/0010-silver-naming-and-materialization.md)). Alert snapshots add ~15 GB/year to bronze (the whole feed, every mode), and a view would re-read all of it for every model and test that uses alerts (~9× per transform), outgrowing the free query tier within a year. The incremental tables read only snapshots added since the last run, so cost stays flat; `dbt build --full-refresh` rebuilds them from bronze.
 
-**Full alert JSON.** Until 2026-10-24 the alerts job wrote only chosen fields to the table now named `bronze.mbta_alerts_legacy`, dropping the rest: the stops each alert affects, every active period after the first, and attributes like `lifecycle`. It now writes each alert's full JSON to `bronze.mbta_alerts` instead (~2.6 GB/year), and `silver.mbta_alerts__by_route` splits it into one row per route. The old table is kept, frozen, as history: silver reads it for snapshots before full-JSON capture began (`alerts_raw_capture_start` in `dbt_project.yml`) and `bronze.mbta_alerts` from then on. Both were written in parallel for a day and matched row for row. Alerts that ended before full-JSON capture have no stop data, since the API never returns them again ([0002](docs/decisions/0002-raw-alert-capture.md)).
+**Full alert JSON.** Until 2026-10-24 the alerts job wrote only chosen fields to the table now named `bronze.mbta_alerts_legacy`, dropping the rest: the stops each alert affects, every active period after the first, and attributes like `lifecycle`. It now writes each alert's full JSON to `bronze.mbta_alerts` instead, and `silver.mbta_alerts__by_route` splits it into one row per route. Since 2026-10-28 that's the whole feed, unfiltered: bus, commuter rail, and ferry alerts are kept in bronze for future use (~15 GB/year), while silver keeps only rail ([0011](docs/decisions/0011-capture-every-mode.md)). The old table is kept, frozen, as history: silver reads it for snapshots before full-JSON capture began (`alerts_raw_capture_start` in `dbt_project.yml`) and `bronze.mbta_alerts` from then on. Both were written in parallel for a day and matched row for row. Alerts that ended before full-JSON capture have no stop data, since the API never returns them again ([0002](docs/decisions/0002-raw-alert-capture.md)).
 
 **Alerts → stations.** Alerts name the stops they affect, mostly by platform and direction. `silver.mbta_alerts__by_station` unpacks that list from each alert's full JSON and rolls platforms up to their station using `silver.mbta_stops__base`, one row per alert × route × station. It sits beside the alert × route models instead of changing their grain. Shuttles, suspensions, and station closures name their stations; most delays are line-wide and name none. `gold.rail_incidents.stations_affected` is NULL for incidents from before full-JSON capture began (unknown) and 0 for ones that named no stations.
 
@@ -153,7 +153,7 @@ The pipeline runs within GCP's free tiers. Query volume is dominated by BigQuery
 
 Hard caps bound what a runaway can cost without a billing kill switch, which would stop ingest and permanently lose live alerts:
 
-- **BigQuery: a per-query byte limit** (`maximum_bytes_billed`): 50 GiB (~$0.30) per dbt query (`transform/profiles.yml`, local builds included) and 1 GiB per dashboard query (`serve/app.py`). A query that would bill more fails before it runs; the transform's failure sends the usual email. The dbt limit is sized for the biggest query the transform can run, a full rebuild of the alerts table from every alert snapshot (~2.6 GB/year), so it holds for ~19 years; hourly runs read only new snapshots.
+- **BigQuery: a per-query byte limit** (`maximum_bytes_billed`): 50 GiB (~$0.30) per dbt query (`transform/profiles.yml`, local builds included) and 1 GiB per dashboard query (`serve/app.py`). A query that would bill more fails before it runs; the transform's failure sends the usual email. The dbt limit is sized for the biggest query the transform can run, a full rebuild of the alerts tables from every alert snapshot (~15 GB/year), so it holds until about mid-2030 ([roadmap](docs/roadmap.md)); hourly runs read only new snapshots.
 - **Dashboard: at most 2 instances** (`infra/cloud-run-services.tf`), so a traffic flood slows the site rather than multiplying the bill. Each instance takes up to 80 concurrent connections (Cloud Run's default; one per open tab).
 
 There is deliberately no project-wide daily query cap. One was tried on 2026-10-23 and refused queries at ~12 GiB of usage with the limit set at 50 GiB, and again at 200 GiB, so `infra/quotas.tf` pins the quota at Google's default.

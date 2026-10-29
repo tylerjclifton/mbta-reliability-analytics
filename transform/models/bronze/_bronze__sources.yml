@@ -31,12 +31,14 @@ sources:
 
       - name: mbta_alerts
         description: >
-          15-minute snapshots of the MBTA alerts API (rail routes only), each
-          alert's full JSON as the API returned it, including the stops it
-          affects. The live alerts table since 2026-10-24. Grain: alert × ingest run.
+          15-minute snapshots of the MBTA alerts API, each alert's full JSON as
+          the API returned it, including the stops it affects. The live alerts
+          table since 2026-10-24: rail routes only at first, the whole feed
+          (every mode) since 2026-10-28; silver keeps rail (decision 0011).
+          Grain: alert × ingest run.
         config:
           freshness:
-            # Every 15 minutes; a run with no rail alerts writes nothing, so allow slack
+            # Every 15 minutes; the slack covers a failed run or two
             warn_after: {count: 1, period: hour}
             error_after: {count: 3, period: hour}
 

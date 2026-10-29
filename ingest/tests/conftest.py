@@ -38,7 +38,8 @@ def run_job(monkeypatch):
     """
     run_job(job, responses) → DataFrame passed to append_to_bronze (or None).
 
-    `responses` is a list of bodies returned by successive HTTP GETs.
+    `responses` is a list of bodies returned by successive HTTP GETs. Each GET's
+    URL and params are recorded in run_job.requests.
     """
 
     def _run(job, responses):
@@ -46,7 +47,13 @@ def run_job(monkeypatch):
 
         bodies = iter(responses)
         captured = {}
-        monkeypatch.setattr(bronze.requests, "get", lambda *a, **k: FakeResponse(next(bodies)))
+        _run.requests.clear()
+
+        def fake_get(url, params=None, **kwargs):
+            _run.requests.append({"url": url, "params": params or {}})
+            return FakeResponse(next(bodies))
+
+        monkeypatch.setattr(bronze.requests, "get", fake_get)
         monkeypatch.setattr(bronze, "append_to_bronze", lambda df: captured.setdefault("df", df))
 
         script = INGEST_DIR / job / "main.py"
@@ -54,4 +61,5 @@ def run_job(monkeypatch):
             runpy.run_path(str(script), run_name="__main__")
         return captured.get("df")
 
+    _run.requests = []
     return _run

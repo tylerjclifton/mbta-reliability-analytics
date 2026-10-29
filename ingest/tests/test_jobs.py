@@ -52,6 +52,17 @@ def test_alerts_keep_every_effect_for_bronze(run_job):
     assert json.loads(raw["alert_json"].iloc[0])["attributes"]["effect"] == "ELEVATOR_CLOSURE"
 
 
+def test_alerts_request_the_whole_feed(run_job, monkeypatch):
+    """No route or activity filter: every mode and effect reaches bronze (decision 0011)."""
+    monkeypatch.setenv("MBTA_API_KEY", "test-key")
+    bus = alert("1", ["39"])
+
+    raw = run_job("mbta-alerts", [{"data": [bus]}])
+
+    assert run_job.requests == [{"url": "https://api-v3.mbta.com/alerts", "params": {"api_key": "test-key"}}]
+    assert raw["alert_id"].tolist() == ["1"]  # a bus-only alert is kept, too
+
+
 def test_alerts_empty_feed_writes_nothing(run_job):
     raw = run_job("mbta-alerts", [{"data": []}])
 

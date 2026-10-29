@@ -11,8 +11,9 @@
 # more, the cost guardrail for the transform (infra/quotas.tf says why it isn't
 # a project-wide daily cap). Sized for the biggest query the transform can
 # run: a full rebuild of silver.mbta_alerts__by_route, which reads every alert
-# snapshot. bronze.mbta_alerts grows ~2.6 GB/year, so that stays under the
-# limit for ~19 years; hourly incremental runs read only new snapshots (KBs).
+# snapshot. bronze.mbta_alerts grows ~15 GB/year (every mode, decision 0011),
+# so that stays under the limit until about mid-2030 (docs/roadmap.md); hourly
+# incremental runs read only new snapshots (KBs).
 # ══════════════════════════════════════════════════════════════════════════════
 
 mbta_reliability_analytics:

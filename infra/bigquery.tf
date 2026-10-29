@@ -47,7 +47,7 @@ locals {
     }
 
     mbta_alerts = {
-      description = "15-minute snapshots of the MBTA alerts API (rail routes only), each alert's full JSON as returned — including the stops it affects and every active period, which the legacy table dropped. Started 2026-10-24. Grain: alert × ingest run."
+      description = "15-minute snapshots of the MBTA alerts API, each alert's full JSON as returned — including the stops it affects and every active period, which the legacy table dropped. Started 2026-10-24 (rail routes only); the whole feed, every mode, since 2026-10-28 (decision 0011). Grain: alert × ingest run."
       clustering  = ["alert_id"]
       columns = [
         { name = "alert_id", type = "STRING", description = "MBTA alert ID" },

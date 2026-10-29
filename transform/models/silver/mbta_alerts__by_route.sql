@@ -17,8 +17,12 @@
       tables were written from the capture start until the cutover and
       matched row for row (decision 0002).
 
+  This is where alerts are narrowed to rail: since 2026-10-28 bronze holds the
+  whole feed (bus, commuter rail, ferry too; decision 0011), and an alert that
+  names no rail route produces no rows here.
+
   Why a table, not a view like most of silver: alert snapshots arrive
-  every 15 minutes (~2.6 GB/year of JSON). A view would re-read that whole
+  every 15 minutes (~15 GB/year of JSON). A view would re-read that whole
   history for every model and test that uses it — about 9 times per hourly
   transform — which outgrows BigQuery's free query tier within a year. This
   table is incremental: each run reads only the snapshots added since the last
@@ -52,7 +56,8 @@
     'alert_created_at', 'alert_updated_at',
 ] -%}
 
-{#- Rail routes the alerts ingest requests; must match its TARGET_ROUTES -#}
+{#- Rail routes kept from the all-mode feed; must match TARGET_ROUTES in the
+    routes and stops ingests (ingest/mbta-routes, ingest/mbta-stops) -#}
 {%- set rail_routes = ['Red', 'Blue', 'Orange', 'Green-B', 'Green-C', 'Green-D', 'Green-E'] -%}
 
 {%- set capture_start = var('alerts_raw_capture_start') -%}

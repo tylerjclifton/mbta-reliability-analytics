@@ -17,7 +17,7 @@ import pandas
 # Import shared ingest helpers
 from common.bronze import append_to_bronze, fetch
 
-# Rail routes to snapshot — must match the alerts job's TARGET_ROUTES
+# Rail routes to snapshot — must match rail_routes in silver/mbta_alerts__by_route.sql
 TARGET_ROUTES = ['Red', 'Blue', 'Orange', 'Green-B', 'Green-C', 'Green-D', 'Green-E']
 
 # ── Fetch ─────────────────────────────────────────────────────────────────────

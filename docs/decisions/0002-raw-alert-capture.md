@@ -26,5 +26,5 @@ The API never returns an alert once it ends, so for every alert that ended befor
 
 ## Consequences
 - Station-level history starts 2026-10-24 and can't be backfilled. `gold.rail_incidents.stations_affected` is NULL (unknown) for earlier incidents.
-- Cost: ~2.6 GB/year, inside BigQuery's free storage for ~3–4 years, then pennies.
+- Cost: ~2.6 GB/year, inside BigQuery's free storage for ~3–4 years, then pennies. (2026-10-28: the feed is now captured for every mode, ~15 GB/year; see [0011](0011-capture-every-mode.md).)
 - After the cutover, any new question about alerts can be answered from bronze without changing the ingest.

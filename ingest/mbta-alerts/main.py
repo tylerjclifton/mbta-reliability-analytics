@@ -3,9 +3,10 @@ Ingest: MBTA service alerts
 
 Source:     MBTA V3 API /alerts (https://api-v3.mbta.com)
 Cadence:    Every 15 minutes
-Each run:   Snapshots every rail alert currently in the live feed, including
-            ones that don't affect train service (e.g. elevator closures,
-            notices) — silver filters those out, so bronze stays complete
+Each run:   Snapshots the whole live feed: every mode (subway, bus, commuter
+            rail, ferry) and every effect (incl. elevator closures and
+            notices). Silver keeps rail and service-affecting alerts; bronze
+            stays complete (decision 0011)
 Writes to:  bronze.mbta_alerts (append) — one row per alert per run: the
             alert's full JSON exactly as the API returned it
 
@@ -14,9 +15,10 @@ disappears for good. Bronze's snapshots are therefore the only record of past
 alerts, and silver uses the last run an alert was seen in to tell when it ended
 (whichever comes first: that, or the end time the MBTA posted).
 
-Each alert is stored whole rather than as chosen columns, so new questions
-never depend on what this script happened to keep. Splitting alerts into one
-row per route happens in silver (mbta_alerts__by_route). Until 2026-10-24 this job
+Each alert is stored whole rather than as chosen columns, and the feed is
+requested unfiltered, so new questions never depend on what this script
+happened to keep. Filtering to rail and splitting alerts into one row per
+route happen in silver (mbta_alerts__by_route). Until 2026-10-24 this job
 wrote only chosen columns to a table now named bronze.mbta_alerts_legacy, which
 dropped the stops each alert affects and more; it's kept, frozen, as history
 (decision 0002).
@@ -33,15 +35,12 @@ import pandas
 # Import shared ingest helpers
 from common.bronze import append_to_bronze, fetch
 
-# Rail routes to snapshot — Silver Line, Mattapan, buses, and ferries excluded.
-# Must match rail_routes in silver/mbta_alerts__by_route.sql.
-TARGET_ROUTES = ['Red', 'Blue', 'Orange', 'Green-B', 'Green-C', 'Green-D', 'Green-E']
-
 # ── Fetch ─────────────────────────────────────────────────────────────────────
 
-# Filter to target routes server-side; the API key is optional but removes the
-# anonymous rate limit
-params = {'filter[route]': ','.join(TARGET_ROUTES)}
+# No filters: the whole feed. (A route filter also applies the API's default
+# activity filter, which silently drops escalator and elevator alerts.) The API
+# key is optional but removes the anonymous rate limit.
+params = {}
 if os.getenv('MBTA_API_KEY'):
     params['api_key'] = os.getenv('MBTA_API_KEY')
 
@@ -53,7 +52,7 @@ alerts = fetch('https://api-v3.mbta.com/alerts', params=params, timeout=30).json
 rows = [{'alert_id': alert.get('id'), 'alert_json': json.dumps(alert, separators=(',', ':'))}
         for alert in alerts]
 
-logging.info(f"{len(rows)} rail alerts in feed")
+logging.info(f"{len(rows)} alerts in feed")
 
 # ── Write ─────────────────────────────────────────────────────────────────────
 

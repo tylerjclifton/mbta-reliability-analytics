@@ -4,7 +4,7 @@ How to do the occasional operational tasks. Every command assumes `gcloud` is si
 
 ## Check that alert emails work
 
-Safe, and touches no data. It fails the yearly routes job on purpose: attempt 1 only warns, attempt 2 alerts, so it also exercises the retry logic. Verified end to end on 2026-10-23 (email from `alerting-noreply@google.com`).
+Safe, and touches no data. It fails the yearly routes job on purpose: attempt 1 only warns, attempt 2 alerts, so it also exercises the retry logic. Verified end to end on 2026-10-23, and again on 2026-10-31 after `alert_email` moved to the Google account's Gmail (email from `alerting-noreply@google.com`).
 
 ```bash
 gcloud run jobs execute ingest-mbta-routes --region us-east1 --wait \

@@ -76,7 +76,7 @@ None of these are in code, and some lapsing would take the site down with no ale
 |---|---|---|
 | **tylerclifton.com** | Squarespace Domains | Expires **2027-08-03**. Keep auto-renew on |
 | **GCP billing account** | Cloud Console → Billing | The payment card must stay valid, or the whole project stops |
-| **$5/month budget** | Billing → Budgets | Created with `gcloud billing budgets`; alerts only ([0004](decisions/0004-per-query-cost-limits.md)). Emails the "Pipeline alerts" channel (`alert_email`), not the billing admins |
+| **$5/month budget** | Billing → Budgets | Created with `gcloud billing budgets`; alerts only ([0004](decisions/0004-per-query-cost-limits.md)). Emails the billing admin, the same account as `alert_email` |
 | **MBTA API key value** | Secret Manager, `mbta-api-key` | Terraform owns the secret; the value is added by hand ([runbook](runbook.md#rotate-the-mbta-api-key)) |
 | **GitHub `production` environment** | Repo settings → Environments | The deploy job runs in it |
 | **Failure-alert email** | `alert_email` in `infra/variables.tf` | In code; listed here so it isn't forgotten |

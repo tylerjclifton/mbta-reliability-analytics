@@ -91,9 +91,11 @@ variable "serve_domain" {
 # ── Alerting ──────────────────────────────────────────────────────────────────
 
 variable "alert_email" {
-  description = "Address that receives every alert: pipeline failures and the billing budget (monitoring.tf)"
+  # The Google account that owns the project and administers its billing, so
+  # failure alerts land with the budget's and Google's own account email
+  description = "Address that receives pipeline failure alerts (monitoring.tf)"
   type        = string
-  default     = "tylerjclifton@outlook.com"
+  default     = "tclifton2017@gmail.com"
 }
 
 # ── Google service agents ─────────────────────────────────────────────────────

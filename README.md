@@ -106,7 +106,7 @@ A failing test skips everything downstream of it, so bad data never reaches gold
 
 ### Alerting
 
-Failures email `alert_email` (`infra/variables.tf`) — never successful runs (`infra/monitoring.tf`). The billing budget emails the same address (see Cost).
+Failures email `alert_email` (`infra/variables.tf`) — never successful runs (`infra/monitoring.tf`). The billing budget emails the same account (see Cost).
 
 - **`<job> failed`** — any job (ingest or transform) whose execution fails. The email carries the job's own error report: the exception and traceback for an ingest job; dbt's failure summary (failed tests, stale sources, or the error) for the transform. Ingest jobs retry once, and only the final attempt reports, so a blip the retry absorbs sends nothing. While a job keeps failing, at most one email every 6 hours.
 - **`transform hasn't succeeded in 3 hours`** — backstop for failures a job can't report itself (timeout, out of memory, never started). An ingest job failing that way surfaces through the transform's freshness check.
@@ -150,7 +150,7 @@ The three data workloads also hold `bigquery.jobUser` (permission to run queries
 
 ## Cost
 
-The pipeline runs within GCP's free tiers. Query volume is dominated by BigQuery's 10 MB-per-query billing minimum (about 13 GiB/day, or 0.4 TiB/month of the free 1 TiB, measured 2026-10), not by data size, so it stays flat as history grows. A **$5/month budget** on the billing account emails at 50%, 90%, 100%, 200%, and 400% of actual spend ($2.50 to $20) and when spend is forecast to pass $5. Each threshold emails once per month, the first time spend crosses it, and billing data lags a few hours, so a runaway is reported within the day, not instantly. The emails go to the same address as the failure alerts, through the same channel (`alert_email`), not to the billing account's admins. It was created with `gcloud billing budgets`, outside Terraform, since the CI deployer has no billing access. The budget only alerts; it never stops anything.
+The pipeline runs within GCP's free tiers. Query volume is dominated by BigQuery's 10 MB-per-query billing minimum (about 13 GiB/day, or 0.4 TiB/month of the free 1 TiB, measured 2026-10), not by data size, so it stays flat as history grows. A **$5/month budget** on the billing account emails at 50%, 90%, 100%, 200%, and 400% of actual spend ($2.50 to $20) and when spend is forecast to pass $5. Each threshold emails once per month, the first time spend crosses it, and billing data lags a few hours, so a runaway is reported within the day, not instantly. The emails go to the billing account's admin, the same Google account `alert_email` sends failure alerts to, so every alert and all of Google's account email land in one inbox. It was created with `gcloud billing budgets`, outside Terraform, since the CI deployer has no billing access. The budget only alerts; it never stops anything.
 
 Hard caps bound what a runaway can cost without a billing kill switch, which would stop ingest and permanently lose live alerts:
 

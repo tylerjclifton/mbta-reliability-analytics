@@ -23,9 +23,6 @@ locals {
   ))
 }
 
-# The one place every alert goes: these policies, and the $5/month billing
-# budget (outside Terraform; README, Cost). The budget links this channel by its
-# ID, so if the channel is ever replaced, relink the budget to the new one.
 resource "google_monitoring_notification_channel" "email" {
   display_name = "Pipeline alerts"
   type         = "email"

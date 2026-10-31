@@ -47,6 +47,7 @@ from pandas.tseries.holiday import USFederalHolidayCalendar
 
 from helpers import (
     TIMEZONE,
+    active_at,
     effect_vs_calm,
     esc,
     fmt_count,
@@ -331,6 +332,18 @@ def ranked_bars(labels, values, text, hover, colors=ACCENT, height=None):
     return fig
 
 
+def share_bars(counts, colors=ACCENT, height=None):
+    """Ranked incident counts (a Series: label → count), each labeled with its count and share."""
+    share = counts / max(counts.sum(), 1) * 100
+    return ranked_bars(
+        labels=list(counts.index), values=list(counts.values),
+        text=[f"{n:.0f}  ·  {s:.0f}%" for n, s in zip(counts.values, share.values, strict=True)],
+        hover=[f"{label}: {n:.0f} incidents ({s:.0f}%)"
+               for label, n, s in zip(counts.index, counts.values, share.values, strict=True)],
+        colors=colors, height=height,
+    )
+
+
 def band_bars(df, height=260):
     """
     Weather-band bars: each band vs the normal-conditions band (drawn at zero),
@@ -470,8 +483,7 @@ tracking_start = incidents_all["ingested_at"].min()
 # from the start of tracking and over incidents that have already begun (gaps
 # between future planned work don't count). Before it, an empty day would read
 # as a quiet day when it's really no data.
-_now = pd.Timestamp.now(tz="UTC")
-_starts = incidents_all.loc[incidents_all["incident_start_at"].between(tracking_start, _now), "incident_start_at"]
+_starts = incidents_all.loc[incidents_all["incident_start_at"].between(tracking_start, now), "incident_start_at"]
 _starts = pd.concat([pd.Series([tracking_start]), _starts]).sort_values().reset_index(drop=True)
 _after_gap = _starts[_starts.diff() > pd.Timedelta(days=14)]
 coverage_start = _after_gap.iloc[-1] if len(_after_gap) else tracking_start
@@ -485,7 +497,7 @@ ridership_through = ridership_all["service_date"].max()
 
 # Status dot: green on the hourly cadence, amber/red (with a note) when it falls behind.
 # Ridership gets no dot: the MBTA publishes it monthly, weeks after the month ends.
-alerts_freshness = freshness(alerts_updated, pd.Timestamp.now(tz="UTC"))
+alerts_freshness = freshness(alerts_updated, now)
 alerts_note = {"fresh": "", "late": " · running behind", "stale": " · may be out of date"}[alerts_freshness]
 alerts_status = f'Alerts updated {alerts_updated.tz_convert(TIMEZONE).strftime("%b %-d, %-I:%M %p ET")}{alerts_note}'
 
@@ -517,10 +529,7 @@ ridership = ridership_all[ridership_all["line_name"].isin(selected_lines)]
 
 section("Service status", "Incidents on the selected lines right now, and planned work ahead.")
 
-active = one_row_per_incident(incidents[
-    (incidents["incident_start_at"] <= now)
-    & (incidents["incident_end_at"].isna() | (incidents["incident_end_at"] >= now))
-]).sort_values("incident_start_at", ascending=False)
+active = one_row_per_incident(active_at(incidents, now)).sort_values("incident_start_at", ascending=False)
 
 upcoming = one_row_per_incident(incidents[incidents["incident_start_at"] > now]).sort_values("incident_start_at")
 upcoming_30d = upcoming[upcoming["incident_start_at"] <= now + pd.Timedelta(days=30)]
@@ -599,7 +608,6 @@ section(
 )
 
 
-
 def station_markers(hits, planned=False):
     """
     One marker per station × line, listing every incident in `hits` affecting
@@ -618,10 +626,7 @@ def station_markers(hits, planned=False):
 
 
 # Incidents affecting stations right now, and planned ones starting within 30 days
-active_hits = incident_stations[
-    (incident_stations["incident_start_at"] <= now)
-    & (incident_stations["incident_end_at"].isna() | (incident_stations["incident_end_at"] >= now))
-]
+active_hits = active_at(incident_stations, now)
 planned_hits = incident_stations[incident_stations["incident_start_at"].between(now, now + pd.Timedelta(days=30))]
 
 
@@ -752,7 +757,7 @@ else:
             weekly = weekly.reindex(pd.date_range(weekly.index.min(), weekly.index.max(), freq="7D"), fill_value=0)
             # Partial weeks — the one coverage starts in (unless it starts on a
             # Monday) and the current one — are drawn lighter
-            this_week = pd.Timestamp.now(tz=TIMEZONE).tz_localize(None).to_period("W-SUN").start_time
+            this_week = now.tz_convert(TIMEZONE).tz_localize(None).to_period("W-SUN").start_time
             first_day = window_start.tz_convert(TIMEZONE).tz_localize(None).normalize()
             first_week = first_day.to_period("W-SUN").start_time if first_day.day_of_week else None
             partial = {this_week, first_week}
@@ -774,14 +779,7 @@ else:
         with st.container(key="card_by_line"):
             card_title("Incidents by line", "On any of the line's routes")
             by_line = history.groupby("line_name")["incident_id"].nunique().reindex(selected_lines).fillna(0)
-            line_share = by_line / max(by_line.sum(), 1) * 100
-            show(ranked_bars(
-                labels=list(by_line.index), values=list(by_line.values),
-                text=[f"{v:.0f}  ·  {s:.0f}%" for v, s in zip(by_line.values, line_share.values, strict=True)],
-                hover=[f"{line}: {v:.0f} incidents ({s:.0f}%)"
-                       for line, v, s in zip(by_line.index, by_line.values, line_share.values, strict=True)],
-                colors=[LINE_COLORS[line] for line in by_line.index], height=260,
-            ))
+            show(share_bars(by_line, colors=[LINE_COLORS[line] for line in by_line.index], height=260))
 
     # ── Why: causes and effects ───────────────────────────────────────────────
     cause_col, effect_col = st.columns(2, gap="medium")
@@ -793,26 +791,13 @@ else:
     with cause_col:
         with st.container(key="card_causes"):
             card_title("Incidents by cause", "Top causes; the rest grouped as Other")
-            share = top_causes / top_causes.sum() * 100
-            show(ranked_bars(
-                labels=list(top_causes.index), values=list(top_causes.values),
-                text=[f"{n}  ·  {s:.0f}%" for n, s in zip(top_causes.values, share.values, strict=True)],
-                hover=[f"{cause}: {n} incidents ({s:.0f}%)"
-                       for cause, n, s in zip(top_causes.index, top_causes.values, share.values, strict=True)],
-            ))
+            show(share_bars(top_causes))
 
     with effect_col:
         with st.container(key="card_effects"):
             card_title("Incidents by effect", "How service was affected")
             effects = history_events["incident_effect"].value_counts()
-            share = effects / effects.sum() * 100
-            show(ranked_bars(
-                labels=list(effects.index), values=list(effects.values),
-                text=[f"{n}  ·  {s:.0f}%" for n, s in zip(effects.values, share.values, strict=True)],
-                hover=[f"{effect}: {n} incidents ({s:.0f}%)"
-                       for effect, n, s in zip(effects.index, effects.values, share.values, strict=True)],
-                height=max(180, 34 * len(top_causes) + 30),  # match the causes card
-            ))
+            show(share_bars(effects, height=max(180, 34 * len(top_causes) + 30)))  # match the causes card
 
     # ── How long, and where each cause hits ───────────────────────────────────
     dur_col, mix_col = st.columns(2, gap="medium")
@@ -907,9 +892,9 @@ tiles = []
 for line in selected_lines:
     days = ridership[ridership["line_name"] == line]
     current = days[days["month"] == latest_month]["gated_entries"].mean()
-    year_ago = days[days["month"] == latest_month - 12]["gated_entries"].mean()
-    if pd.notna(year_ago) and year_ago:
-        change = (current / year_ago - 1) * 100
+    prior_year = days[days["month"] == latest_month - 12]["gated_entries"].mean()
+    if pd.notna(prior_year) and prior_year:
+        change = (current / prior_year - 1) * 100
         sub = (f'avg{NBSP}per{NBSP}day · <span class="{"delta-up" if change >= 0 else "delta-down"}">'
                f'{"▲" if change >= 0 else "▼"}{NBSP}{abs(change):.1f}%</span>{NBSP}vs{NBSP}{year_ago_label}')
     else:

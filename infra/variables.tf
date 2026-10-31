@@ -91,7 +91,7 @@ variable "serve_domain" {
 # ── Alerting ──────────────────────────────────────────────────────────────────
 
 variable "alert_email" {
-  description = "Address that receives pipeline failure alerts (monitoring.tf)"
+  description = "Address that receives every alert: pipeline failures and the billing budget (monitoring.tf)"
   type        = string
   default     = "tylerjclifton@outlook.com"
 }

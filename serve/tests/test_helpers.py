@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 
 from helpers import (
+    active_at,
     effect_vs_calm,
     fmt_count,
     fmt_duration,
@@ -64,6 +65,18 @@ def test_join_routes_compacts_green_line_branches():
     assert join_routes(["Green Line D", "Green Line B", "Green Line C"]) == "Green Line B · C · D"
     assert join_routes(["Red Line"]) == "Red Line"
     assert join_routes(["Red Line", "Orange Line"]) == "Orange Line, Red Line"
+
+
+def test_active_at_keeps_started_and_unended_incidents():
+    now = pd.Timestamp("2026-10-20 12:00", tz="UTC")
+    df = pd.DataFrame({
+        "incident_id": ["ongoing", "ends_later", "ended", "not_started"],
+        "incident_start_at": pd.to_datetime(["2026-10-20 08:00", "2026-10-20 11:00",
+                                             "2026-10-20 09:00", "2026-10-21 08:00"], utc=True),
+        "incident_end_at": pd.to_datetime([None, "2026-10-20 13:00", "2026-10-20 10:00", None], utc=True),
+    })
+
+    assert active_at(df, now)["incident_id"].tolist() == ["ongoing", "ends_later"]
 
 
 def test_one_row_per_incident_collapses_branches():

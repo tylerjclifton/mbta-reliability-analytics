@@ -1,6 +1,6 @@
 """
-Pure helpers for the dashboard — formatting, data freshness, incident shaping,
-and the ridership-vs-calm-days comparison.
+Pure helpers for the dashboard — formatting, data freshness, incident shaping
+(which are active, one row per incident), and the ridership-vs-calm-days comparison.
 
 Kept out of app.py (which starts Streamlit when imported) so they can be unit
 tested; see serve/tests/test_helpers.py.
@@ -117,6 +117,12 @@ def effect_vs_calm(days, effects, min_days):
         "days":      out["size"],
         "calm_days": out["size_calm"],
     }).reset_index(drop=True)
+
+
+def active_at(df, now):
+    """Rows whose incident is in effect at `now`: started, and not yet ended (NULL end = ongoing)."""
+    return df[(df["incident_start_at"] <= now)
+              & (df["incident_end_at"].isna() | (df["incident_end_at"] >= now))]
 
 
 def one_row_per_incident(df):

@@ -11,9 +11,13 @@ Every hourly transform failed from 20:35 UTC until it was removed.
 
 ## Decision
 - The project quota is pinned back at Google's default in Terraform (`infra/quotas.tf`). A quota preference can't be deleted, so it stays in code to keep Terraform and GCP matching.
-- Cost is bounded **per query** with `maximum_bytes_billed`: 50 GiB for dbt (`transform/profiles.yml`) and 1 GiB for the dashboard (`serve/app.py`). The dbt limit started at 10 GiB and was raised on 2026-10-24: after the alerts cutover ([0002](0002-raw-alert-capture.md)), a full rebuild of the alerts table reads every alert snapshot (~2.6 GB/year) and would have hit 10 GiB in about 4 years. (2026-10-28: with every mode captured, ~15 GB/year, 50 GiB holds until about mid-2030; see [0011](0011-capture-every-mode.md).)
-- A $5/month billing budget emails at 50/90/100% and on forecast. It alerts only, and was created outside Terraform because the CI deployer has no billing access. (2026-10-31: added 200% and 400% thresholds, so a runaway past $5 still emails. It emails the billing admin, the Google account that also gets the failure alerts, so every alert reaches one inbox.)
+- Cost is bounded **per query** with `maximum_bytes_billed`: 50 GiB for dbt (`transform/profiles.yml`) and 1 GiB for the dashboard (`serve/app.py`).
+- A $5/month billing budget emails as spend passes set thresholds (listed in the README's Cost section). It only alerts, and was created outside Terraform because the CI deployer has no billing access ([0005](0005-terraform-only-changes.md)).
 
 ## Consequences
 - A single runaway query fails before it runs. A loop of many small queries isn't capped, but the budget email catches it.
+- A full rebuild of the alert tables reads every snapshot, so the dbt limit eventually has to rise. [0011](0011-capture-every-mode.md) has when, and the [roadmap](../roadmap.md) tracks it.
 - Don't lower the daily quota again as a cost cap. It misfires regardless of its value.
+
+## History
+- **2026-10-24:** the dbt limit was raised from 10 GiB to 50 GiB. After the alerts cutover ([0002](0002-raw-alert-capture.md)), a full rebuild of the alerts table reads every snapshot, and 10 GiB would have been hit in about 4 years.

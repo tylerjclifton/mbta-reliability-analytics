@@ -13,4 +13,4 @@ Local builds and applies drift from what's actually deployed and depend on one l
 
 ## Consequences
 - Rolling back means redeploying an earlier commit. Artifact Registry keeps the 5 most recent images.
-- When a change adds a new source, push the ingest and tables first, seed them, then push the models that read them. Otherwise the post-deploy transform's freshness check fails on empty tables.
+- When a change adds a new source, push the ingest and tables ([0013](0013-bronze-tables-in-terraform.md)) first, seed them, then push the models that read them. Otherwise the post-deploy transform's freshness check fails on empty tables.

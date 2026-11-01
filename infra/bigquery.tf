@@ -3,9 +3,11 @@
 #
 #   bronze  Append-only raw history, written directly by ingest jobs. Rows are
 #           only ever added, never updated or deleted, so nothing depends on a
-#           source keeping its own history. Tables are defined here (not by dbt)
-#           so their schemas are owned in one place; ingest jobs load against
-#           the live table schema.
+#           source keeping its own history. Tables are defined here (not by
+#           dbt or the ingest jobs) so their schemas are owned in one place;
+#           ingest jobs load against the live table schema. Renaming one, or
+#           any change Terraform would make by replacing it, follows decision
+#           0013 instead.
 #   silver  dbt models: each source's cleaned copy plus steps built on it
 #           (views, except two incremental alert tables).
 #   gold    dbt tables the dashboard reads, rebuilt every transform run.

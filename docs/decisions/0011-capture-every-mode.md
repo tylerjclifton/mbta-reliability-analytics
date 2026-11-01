@@ -11,7 +11,7 @@ Modeling other modes isn't worth it: the core analysis needs gated ridership, wh
 
 ## Decision
 - The alerts job requests the **whole feed**, starting 2026-10-28: no route filter, and `filter[activity]=ALL`. Bronze keeps every mode and every effect.
-  - Why `ALL`: the API documents that a request without an activity filter defaults to board/exit/ride. In practice an otherwise unfiltered request already returned everything (150 alerts both ways on 2026-10-28), but `ALL` is the documented way to guarantee it, so the request doesn't rely on that behavior. Added the same day.
+  - Why `ALL`: the API documents that a request without an activity filter defaults to board/exit/ride. In practice an otherwise unfiltered request already returned everything (150 alerts both ways on 2026-10-28), but `ALL` is the documented way to guarantee it, so the request doesn't rely on that behavior.
 - **Silver keeps rail**, as it already did: `mbta_alerts__by_route` splits alerts only into the rail routes, and `mbta_alerts__by_station` keeps only routes in `mbta_routes__base`. No model changed. Before the switch, the full feed and the rail-filtered feed (fetched together) were run through silver's split logic: every rail row matched, and every stop the full feed named mapped to a known station.
 - No bus, commuter rail, or ferry models. That data waits in bronze for a future project.
 - **Routes and stops stay rail-only.** Unlike alerts, they aren't lost when they change: the MBTA publishes every past version of its schedule data (routes, stops, schedules) as archived GTFS feeds, back to 2009 (`https://cdn.mbta.com/archive/archived_feeds.txt`, 1,026 feeds on 2026-10-28). A future project that needs other modes' routes or stops, current or historical, can fetch them then.
@@ -19,7 +19,11 @@ Modeling other modes isn't worth it: the core analysis needs gated ridership, wh
   - This is a deliberate exception to [0001](0001-append-only-bronze.md) (never rely on a source keeping history): the archive is an official one, kept since 2009, and waiting loses nothing while it exists. No backfill now. If the MBTA ever announces the archive is ending, download it then; a project that needs other modes' reference data fetches what it needs.
 
 ## Consequences
-- Bronze grows ~15 GB/year instead of ~2.6, measured from today's feed (415 KB per snapshot vs 74 KB). Storage is about $15–35 over five years, mostly at long-term rates (the table is partitioned by day).
+- Bronze grows ~15 GB/year instead of ~2.6, measured from the 2026-10-28 feed (415 KB per snapshot vs 74 KB). Storage is about $15–35 over five years, mostly at long-term rates (the table is partitioned by day).
 - A full rebuild of the alert tables reads every snapshot, so it hits the 50 GiB per-query limit ([0004](0004-per-query-cost-limits.md)) around mid-2030, not ~2045. Hourly incremental runs are unaffected. See [roadmap](../roadmap.md).
 - Every run now writes rows, so `silver.mbta_alerts__resolved` sees every ingest run. Before, a run with no rail alerts wrote nothing and left a gap in the run list that ended alerts were measured against.
-- The rail route list lives in one place, `RAIL_ROUTES` in `ingest/common/mbta_api.py`. The routes and stops jobs snapshot those routes, and silver reads the list from the routes table they build (`mbta_alerts__by_route` and `mbta_alerts__by_station` both filter through `mbta_routes__base`). Refined the same day: it briefly lived in three places that had to match.
+- The rail route list lives in one place, `RAIL_ROUTES` in `ingest/common/mbta_api.py`. The routes and stops jobs snapshot those routes, and silver reads the list from the routes table they build (`mbta_alerts__by_route` and `mbta_alerts__by_station` both filter through `mbta_routes__base`).
+
+## History
+- **2026-10-28:** `filter[activity]=ALL` was added the same day as the switch, after the first version relied on an unfiltered request returning everything.
+- **2026-10-28:** the rail route list briefly lived in three places that had to match; it was moved to `RAIL_ROUTES` the same day.

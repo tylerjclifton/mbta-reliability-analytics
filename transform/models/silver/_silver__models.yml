@@ -29,7 +29,8 @@ models:
   - name: mbta_alerts__base
     description: >
       One row per alert since full-JSON capture began (2026-10-24): its latest
-      JSON plus first/last seen. Incremental table (see model header).
+      JSON plus first/last seen. Incremental table, so each run reads only new
+      alert snapshots (see model header).
     columns:
       - name: alert_id
         description: "{{ doc('alert_id') }}"

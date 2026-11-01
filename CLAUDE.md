@@ -1,21 +1,19 @@
 # CLAUDE.md
 
-Guidance for AI coding sessions in this repo. Humans: the same docs apply.
+Guidance for AI coding sessions in this repo. Everything here is a summary; the linked docs have the detail and apply to humans too.
 
-**Read first:** [README.md](README.md) (architecture, conventions), [docs/decisions/](docs/decisions/README.md) (why things are the way they are), [docs/roadmap.md](docs/roadmap.md) (what's planned), [docs/setup.md](docs/setup.md), and [docs/runbook.md](docs/runbook.md).
+**Read first:** [README.md](README.md) (architecture, conventions), [docs/decisions/](docs/decisions/README.md) (why things are the way they are), [docs/setup.md](docs/setup.md) (local environment), [docs/runbook.md](docs/runbook.md) (operational tasks), and [docs/roadmap.md](docs/roadmap.md) (what's planned).
 
-## Rules
-- **Bronze is append-only.** Never update, delete, or rebuild bronze rows or tables ([0001](docs/decisions/0001-append-only-bronze.md)).
+## Guardrails
+Mistakes here are hard or impossible to undo.
+- **Bronze is append-only.** Never update, delete, or rebuild bronze rows or tables, and never write production bronze from a local run: local ingest goes to `dev_bronze` ([0001](docs/decisions/0001-append-only-bronze.md), [0012](docs/decisions/0012-local-ingest-writes-dev-bronze.md)).
+- **Never let Terraform replace a bronze table.** Check every plan for one. Renames follow the runbook's BigQuery rename plus `import` procedure; removing a column, changing a type, or changing partitioning isn't done ([0013](docs/decisions/0013-bronze-tables-in-terraform.md)).
 - **Infrastructure changes go through Terraform only**: edit `infra/`, plan locally, push ([0005](docs/decisions/0005-terraform-only-changes.md)).
-- **Never let Terraform replace a bronze table.** Renames follow the procedure in [0013](docs/decisions/0013-bronze-tables-in-terraform.md) (BigQuery rename plus an `import` block); removing a column, changing a type, or changing partitioning isn't done at all. Check every plan for a bronze replacement.
 - **Deploy by pushing to `main`**; CI builds, applies, and runs the transform ([0006](docs/decisions/0006-deploy-only-through-ci.md)). Watch the run and confirm it passed.
-- **Adding a source:** push the ingest and tables first, seed them, then push the models that read them, so the post-deploy freshness check doesn't fail on empty tables ([runbook](docs/runbook.md#add-a-new-source)).
-- **Docs change with the code**, in the same commit: README, dbt model headers and yml, `docs/`. Record new decisions in `docs/decisions/`.
-- **Commits carry no AI co-author trailer** or "Generated with" line.
-- **Comment generously, but explain each thing once**: every model and script gets a header with its purpose, grain, and steps, and follows the naming conventions in the README. An explanation lives where it's implemented (or in its decision record); everywhere else points to it rather than restating it.
+- **Adding a source:** push the ingest and its table first, seed it, then push the models that read it, so the post-deploy freshness check doesn't fail on an empty table ([runbook](docs/runbook.md#add-a-new-source)).
+- **Test model changes locally first**: `--target local` builds into `dev_silver` / `dev_gold` against live bronze.
 
-## Local environment
-- Python 3.13 (the system `python3` on macOS is 3.9 and too old). Without it, run checks in `python:3.13-slim` via Docker ([setup](docs/setup.md)).
-- Local `terraform plan`: `USER_PROJECT_OVERRIDE=true GOOGLE_BILLING_PROJECT=mbta-reliability-analytics terraform plan -var image_tag=$(git rev-parse --short=12 origin/main)` (why each part: [setup](docs/setup.md#4-terraform)).
-- Local dbt (`--target local`) writes only to `dev_silver` / `dev_gold`. Test model changes there against live bronze before pushing.
-- A local ingest run writes to `dev_bronze`, never production bronze ([0012](docs/decisions/0012-local-ingest-writes-dev-bronze.md)). Real bronze is written only by the Cloud Run jobs.
+## Working in this repo
+- Follow the README's [Conventions](README.md#conventions), including its rules for comments and docs.
+- Commits carry no AI co-author trailer or "Generated with" line.
+- macOS's system `python3` is 3.9 and too old; use Python 3.13, or run the checks in `python:3.13-slim` via Docker ([setup](docs/setup.md)). The local `terraform plan` command is in setup, step 4.

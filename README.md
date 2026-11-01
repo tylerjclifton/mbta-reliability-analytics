@@ -52,7 +52,7 @@ The alert-effect chart uses **% vs calm days** instead: a day's entries vs the m
 
 ## Architecture
 
-```
+```text
 MBTA Alerts API  ──┐
 MBTA Routes API  ──┤
 MBTA Stops API   ──┤                        ┌─────────────────────────────────────────┐
@@ -110,7 +110,7 @@ Silver models are named `<bronze table>__<step>`. `__base` is each source's clea
 
 **Alerts → stations.** Alerts name the stops they affect, mostly by platform and direction. `silver.mbta_alerts__by_station` unpacks that list from each alert's full JSON and rolls platforms up to their station using `silver.mbta_stops__base`, one row per alert × route × station. It sits beside the alert × route models instead of changing their grain. Shuttles, suspensions, and station closures name their stations; most delays are line-wide and name none. `gold.rail_incidents.stations_affected` is NULL for incidents from before full-JSON capture began (unknown) and 0 for ones that named no stations.
 
-**Alert end times.** An alert ends at whichever comes first: the end time the MBTA posted (an estimate, usually rounded to the hour) or when it left the feed (midway between the last 15-minute run that saw it and the next). Since July 2026, 82% of alerts left the feed before their posted end.
+**Alert end times.** An alert ends at whichever comes first: the end time the MBTA posted (an estimate, usually rounded to the hour) or when it left the feed (midway between the last 15-minute run that saw it and the next, capped at 30 minutes after it was last seen). Since July 2026, 82% of alerts left the feed before their posted end.
 
 **Alerts → incidents.** The MBTA often posts several alerts for one event (an update, or "delays due to an earlier disabled train at JFK/UMass"). `silver.mbta_alerts__grouped` groups them: same route, cause, effect, and station named in the header, starting within 2 hours of the incident's latest end (6 hours for "earlier"/"residual" follow-ups). Alerts that don't affect train service (notices, elevator/parking issues — `non_service_alert_effects` in `dbt_project.yml`) are excluded in `silver.mbta_alerts__resolved`; bronze keeps them.
 
@@ -159,6 +159,11 @@ The dashboard shows visitors the same thing: the dot beside "Alerts updated" is 
 | Ingest scripts | Docstring (source, cadence, each run, writes to); Fetch → Shape → Load sections | |
 | Python style | ruff (`pyproject.toml`): single-quoted strings; import groups sorted, each under an `# Import …` label | `# Import standard libraries` |
 
+**Comments and docs:**
+- **Comments are concise and say what the code does and why**, wherever that isn't obvious at a glance. Every model, script, and config file opens with a header: its purpose, grain (for models), and steps.
+- **Logic and changing facts live in one place.** Thresholds, formulas, and figures sit next to the code that sets them; elsewhere, describe them rather than copying the number. A short repeated explanation is fine where it saves opening another file, and a pointer always comes with a one-line summary.
+- **Docs change with the code**, in the same commit: README, dbt model headers and yml, `docs/`. A new decision gets a record in `docs/decisions/`.
+
 ---
 
 ## Security & access
@@ -206,7 +211,7 @@ There is deliberately no project-wide daily query cap: one was tried and refused
 
 ## Project structure
 
-```
+```text
 infra/                  Terraform — all GCP infrastructure
   main.tf               Providers + GCS state backend
   variables.tf          Project, schedules, alert email, service agents

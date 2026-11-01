@@ -1,3 +1,5 @@
+# Never committed: secrets, Terraform state, build artifacts, and local caches
+
 # Keys & secrets
 keys/
 .env

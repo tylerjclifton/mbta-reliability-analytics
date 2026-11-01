@@ -52,11 +52,10 @@ locals {
       uses_mbta_api_key = false
       memory            = "512Mi"
       timeout           = "600s"
-      env = {
-        # Days re-pulled each run (NOAA revises recent days). Override at
-        # execution time to backfill: --update-env-vars LOOKBACK_DAYS=800
-        LOOKBACK_DAYS = "10"
-      }
+      # Re-pulls LOOKBACK_DAYS days each run (NOAA revises recent days); the
+      # default, 10, is set once in ingest/noaa-weather/main.py. Override it at
+      # execution time to backfill: --update-env-vars LOOKBACK_DAYS=800
+      env = {}
     }
   }
 }

@@ -19,12 +19,9 @@ Until now this choice was recorded only in a comment in `infra/bigquery.tf`, wit
 - **In place, through Terraform as usual:** adding a column (always nullable; older rows read NULL), changing a description, changing clustering.
 - **Replacement, so never through Terraform:** renaming a table, removing a column, changing a column's type, changing partitioning. A new column alongside the old is almost always the better fix. A rename is the one out-of-band change with a set procedure (below).
 
-**Renaming a bronze table** is the one standing exception to [0005](0005-terraform-only-changes.md). The commands are in the [runbook](../runbook.md#rename-a-bronze-table):
-1. Rename it in BigQuery (`ALTER TABLE … RENAME TO …`). For a live table, do it right after an ingest run and point its job at the new name within seconds, before the next run fires.
-2. Change the name in `infra/bigquery.tf` and add an `import` block that adopts the renamed table under the new name, so the plan shows no replacement. Remove the block once applied.
-3. For a live table, run the job by hand and confirm rows land in the new table before pushing.
+**Renaming a bronze table** is the one standing exception to [0005](0005-terraform-only-changes.md): rename it in BigQuery (`ALTER TABLE … RENAME`), then adopt it under the new name with a Terraform `import` block, so the plan shows an import and no replacement. A live table is renamed right after an ingest run, with its job pointed at the new name at once and a manual run confirming rows land before the code is pushed. The commands are in the [runbook](../runbook.md#rename-a-bronze-table).
 
 ## Consequences
 - Bronze schemas live in one reviewed file, and every schema change shows up in `terraform plan`.
 - A new source's tables have to exist before its models read them, which is why tables and ingest are pushed before models ([0006](0006-deploy-only-through-ci.md)).
-- Renames take the manual steps above. Both alert-table renames used them with no data lost ([0002](0002-raw-alert-capture.md)).
+- Renames take the manual steps in the runbook. Both alert-table renames worked this way with no data lost ([0002](0002-raw-alert-capture.md)).

@@ -16,14 +16,14 @@ import logging
 import os
 
 # Import third party libraries
-import pandas
+import pandas as pd
 from google.cloud import bigquery
 
 # Import shared ingest helpers
 from common.run import JOB_NAME, RUN_STARTED_AT, fail
 
 
-def append_to_bronze(df: pandas.DataFrame):
+def append_to_bronze(df: pd.DataFrame):
     """
     Append a DataFrame to this job's bronze table, adding the audit columns.
 
@@ -45,8 +45,7 @@ def append_to_bronze(df: pandas.DataFrame):
     # Stamp the audit columns shared by every bronze table
     df = df.assign(ingested_at=RUN_STARTED_AT, ingested_by=f'ingest-{JOB_NAME}')
 
-    # Load against the table's own schema (owned by Terraform) and append —
-    # bronze is append-only, so earlier rows are never overwritten
+    # Load against the table's own schema (see module docstring) and append
     client = bigquery.Client(project=project_id)
     try:
         job_config = bigquery.LoadJobConfig(

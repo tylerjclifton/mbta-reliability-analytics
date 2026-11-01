@@ -23,17 +23,11 @@ earlier), and weather uses all available days (snowstorms are too rare for a
 single winter).
 
 Counting unit is the incident (gold.rail_incidents): one real-world event the
-MBTA may have posted as several alerts. An alert ends at its posted end time or
-when it leaves the MBTA feed, whichever comes first (silver.mbta_alerts__resolved).
+MBTA may have posted as several alerts.
 
-Weather comparisons use "% vs typical": a day's gated entries relative to the
-median for the same line, weekday, and month. That removes line size, the
-weekday/weekend pattern, and seasonality, so what's left is the day's own effect.
-
-Ridership by alert effect uses "% vs calm days" instead: a day's entries relative
-to the median of its line's calm days (no incident other than a station closure)
-on the same weekday, over the trailing 12 months of alert tracking. A monthly median
-would absorb a month-long shutdown into its own baseline; calm days can't.
+The two ridership comparisons are defined where they're computed: "% vs
+typical" (weather) in load_ridership(), and "% vs calm days" (alert effects)
+in helpers.pct_vs_calm().
 """
 
 # Import standard libraries
@@ -949,9 +943,7 @@ with st.container(key='card_monthly'):
 impact_col, dow_col = st.columns(2, gap='medium')
 
 # ── Ridership by alert effect ─────────────────────────────────────────────────
-# Each line is compared only with its own calm days: no incident other than a
-# station closure that day (gold.rail_ridership). Comparing with calm days rather
-# than a monthly median keeps a month-long shutdown out of its own baseline. The
+# Each line vs its own calm days (helpers.pct_vs_calm says why). The
 # thresholds hold bars back until there's enough data to trust; the chart
 # fills in by itself as alert history grows, with no change needed here.
 IMPACT_EFFECTS = ['Delay', 'Suspension', 'Shuttle']

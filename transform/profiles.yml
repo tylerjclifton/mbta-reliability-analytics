@@ -18,18 +18,7 @@
 mbta_reliability_analytics:
   target: gcp
   outputs:
-    local:
-      type: bigquery
-      method: oauth
-      project: mbta-reliability-analytics
-      dataset: silver  # required default; every model sets its own dataset
-      location: us-east1
-      threads: 4
-      job_execution_timeout_seconds: 300
-      priority: interactive
-      maximum_bytes_billed: 53687091200  # 50 GiB per query (see header)
-
-    gcp:
+    gcp: &bigquery
       type: bigquery
       method: oauth
       project: "{{ env_var('DBT_PROJECT_ID', 'mbta-reliability-analytics') }}"
@@ -39,3 +28,8 @@ mbta_reliability_analytics:
       job_execution_timeout_seconds: 300
       priority: interactive
       maximum_bytes_billed: 53687091200  # 50 GiB per query (see header)
+
+    # Same settings as gcp, pinned to this project whatever DBT_PROJECT_ID says
+    local:
+      <<: *bigquery
+      project: mbta-reliability-analytics

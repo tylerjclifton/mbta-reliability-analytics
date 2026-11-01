@@ -33,7 +33,7 @@ Day the weather values summarize: midnight to midnight local standard time (1amâ
 {% enddocs %}
 
 {% docs incident_id %}
-One real-world event the MBTA may have posted as several alerts (updates, "earlier disabled train" follow-ups). Alerts share an incident when they have the same route, cause, effect, and location and follow on within 2 hours (6 hours for "earlier"/"residual" follow-ups). The value is the incident's first alert ID. See silver.mbta_alerts__grouped.
+One real-world event the MBTA may have posted as several alerts (updates, "earlier disabled train" follow-ups); the grouping rules are in silver.mbta_alerts__grouped. The value is the incident's first alert ID.
 {% enddocs %}
 
 {% docs first_seen_at %}
@@ -106,4 +106,32 @@ Station longitude (WGS84).
 
 {% docs is_wheelchair_accessible %}
 True/False per the MBTA; NULL when it has no information.
+{% enddocs %}
+
+{% docs gated_entries %}
+Fare-gate entries across all of the line's stations that day (fractional at shared stations).
+{% enddocs %}
+
+{% docs avg_temperature_f %}
+Daily mean temperature at Boston Logan, Â°F, as (max + min) / 2.
+{% enddocs %}
+
+{% docs precipitation_in %}
+Total precipitation at Boston Logan, inches, as liquid equivalent (melted snow included).
+{% enddocs %}
+
+{% docs snowfall_in %}
+New snowfall depth at Boston Logan, inches, before melting.
+{% enddocs %}
+
+{% docs alert_end_at %}
+When the alert ended (UTC): the end time the MBTA posted or when the alert left the feed, whichever came first (rules in silver.mbta_alerts__resolved). NULL while still in the feed with no posted end.
+{% enddocs %}
+
+{% docs incident_cause %}
+Cause shared by the incident's alerts (e.g. "Disabled Train").
+{% enddocs %}
+
+{% docs incident_effect %}
+Effect shared by the incident's alerts (e.g. "Delay", "Shuttle").
 {% enddocs %}

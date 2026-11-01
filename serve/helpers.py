@@ -88,11 +88,12 @@ def pct_vs_calm(days, min_calm_days):
     weekday, in percent (−20 = a fifth fewer entries than a calm day).
 
     `days` needs line_name, weekday, gated_entries, and is_calm (gold's
-    is_calm_day: no incident other than a station closure that day).
-    Comparing like weekdays removes the weekend pattern;
-    pooling calm days only keeps shutdowns out of the baseline, however long
-    they run. A line × weekday with fewer than `min_calm_days` calm days has
-    no trustworthy baseline yet, so its days come back NaN.
+    is_calm_day, defined in gold/rail_ridership.sql). Comparing like weekdays
+    removes the weekend pattern, and pooling calm days only keeps shutdowns out
+    of the baseline however long they run; a monthly median would absorb a
+    month-long shutdown into its own baseline. A line × weekday with fewer than
+    `min_calm_days` calm days has no trustworthy baseline yet, so its days come
+    back NaN.
     """
     calm = days[days['is_calm']].groupby(['line_name', 'weekday'])['gated_entries']
     keys = pd.MultiIndex.from_frame(days[['line_name', 'weekday']])

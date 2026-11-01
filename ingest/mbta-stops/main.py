@@ -23,7 +23,7 @@ not which route stops at it.
 import logging
 
 # Import third party libraries
-import pandas
+import pandas as pd
 
 # Import shared ingest helpers
 from common.fetch import fetch
@@ -70,7 +70,7 @@ for route_id in RAIL_ROUTES:
     rows += [stop_row(route_id, stop) for stop in stations + children]
     logging.info(f'{route_id}: {len(stations)} stations, {len(children)} child stops')
 
-df = pandas.DataFrame(rows)
+df = pd.DataFrame(rows)
 # Nullable integers: a missing enum stays NULL instead of turning the column to float
 for column in ['location_type', 'vehicle_type', 'wheelchair_boarding']:
     df[column] = df[column].astype('Int64')

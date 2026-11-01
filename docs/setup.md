@@ -60,13 +60,7 @@ USER_PROJECT_OVERRIDE=true GOOGLE_BILLING_PROJECT=mbta-reliability-analytics \
 
 ## 5. Check that everything works
 
-```bash
-ruff check ingest serve transform && pytest                            # Python
-(cd transform && dbt parse --profiles-dir . && sqlfluff lint models)   # SQL
-(cd infra && terraform fmt -check -recursive && terraform validate)    # Terraform
-```
-
-These are the same checks CI runs. If they pass, you're set up.
+Run the checks CI runs, listed in the README's [Development & deployment](../README.md#development--deployment) section. If they pass, you're set up.
 
 ## Things that live outside the repo
 
@@ -76,7 +70,7 @@ Accounts and settings the project depends on but Terraform doesn't manage, plus 
 |---|---|---|
 | **tylerclifton.com** | Squarespace Domains | Expires **2027-08-03**. Keep auto-renew on |
 | **GCP billing account** | Cloud Console → Billing | The payment card must stay valid, or the whole project stops |
-| **$5/month budget** | Billing → Budgets | Created with `gcloud billing budgets`; alerts only ([0004](decisions/0004-per-query-cost-limits.md)). Emails the billing admin, the same account as `alert_email` |
+| **$5/month budget** | Billing → Budgets | Created with `gcloud billing budgets`; thresholds and recipient in the README's [Cost](../README.md#cost) section |
 | **MBTA API key value** | Secret Manager, `mbta-api-key` | Terraform owns the secret; the value is added by hand ([runbook](runbook.md#rotate-the-mbta-api-key)) |
 | **GitHub `production` environment** | Repo settings → Environments | The deploy job runs in it |
 | **Failure-alert email** | `alert_email` in `infra/variables.tf` | The one item here that is in code; listed so the inbox it names stays checked |

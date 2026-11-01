@@ -20,11 +20,9 @@ vars:
   # MBTA service dates and NOAA observation days are both Eastern time
   local_timezone: 'America/New_York'
 
-  # The first ingest run that captured each alert's full JSON (UTC), in the
-  # table now named bronze.mbta_alerts. Alert history before it comes from
-  # bronze.mbta_alerts_legacy; this run and every one after, from the JSON
-  # (silver/mbta_alerts__by_route.sql). Both were written from this run until
-  # the cutover, and matched row for row (decision 0002).
+  # The first ingest run that captured each alert's full JSON (UTC), in
+  # bronze.mbta_alerts. Alert history splits here between the legacy table and
+  # the JSON (silver/mbta_alerts__by_route.sql explains; decision 0002).
   alerts_raw_capture_start: '2026-10-24 14:11:39.835891'
 
   # Alert effects that don't affect train service (amenities, facilities,
@@ -45,12 +43,8 @@ vars:
 # Model configuration — one folder per medallion layer, one dataset per folder
 # See: https://docs.getdbt.com/docs/configuring-models
 #   bronze — append-only tables written by ingest jobs; declared as sources only
-#   silver — <bronze table>__<step> views (decision 0010; see
-#            models/silver/_silver__models.yml): __base is each source's
-#            cleaned copy, and every other step does one job. Two exceptions
-#            to views: mbta_alerts__by_route and mbta_alerts__base are
-#            incremental tables, so the transform doesn't re-read every
-#            15-minute alert snapshot each run
+#   silver — views, except two incremental alert tables; naming and the
+#            exceptions are in models/silver/_silver__models.yml (decision 0010)
 #   gold   — tables the dashboard reads, rebuilt every run
 models:
   mbta_reliability_analytics:

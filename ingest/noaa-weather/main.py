@@ -21,7 +21,7 @@ import logging
 import os
 
 # Import third party libraries
-import pandas
+import pandas as pd
 
 # Import shared ingest helpers
 from common.fetch import fetch
@@ -49,16 +49,16 @@ csv_text = fetch(GHCN_URL, timeout=120).text
 # Read only the date and the kept elements plus their flag columns. Read as
 # strings: values are space-padded and may be empty.
 columns = ['DATE'] + [column for element in ELEMENTS for column in (element, f'{element}_ATTRIBUTES')]
-raw = pandas.read_csv(io.StringIO(csv_text), usecols=columns, dtype=str)
+raw = pd.read_csv(io.StringIO(csv_text), usecols=columns, dtype=str)
 
 # Filter to the re-pull window
-raw['DATE'] = pandas.to_datetime(raw['DATE']).dt.date
+raw['DATE'] = pd.to_datetime(raw['DATE']).dt.date
 raw = raw[raw['DATE'] >= start_date]
 
 # Rename to bronze columns; values become nullable integers
-df = pandas.DataFrame({'station_id': STATION_ID, 'observation_date': raw['DATE']})
+df = pd.DataFrame({'station_id': STATION_ID, 'observation_date': raw['DATE']})
 for element in ELEMENTS:
-    df[element.lower()] = pandas.to_numeric(raw[element].str.strip(), errors='coerce').astype('Int64')
+    df[element.lower()] = pd.to_numeric(raw[element].str.strip(), errors='coerce').astype('Int64')
     df[f'{element.lower()}_attributes'] = raw[f'{element}_ATTRIBUTES']
 
 if not df.empty:

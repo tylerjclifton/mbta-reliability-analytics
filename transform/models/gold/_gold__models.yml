@@ -28,9 +28,9 @@ models:
         description: "{{ doc('line_name') }}"
         data_tests: [not_null]
       - name: incident_cause
-        description: Cause shared by the incident's alerts (e.g. "Disabled Train").
+        description: "{{ doc('incident_cause') }}"
       - name: incident_effect
-        description: Effect shared by the incident's alerts (e.g. "Delay").
+        description: "{{ doc('incident_effect') }}"
       - name: incident_header
         description: "{{ doc('incident_header') }}"
       - name: incident_description
@@ -107,9 +107,9 @@ models:
           When one direction is affected, the terminal it runs toward (e.g.
           "Boston College" for outbound C branch trains); NULL when both are.
       - name: incident_cause
-        description: Cause shared by the incident's alerts.
+        description: "{{ doc('incident_cause') }}"
       - name: incident_effect
-        description: Effect shared by the incident's alerts (e.g. "Shuttle").
+        description: "{{ doc('incident_effect') }}"
       - name: incident_header
         description: "{{ doc('incident_header') }}"
       - name: incident_start_at
@@ -165,7 +165,7 @@ models:
       - name: line_name
         description: "{{ doc('line_name') }}"
       - name: gated_entries
-        description: Fare-gate entries across the line's stations that day.
+        description: "{{ doc('gated_entries') }}"
       - name: active_incident_count
         description: Distinct incidents on any of the line's routes active at some point that service date.
       - name: most_severe_effect
@@ -187,7 +187,7 @@ models:
           because no alerts were recorded.
         data_tests: [not_null]
       - name: avg_temperature_f
-        description: Daily mean temperature at Boston Logan, °F.
+        description: "{{ doc('avg_temperature_f') }}"
         data_tests:
           # Every ridership day should have weather — NOAA runs ahead of the
           # MBTA's ridership publishing. A gap means the weather ingest broke.
@@ -195,9 +195,9 @@ models:
               config:
                 severity: warn
       - name: precipitation_in
-        description: Precipitation (liquid equivalent, melted snow included), inches.
+        description: "{{ doc('precipitation_in') }}"
       - name: snowfall_in
-        description: New snowfall, inches.
+        description: "{{ doc('snowfall_in') }}"
       - name: ridership_ingested_at
         description: When the ridership version used was ingested (UTC).
       - name: weather_ingested_at

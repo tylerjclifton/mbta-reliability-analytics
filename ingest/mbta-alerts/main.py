@@ -29,7 +29,7 @@ import json
 import logging
 
 # Import third party libraries
-import pandas
+import pandas as pd
 
 # Import shared ingest helpers
 from common.fetch import fetch
@@ -56,4 +56,4 @@ logging.info(f'{len(rows)} alerts in feed')
 
 # ── Load ──────────────────────────────────────────────────────────────────────
 
-append_to_bronze(pandas.DataFrame(rows))
+append_to_bronze(pd.DataFrame(rows))

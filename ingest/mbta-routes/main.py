@@ -11,7 +11,7 @@ Writes to:  bronze.mbta_routes (append) — one row per route per run
 import logging
 
 # Import third party libraries
-import pandas
+import pandas as pd
 
 # Import shared ingest helpers
 from common.fetch import fetch
@@ -44,4 +44,4 @@ logging.info(f'{len(rows)} routes in response')
 
 # ── Load ──────────────────────────────────────────────────────────────────────
 
-append_to_bronze(pandas.DataFrame(rows))
+append_to_bronze(pd.DataFrame(rows))

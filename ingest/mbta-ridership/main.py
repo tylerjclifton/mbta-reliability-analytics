@@ -17,7 +17,7 @@ import json
 import logging
 
 # Import third party libraries
-import pandas
+import pandas as pd
 
 # Import shared ingest helpers
 from common.fetch import fetch
@@ -85,7 +85,7 @@ for feature in features:
         'gated_entries': float(attributes.get('gated_entries') or 0),
     })
 
-df = pandas.DataFrame(rows)
+df = pd.DataFrame(rows)
 if not df.empty:
     logging.info(f"Pulled {df['service_date'].min()} to {df['service_date'].max()}")
 

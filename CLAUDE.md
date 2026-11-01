@@ -12,10 +12,10 @@ Guidance for AI coding sessions in this repo. Humans: the same docs apply.
 - **Adding a source:** push the ingest and tables first, seed them, then push the models that read them, so the post-deploy freshness check doesn't fail on empty tables ([runbook](docs/runbook.md#add-a-new-source)).
 - **Docs change with the code**, in the same commit: README, dbt model headers and yml, `docs/`. Record new decisions in `docs/decisions/`.
 - **Commits carry no AI co-author trailer** or "Generated with" line.
-- **Comment generously**: every model and script gets a header with its purpose, grain, and steps; follow the naming conventions in the README.
+- **Comment generously, but explain each thing once**: every model and script gets a header with its purpose, grain, and steps, and follows the naming conventions in the README. An explanation lives where it's implemented (or in its decision record); everywhere else points to it rather than restating it.
 
 ## Local environment
 - Python 3.13 (the system `python3` on macOS is 3.9 and too old). Without it, run checks in `python:3.13-slim` via Docker ([setup](docs/setup.md)).
-- Local `terraform plan`: `USER_PROJECT_OVERRIDE=true GOOGLE_BILLING_PROJECT=mbta-reliability-analytics terraform plan -var image_tag=$(git rev-parse --short=12 origin/main)`.
+- Local `terraform plan` needs the deployed image tag and two quota-project variables; the command is in [setup](docs/setup.md#4-terraform).
 - Local dbt (`--target local`) writes only to `dev_silver` / `dev_gold`. Test model changes there against live bronze before pushing.
 - A local ingest run writes to `dev_bronze`, never production bronze ([0012](docs/decisions/0012-local-ingest-writes-dev-bronze.md)). Real bronze is written only by the Cloud Run jobs.

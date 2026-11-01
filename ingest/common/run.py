@@ -39,12 +39,9 @@ JOB_NAME = os.path.basename(os.path.dirname(os.path.abspath(sys.argv[0])))
 
 def report_failure(summary, details=''):
     """
-    Log this run's failure as one structured entry (contract: infra/monitoring.tf).
-
-    Cloud Run reads a JSON line on stdout as a structured log entry. Only the
-    task's final attempt reports event "job_failed" at ERROR, which emails an
-    alert; an attempt Cloud Run will retry logs "attempt_failed" at WARNING, so
-    a transient error the retry absorbs sends nothing. CLOUD_RUN_TASK_ATTEMPT
+    Log this run's failure as one structured entry, per the contract in
+    infra/monitoring.tf: "job_failed" on the task's final attempt (emails an
+    alert), "attempt_failed" on one Cloud Run will retry. CLOUD_RUN_TASK_ATTEMPT
     (0-based) is set by Cloud Run; MAX_RETRIES by Terraform.
     """
     is_final_attempt = int(os.getenv('CLOUD_RUN_TASK_ATTEMPT', '0')) >= int(os.getenv('MAX_RETRIES', '0'))

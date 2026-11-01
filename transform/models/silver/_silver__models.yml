@@ -149,7 +149,7 @@ models:
               arguments:
                 values: *rail_lines
       - name: gated_entries
-        description: Fare-gate entries across all of the line's stations that day (fractional at shared stations).
+        description: "{{ doc('gated_entries') }}"
         data_tests:
           - not_null
           - accepted_range:
@@ -169,7 +169,7 @@ models:
       - name: station_id
         description: GHCN station ID (USW00014739 = Boston Logan International Airport).
       - name: avg_temperature_f
-        description: Daily mean temperature, °F, as (max + min) / 2.
+        description: "{{ doc('avg_temperature_f') }}"
       - name: max_temperature_f
         description: Daily maximum temperature, °F.
         data_tests:
@@ -185,13 +185,13 @@ models:
                 min_value: -40
                 max_value: 120
       - name: precipitation_in
-        description: Total precipitation, inches, as liquid equivalent (melted snow included).
+        description: "{{ doc('precipitation_in') }}"
         data_tests:
           - accepted_range:
               arguments:
                 min_value: 0
       - name: snowfall_in
-        description: New snowfall depth, inches, before melting.
+        description: "{{ doc('snowfall_in') }}"
         data_tests:
           - accepted_range:
               arguments:
@@ -270,9 +270,7 @@ models:
         description: "{{ doc('alert_start_at') }}"
         data_tests: [not_null]
       - name: alert_end_at
-        description: >
-          Whichever came first: the posted end, or leaving the feed. NULL while
-          still in the feed with no posted end.
+        description: "{{ doc('alert_end_at') }}"
 
   - name: mbta_alerts__grouped
     description: >
@@ -319,11 +317,7 @@ models:
         description: "{{ doc('alert_start_at') }}"
         data_tests: [not_null]
       - name: alert_end_at
-        description: >
-          When the alert ended (UTC): whichever came first — the end time the
-          MBTA posted, or when the alert left the feed (midway between the last
-          run that saw it and the next run, at most 30 minutes after last seen).
-          NULL while still in the feed with no posted end.
+        description: "{{ doc('alert_end_at') }}"
       - name: alert_start_date
         description: Eastern date of alert_start_at.
       - name: alert_end_date

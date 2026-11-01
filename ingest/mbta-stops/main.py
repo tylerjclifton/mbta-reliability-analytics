@@ -68,7 +68,7 @@ for route_id in RAIL_ROUTES:
     stations = body.get('data', [])
     children = body.get('included', [])
     rows += [stop_row(route_id, stop) for stop in stations + children]
-    logging.info(f"{route_id}: {len(stations)} stations, {len(children)} child stops")
+    logging.info(f'{route_id}: {len(stations)} stations, {len(children)} child stops')
 
 df = pandas.DataFrame(rows)
 # Nullable integers: a missing enum stays NULL instead of turning the column to float

@@ -87,7 +87,7 @@ def report_failure(summary, details):
         'severity': 'ERROR' if is_final_attempt else 'WARNING',
         'event':    'job_failed' if is_final_attempt else 'attempt_failed',
         'job':      'transform',
-        'message':  f"{summary}\n\n{details}".strip(),
+        'message':  f'{summary}\n\n{details}'.strip(),
     }), flush=True)
 
 
@@ -95,5 +95,5 @@ if __name__ == '__main__':
     for step, command in STEPS.items():
         exit_code, output = run(command)
         if exit_code != 0:
-            report_failure(f"`{step}` failed (exit code {exit_code})", failure_details(output))
+            report_failure(f'`{step}` failed (exit code {exit_code})', failure_details(output))
             sys.exit(exit_code)

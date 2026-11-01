@@ -51,8 +51,8 @@ def report_failure(summary, details=''):
     print(json.dumps({
         'severity': 'ERROR' if is_final_attempt else 'WARNING',
         'event':    'job_failed' if is_final_attempt else 'attempt_failed',
-        'job':      f"ingest-{JOB_NAME}",
-        'message':  f"{summary}\n\n{details}".strip(),
+        'job':      f'ingest-{JOB_NAME}',
+        'message':  f'{summary}\n\n{details}'.strip(),
     }), flush=True)
 
 
@@ -65,7 +65,7 @@ def fail(message):
 def _report_uncaught_exception(exc_type, exc_value, exc_traceback):
     """Report any exception a job didn't handle, with its traceback, then exit as usual."""
     details = ''.join(traceback.format_exception(exc_type, exc_value, exc_traceback))
-    report_failure(f"{exc_type.__name__}: {exc_value}", details)
+    report_failure(f'{exc_type.__name__}: {exc_value}', details)
     sys.__excepthook__(exc_type, exc_value, exc_traceback)
 
 

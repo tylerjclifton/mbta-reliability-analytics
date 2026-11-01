@@ -18,9 +18,9 @@ def fetch(url, params=None, headers=None, timeout=60):
     try:
         response = requests.get(url, params=params, headers=headers, timeout=timeout)
     except requests.exceptions.RequestException as error:
-        fail(f"Request to {url} failed: {error}")
+        fail(f'Request to {url} failed: {error}')
 
     if response.status_code != 200:
-        fail(f"Request to {url} returned HTTP {response.status_code}")
+        fail(f'Request to {url} returned HTTP {response.status_code}')
 
     return response

@@ -41,7 +41,7 @@ start_date = datetime.date.today() - datetime.timedelta(days=LOOKBACK_DAYS)
 
 # ── Fetch ─────────────────────────────────────────────────────────────────────
 
-logging.info(f"Fetching GHCN-Daily for {STATION_ID} from {start_date}")
+logging.info(f'Fetching GHCN-Daily for {STATION_ID} from {start_date}')
 csv_text = fetch(GHCN_URL, timeout=120).text
 
 # ── Shape ─────────────────────────────────────────────────────────────────────

@@ -12,10 +12,15 @@ line-length = 120
 extend-exclude = ["transform/target", "transform/dbt_packages"]
 
 [tool.ruff.lint]
-# pyflakes, pycodestyle errors, import sorting, common bug patterns
-select = ["F", "E", "I", "B"]
+# pyflakes, pycodestyle errors, import sorting, common bug patterns, quote style
+select = ["F", "E", "I", "B", "Q"]
 # E221/E241: the codebase aligns related assignments and dict values in columns
 ignore = ["E221", "E241"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["common", "helpers"]
+
+[tool.ruff.lint.flake8-quotes]
+# Single quotes for strings, double where the string contains a single quote;
+# docstrings stay triple double quotes
+inline-quotes = "single"

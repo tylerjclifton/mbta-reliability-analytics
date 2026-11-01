@@ -7,12 +7,14 @@ edges replaced — HTTP responses are canned, and the DataFrame handed to
 append_to_bronze is captured instead of loaded into BigQuery.
 """
 
+# Import standard libraries
 import json
 import runpy
 import sys
 from pathlib import Path
 from unittest import mock
 
+# Import third party libraries
 import pytest
 
 INGEST_DIR = Path(__file__).resolve().parents[1]
@@ -51,16 +53,16 @@ def run_job(monkeypatch):
         _run.requests.clear()
 
         def fake_get(url, params=None, **kwargs):
-            _run.requests.append({"url": url, "params": params or {}})
+            _run.requests.append({'url': url, 'params': params or {}})
             return FakeResponse(next(bodies))
 
-        monkeypatch.setattr(fetch.requests, "get", fake_get)
-        monkeypatch.setattr(load, "append_to_bronze", lambda df: captured.setdefault("df", df))
+        monkeypatch.setattr(fetch.requests, 'get', fake_get)
+        monkeypatch.setattr(load, 'append_to_bronze', lambda df: captured.setdefault('df', df))
 
-        script = INGEST_DIR / job / "main.py"
-        with mock.patch.object(sys, "argv", [str(script)]):
-            runpy.run_path(str(script), run_name="__main__")
-        return captured.get("df")
+        script = INGEST_DIR / job / 'main.py'
+        with mock.patch.object(sys, 'argv', [str(script)]):
+            runpy.run_path(str(script), run_name='__main__')
+        return captured.get('df')
 
     _run.requests = []
     return _run

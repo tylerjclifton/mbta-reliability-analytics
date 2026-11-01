@@ -52,7 +52,7 @@ alerts = fetch(f'{API_URL}/alerts', params=params, timeout=30).json()['data']
 rows = [{'alert_id': alert.get('id'), 'alert_json': json.dumps(alert, separators=(',', ':'))}
         for alert in alerts]
 
-logging.info(f"{len(rows)} alerts in feed")
+logging.info(f'{len(rows)} alerts in feed')
 
 # ── Load ──────────────────────────────────────────────────────────────────────
 

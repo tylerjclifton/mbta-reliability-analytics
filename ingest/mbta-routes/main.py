@@ -40,7 +40,7 @@ for route in routes:
         'direction_destinations': str(destinations) if destinations else None,
     })
 
-logging.info(f"{len(rows)} routes in response")
+logging.info(f'{len(rows)} routes in response')
 
 # ── Load ──────────────────────────────────────────────────────────────────────
 

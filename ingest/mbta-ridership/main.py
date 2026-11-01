@@ -61,7 +61,7 @@ while True:
         fail(f"ArcGIS API error: {data['error']}")
 
     features.extend(data.get('features', []))
-    logging.info(f"Fetched {len(features)} records so far...")
+    logging.info(f'Fetched {len(features)} records so far...')
 
     # ArcGIS sets exceededTransferLimit while more pages remain
     if not data.get('exceededTransferLimit', False):

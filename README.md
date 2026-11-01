@@ -157,6 +157,7 @@ The dashboard shows visitors the same thing: the dot beside "Alerts updated" is 
 | Audit columns | On every bronze table, carried into silver and gold where a row has one source version (alert models track `first_seen_at` / `last_seen_at` instead) | `ingested_at`, `ingested_by` |
 | dbt models | Header comment (purpose, grain, numbered steps); CTEs named after the step | `latest_versions`, `quality_checked` |
 | Ingest scripts | Docstring (source, cadence, each run, writes to); Fetch → Shape → Load sections | |
+| Python style | ruff (`pyproject.toml`): single-quoted strings; import groups sorted, each under an `# Import …` label | `# Import standard libraries` |
 
 ---
 

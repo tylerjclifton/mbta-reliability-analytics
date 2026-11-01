@@ -110,13 +110,15 @@ Terraform can rename a table only by replacing it, which would lose its history,
    gcloud run jobs update ingest-<job> --region us-east1 --update-env-vars BQ_TABLE_ID=<new_name>
    ```
 
+   To check the SQL first without renaming anything, run the same `bq query` with `--dry_run`.
+
 2. For a live table, run the job (`gcloud run jobs execute ingest-<job> --region us-east1 --wait`) and confirm rows landed in `bronze.<new_name>`.
 3. In `infra/bigquery.tf`, change the key in `local.bronze_tables` and add a block that adopts the renamed table:
 
    ```hcl
    import {
      to = google_bigquery_table.bronze["<new_name>"]
-     id = "projects/mbta-reliability-analytics/datasets/bronze/tables/<new_name>"
+     id = "projects/${var.project_id}/datasets/bronze/tables/<new_name>"
    }
    ```
 

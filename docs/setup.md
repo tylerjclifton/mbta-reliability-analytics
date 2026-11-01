@@ -1,6 +1,6 @@
 # Setting up a new machine
 
-Everything needed to work on this repo from a fresh computer. Day-to-day commands (running checks, local dbt builds, previewing the dashboard) are in the README's [Development & Deployment](../README.md#development--deployment) section. This page gets you to the point where they work.
+Everything needed to work on this repo from a fresh computer. Day-to-day commands (running checks, local dbt builds, previewing the dashboard) are in the README's [Development & deployment](../README.md#development--deployment) section. This page gets you to the point where they work.
 
 ## 1. Install the tools
 
@@ -70,7 +70,7 @@ These are the same checks CI runs. If they pass, you're set up.
 
 ## Things that live outside the repo
 
-None of these are in code, and some lapsing would take the site down with no alert:
+Accounts and settings the project depends on but Terraform doesn't manage, plus one setting that's easy to forget. Some lapsing would take the site down with no alert:
 
 | What | Where | Notes |
 |---|---|---|
@@ -79,4 +79,4 @@ None of these are in code, and some lapsing would take the site down with no ale
 | **$5/month budget** | Billing → Budgets | Created with `gcloud billing budgets`; alerts only ([0004](decisions/0004-per-query-cost-limits.md)). Emails the billing admin, the same account as `alert_email` |
 | **MBTA API key value** | Secret Manager, `mbta-api-key` | Terraform owns the secret; the value is added by hand ([runbook](runbook.md#rotate-the-mbta-api-key)) |
 | **GitHub `production` environment** | Repo settings → Environments | The deploy job runs in it |
-| **Failure-alert email** | `alert_email` in `infra/variables.tf` | In code; listed here so it isn't forgotten |
+| **Failure-alert email** | `alert_email` in `infra/variables.tf` | The one item here that is in code; listed so the inbox it names stays checked |

@@ -7,8 +7,9 @@ Guidance for AI coding sessions in this repo. Humans: the same docs apply.
 ## Rules
 - **Bronze is append-only.** Never update, delete, or rebuild bronze rows or tables ([0001](docs/decisions/0001-append-only-bronze.md)).
 - **Infrastructure changes go through Terraform only**: edit `infra/`, plan locally, push ([0005](docs/decisions/0005-terraform-only-changes.md)).
+- **Never let Terraform replace a bronze table.** Renames follow the procedure in [0013](docs/decisions/0013-bronze-tables-in-terraform.md) (BigQuery rename plus an `import` block); removing a column, changing a type, or changing partitioning isn't done at all. Check every plan for a bronze replacement.
 - **Deploy by pushing to `main`**; CI builds, applies, and runs the transform ([0006](docs/decisions/0006-deploy-only-through-ci.md)). Watch the run and confirm it passed.
-- **Adding a source:** push the ingest and tables first, seed them, then push the models that read them, so the post-deploy freshness check doesn't fail on empty tables.
+- **Adding a source:** push the ingest and tables first, seed them, then push the models that read them, so the post-deploy freshness check doesn't fail on empty tables ([runbook](docs/runbook.md#add-a-new-source)).
 - **Docs change with the code**, in the same commit: README, dbt model headers and yml, `docs/`. Record new decisions in `docs/decisions/`.
 - **Commits carry no AI co-author trailer** or "Generated with" line.
 - **Comment generously**: every model and script gets a header with its purpose, grain, and steps; follow the naming conventions in the README.

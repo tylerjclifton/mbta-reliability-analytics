@@ -1,16 +1,16 @@
 # ══════════════════════════════════════════════════════════════════════════════
 # IAM — least privilege per workload
 #
-# Data access is granted per dataset, not project-wide. The only project-level
-# role a workload gets is bigquery.jobUser (permission to run queries/loads),
-# which grants no data access by itself.
+# Data access is granted per dataset, not project-wide. Project-level roles
+# grant no data access by themselves: bigquery.jobUser (run queries and loads)
+# for every data workload, and bigquery.user for dbt (list datasets).
 #
-#                  bronze        silver        gold          other
-#   ingest-jobs    dataEditor    —             —             secret: mbta-api-key
-#   dbt-bigquery   dataViewer    dataEditor    dataEditor    bigquery.user (dataset lookups)
-#   serve-bigquery —             —             dataViewer
-#   job-scheduler  —             —             —             run.invoker on each job
-#   github-deployer  deploys via terraform; broad by necessity (deploy.tf)
+#                     bronze      silver      gold        other
+#   ingest-jobs       dataEditor  —           —           secret: mbta-api-key
+#   dbt-bigquery      dataViewer  dataEditor  dataEditor  bigquery.user
+#   serve-bigquery    —           —           dataViewer
+#   job-scheduler     —           —           —           run.invoker per job
+#   github-deployer   terraform apply; broad by necessity (deploy.tf)
 # ══════════════════════════════════════════════════════════════════════════════
 
 # ── Project-level ─────────────────────────────────────────────────────────────

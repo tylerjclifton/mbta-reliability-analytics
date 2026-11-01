@@ -6,7 +6,7 @@
 #   printf '%s' "<key>" | gcloud secrets versions add mbta-api-key --data-file=-
 # ══════════════════════════════════════════════════════════════════════════════
 
-# MBTA V3 API key, read by the alerts and routes ingest jobs
+# MBTA V3 API key, read by the MBTA API ingest jobs (alerts, routes, stops)
 resource "google_secret_manager_secret" "mbta_api_key" {
   secret_id = "mbta-api-key"
 

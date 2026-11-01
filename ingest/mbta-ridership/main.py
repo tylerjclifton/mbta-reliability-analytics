@@ -7,7 +7,8 @@ Cadence:    Weekly — the MBTA publishes in irregular batches, often several
             September 2026 all appeared on 2026-10-20)
 Each run:   Pulls the full published history (2024-10 onward), not a recent
             window, so any numbers the MBTA revises after the fact are captured
-Writes to:  bronze.mbta_ridership (append) — one row per service date × line per run
+Writes to:  bronze.mbta_ridership (append) — one row per service date × line
+            per run
 """
 
 # Import standard libraries

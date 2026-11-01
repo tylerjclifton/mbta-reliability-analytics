@@ -3,7 +3,7 @@ version: 2
 # ══════════════════════════════════════════════════════════════════════════════
 # Gold — cross-source tables served to the dashboard (rebuilt every run)
 #
-# Column meanings match their silver sources; see models/silver/_silver__models.yml.
+# Column meanings match their silver sources (models/silver/_silver__models.yml).
 # Tests here guard the joins: the grain still holds after joining, and every
 # ridership day found its weather.
 # ══════════════════════════════════════════════════════════════════════════════

@@ -1,4 +1,4 @@
+# Python caches and tests stay out of the image
 **/__pycache__
 **/*.pyc
-# Tests run in CI, not in the image
 tests/

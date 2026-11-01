@@ -6,17 +6,21 @@
   bronze.mbta_alerts_legacy dropped (the stops an alert affects, see
   silver.mbta_alerts__by_station) read this table.
 
-  Incremental for the same reason as silver.mbta_alerts__by_route: bronze.mbta_alerts
-  gains a full snapshot every 15 minutes (~15 GB/year), and a view would
-  re-read all of it on every transform. Each run reads only the snapshots added
-  since the last one; `dbt build --full-refresh` rebuilds it from bronze.
+  Incremental for the same reason as silver.mbta_alerts__by_route:
+  bronze.mbta_alerts gains a full snapshot every 15 minutes, and a view would
+  re-read all of it on every transform (decision 0010). Each run reads only
+  the snapshots added since the last one; `dbt build --full-refresh` rebuilds
+  it from bronze.
 
-  Full-JSON capture started 2026-10-24, so alerts that ended before then aren't here.
+  Full-JSON capture started 2026-10-24, so alerts that ended before then
+  aren't here.
 
   Steps:
     1. new_snapshots — bronze rows ingested after the latest one already here
-    2. candidates    — those rows, plus the existing row for each alert they touch
-    3. final select  — per alert: latest JSON, earliest first-seen, latest last-seen
+    2. candidates    — those rows, plus the existing row for each alert they
+                       touch
+    3. final select  — per alert: latest JSON, earliest first-seen, latest
+                       last-seen
 #}
 
 {{

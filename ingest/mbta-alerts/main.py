@@ -17,11 +17,11 @@ alerts, and silver uses the last run an alert was seen in to tell when it ended
 
 Each alert is stored whole rather than as chosen columns, and the whole feed
 is requested (no route filter, every activity), so new questions never depend
-on what this script happened to keep. Filtering to rail and splitting alerts into one row per
-route happen in silver (mbta_alerts__by_route). Until 2026-10-24 this job
-wrote only chosen columns to a table now named bronze.mbta_alerts_legacy, which
-dropped the stops each alert affects and more; it's kept, frozen, as history
-(decision 0002).
+on what this script happened to keep. Filtering to rail and splitting alerts
+into one row per route happen in silver (mbta_alerts__by_route). Until
+2026-10-24 this job wrote only chosen columns to a table now named
+bronze.mbta_alerts_legacy, which dropped the stops each alert affects and
+more; it's kept, frozen, as history (decision 0002).
 """
 
 # Import standard libraries

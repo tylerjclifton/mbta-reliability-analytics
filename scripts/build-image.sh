@@ -8,8 +8,8 @@
 
 set -euo pipefail
 
-COMPONENT="${1:?usage: $0 <ingest|transform|serve> <version>}"
-VERSION="${2:?usage: $0 <ingest|transform|serve> <version>}"
+COMPONENT="${1:?usage: $0 <ingest|transform|serve> <tag>}"
+TAG="${2:?usage: $0 <ingest|transform|serve> <tag>}"
 
 PROJECT_ID="mbta-reliability-analytics"
 REGION="us-east1"
@@ -21,7 +21,7 @@ case "${COMPONENT}" in
   *) echo "Unknown component: ${COMPONENT}" >&2; exit 1 ;;
 esac
 
-IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/${COMPONENT}:${VERSION}"
+IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/${COMPONENT}:${TAG}"
 
 # Each component builds from its own folder (Dockerfile + requirements.txt)
 cd "$(dirname "$0")/../${COMPONENT}"

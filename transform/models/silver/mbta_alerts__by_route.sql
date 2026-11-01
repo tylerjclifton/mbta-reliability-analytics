@@ -9,8 +9,8 @@
 
   Two bronze tables feed it, split at var alerts_raw_capture_start
   (2026-10-24 14:11 UTC):
-    - before it, bronze.mbta_alerts_legacy: the frozen shaped table, which the ingest
-      wrote directly at alert × route grain
+    - before it, bronze.mbta_alerts_legacy: the frozen shaped table, which the
+      ingest wrote directly at alert × route grain
     - from it on, bronze.mbta_alerts: each alert's full JSON, split here
       into one row per rail route with the same rules the ingest used (one row
       per target route in informed_entity; the first active period). Both
@@ -21,14 +21,14 @@
   whole feed (bus, commuter rail, ferry too; decision 0011), and an alert that
   names no rail route produces no rows here.
 
-  Why a table, not a view like most of silver: alert snapshots arrive
-  every 15 minutes (~15 GB/year of JSON). A view would re-read that whole
-  history for every model and test that uses it — about 9 times per hourly
-  transform — which outgrows BigQuery's free query tier within a year. This
-  table is incremental: each run reads only the snapshots added since the last
-  run, and once past the capture start never reads the frozen table again.
-  Bronze remains the complete history; `dbt build --full-refresh` rebuilds this
-  table from it.
+  Why a table, not a view like most of silver (decision 0010): alert snapshots
+  arrive every 15 minutes (growth rate in decision 0011). A view would re-read
+  that whole history for every model and test that uses it — about 9 times per
+  hourly transform — which outgrows BigQuery's free query tier within a year.
+  This table is incremental: each run reads only the snapshots added since the
+  last run, and once past the capture start never reads the frozen table
+  again. Bronze remains the complete history; `dbt build --full-refresh`
+  rebuilds this table from it.
 
   Steps:
     1. new_snapshots — snapshots after the latest one already here: frozen

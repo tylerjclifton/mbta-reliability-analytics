@@ -1,8 +1,9 @@
 {#
-  silver.mbta_alerts__grouped — one row per service-affecting alert × route, with its incident
+  silver.mbta_alerts__grouped — one row per service-affecting alert × route
 
-  Logic step 2 of 2 for alerts (step 1: silver.mbta_alerts__resolved). Groups alerts
-  into incidents and presents them in project conventions; gold reads this.
+  Logic step 2 of 2 for alerts (step 1: silver.mbta_alerts__resolved). Tags
+  each alert with its incident and presents them in project conventions; gold
+  reads this.
 
   Incidents: the MBTA often posts several alerts for one event — an update, or a
   follow-up such as "delays due to an earlier disabled train at JFK/UMass". An

@@ -1,12 +1,13 @@
 # ══════════════════════════════════════════════════════════════════════════════
 # Monitoring — email alerts when the pipeline fails (and only then)
 #
-#   <job> failed           one policy per Cloud Run job; emails the job's own
-#                          failure report (error + traceback or dbt summary)
-#   transform not running  backstop for failures a job can't report itself:
-#                          timeouts, out-of-memory kills, the scheduler not
-#                          starting it. An ingest job failing that way is
-#                          caught by the transform's freshness check instead.
+#   <job> failed            one policy per Cloud Run job; emails the job's
+#                           own failure report (error + traceback or dbt
+#                           summary)
+#   transform hasn't        backstop for failures a job can't report itself:
+#   succeeded in 3 hours    timeouts, out-of-memory kills, the scheduler not
+#                           starting it. An ingest job failing that way is
+#                           caught by the transform's freshness check instead.
 #
 # Failure report contract (ingest/common/run.py, transform/run.py): a failed
 # run prints one JSON line to stdout, which Cloud Run logs as structured data:

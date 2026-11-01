@@ -1,15 +1,9 @@
 # ══════════════════════════════════════════════════════════════════════════════
 # Quotas — the project's daily BigQuery query quota, pinned at Google's default
 #
-# Don't lower this as a cost cap. On 2026-10-23 a 50 GiB/day cap, and then a
-# 200 GiB/day one, refused transform queries as "quotaExceeded" while the day's
-# usage was ~11-12 GiB (Cloud Monitoring agreed), failing every hourly run.
-# The custom quota misfires whatever its value, so it can't be trusted to stop
-# only a runaway.
-#
-# Query cost is bounded per query instead: maximum_bytes_billed in
-# transform/profiles.yml (dbt) and serve/app.py (dashboard). The $5/month
-# budget (README, Cost) emails on anything that slips past those.
+# Don't lower this as a cost cap: a custom daily cap refused queries far below
+# its limit, whatever the value (decision 0004). Cost is bounded per query
+# instead (maximum_bytes_billed in transform/profiles.yml and serve/app.py).
 #
 # This resource stays because a quota preference can't be deleted once
 # created; keeping it in Terraform at the default keeps code and GCP matching.

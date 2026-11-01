@@ -1,7 +1,8 @@
 # ══════════════════════════════════════════════════════════════════════════════
 # Cloud Run service — the Streamlit dashboard (serve/), public at tylerclifton.com
 #
-# Scales to zero between visits; a cold start on the first request is fine.
+# Scales to zero between visits; a cold start on the first request is fine
+# (decision 0007).
 # ══════════════════════════════════════════════════════════════════════════════
 
 resource "google_cloud_run_v2_service" "serve" {
@@ -31,13 +32,15 @@ resource "google_cloud_run_v2_service" "serve" {
           memory = "512Mi"
           cpu    = "1000m"
         }
-        cpu_idle = true # Scale to zero when no traffic (keeps costs near zero)
+        cpu_idle = true # CPU billed only while handling a request
       }
     }
 
+    # No always-on instance; at most 2, so a traffic flood slows the site
+    # instead of multiplying the bill (each takes up to 80 connections)
     scaling {
-      min_instance_count = 0 # Allow scale-to-zero
-      max_instance_count = 2 # Cap instances for cost control
+      min_instance_count = 0
+      max_instance_count = 2
     }
   }
 }

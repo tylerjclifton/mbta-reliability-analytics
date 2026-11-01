@@ -42,11 +42,13 @@ resource "google_cloud_scheduler_job" "transform" {
   name             = "transform"
   schedule         = var.transform_schedule
   time_zone        = var.scheduler_time_zone
-  attempt_deadline = "600s" # 10 minutes deadline for dbt
+  attempt_deadline = "600s"
   paused           = false
 
+  # Retries the call that starts the job, if it fails; the job itself never
+  # retries (transform_max_retries in cloud-run-jobs.tf)
   retry_config {
-    retry_count = 1 # Retry once if it fails
+    retry_count = 1
   }
 
   http_target {

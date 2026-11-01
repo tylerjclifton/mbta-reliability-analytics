@@ -76,8 +76,9 @@ resource "google_cloud_run_v2_job" "ingest" {
   depends_on = [google_secret_manager_secret_iam_member.ingest_reads_mbta_api_key]
 
   template {
-    task_count  = 1 # Total number of tasks to run
-    parallelism = 0 # Maximum number of tasks to run concurrently
+    # One task per execution (parallelism 0 means no limit, moot with one task)
+    task_count  = 1
+    parallelism = 0
     template {
       service_account = google_service_account.ingest.email
       timeout         = each.value.timeout
@@ -96,6 +97,8 @@ resource "google_cloud_run_v2_job" "ingest" {
           name  = "BQ_PROJECT_ID"
           value = var.project_id
         }
+        # Production bronze. Set explicitly because a run without it (a local
+        # one) writes to dev_bronze instead (decision 0012)
         env {
           name  = "BQ_DATASET_ID"
           value = google_bigquery_dataset.bronze.dataset_id
@@ -148,11 +151,12 @@ resource "google_cloud_run_v2_job" "transform" {
   deletion_protection = true
 
   template {
-    task_count  = 1 # Total number of tasks to run
-    parallelism = 0 # Maximum number of tasks to run concurrently
+    # One task per execution (parallelism 0 means no limit, moot with one task)
+    task_count  = 1
+    parallelism = 0
     template {
       service_account = google_service_account.dbt_bigquery.email
-      timeout         = "600s" # 10 minutes for dbt to complete
+      timeout         = "600s"
       max_retries     = local.transform_max_retries
       containers {
         name  = "transform"

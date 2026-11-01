@@ -28,7 +28,8 @@ vars:
   alerts_raw_capture_start: '2026-10-24 14:11:39.835891'
 
   # Alert effects that don't affect train service (amenities, facilities,
-  # informational notices). Bronze keeps them; silver.mbta_alerts__resolved drops them.
+  # informational notices). Bronze keeps them; silver.mbta_alerts__resolved
+  # drops them.
   non_service_alert_effects:
     - NOTICE
     - STATION_ISSUE
@@ -44,11 +45,12 @@ vars:
 # Model configuration — one folder per medallion layer, one dataset per folder
 # See: https://docs.getdbt.com/docs/configuring-models
 #   bronze — append-only tables written by ingest jobs; declared as sources only
-#   silver — <bronze table>__<step> views (see models/silver/_silver__models.yml):
-#            __base is each source's cleaned copy, other steps apply one
-#            business rule each. Two exceptions to views: mbta_alerts__by_route
-#            and mbta_alerts__base are incremental tables, so the
-#            transform doesn't re-read every 15-minute alert snapshot each run
+#   silver — <bronze table>__<step> views (decision 0010; see
+#            models/silver/_silver__models.yml): __base is each source's
+#            cleaned copy, and every other step does one job. Two exceptions
+#            to views: mbta_alerts__by_route and mbta_alerts__base are
+#            incremental tables, so the transform doesn't re-read every
+#            15-minute alert snapshot each run
 #   gold   — tables the dashboard reads, rebuilt every run
 models:
   mbta_reliability_analytics:

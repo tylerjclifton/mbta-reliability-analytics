@@ -65,6 +65,7 @@ def freshness(updated_at, now):
 
 
 def esc(text):
+    """HTML-escape a value for st.markdown cards; None or NaN becomes an empty string."""
     return html.escape(str(text)) if text is not None and not pd.isna(text) else ''
 
 

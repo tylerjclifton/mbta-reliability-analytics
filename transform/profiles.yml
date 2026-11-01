@@ -11,14 +11,25 @@
 # more: the transform's cost guardrail, in place of a project-wide daily cap
 # (decision 0004). Sized for the biggest query the transform can run, a full
 # rebuild of silver.mbta_alerts__by_route, which reads every alert snapshot;
-# when that outgrows the limit is in docs/roadmap.md. Hourly incremental runs
-# read only new snapshots (KBs).
+# that outgrows the limit around mid-2030 (tracked in docs/roadmap.md). Hourly
+# incremental runs read only new snapshots (KBs).
 # ══════════════════════════════════════════════════════════════════════════════
 
 mbta_reliability_analytics:
   target: gcp
   outputs:
-    gcp: &bigquery
+    local:
+      type: bigquery
+      method: oauth
+      project: mbta-reliability-analytics
+      dataset: silver  # required default; every model sets its own dataset
+      location: us-east1
+      threads: 4
+      job_execution_timeout_seconds: 300
+      priority: interactive
+      maximum_bytes_billed: 53687091200  # 50 GiB per query (see header)
+
+    gcp:
       type: bigquery
       method: oauth
       project: "{{ env_var('DBT_PROJECT_ID', 'mbta-reliability-analytics') }}"
@@ -28,8 +39,3 @@ mbta_reliability_analytics:
       job_execution_timeout_seconds: 300
       priority: interactive
       maximum_bytes_billed: 53687091200  # 50 GiB per query (see header)
-
-    # Same settings as gcp, pinned to this project whatever DBT_PROJECT_ID says
-    local:
-      <<: *bigquery
-      project: mbta-reliability-analytics

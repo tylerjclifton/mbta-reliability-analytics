@@ -45,7 +45,8 @@ def append_to_bronze(df: pd.DataFrame):
     # Stamp the audit columns shared by every bronze table
     df = df.assign(ingested_at=RUN_STARTED_AT, ingested_by=f'ingest-{JOB_NAME}')
 
-    # Load against the table's own schema (see module docstring) and append
+    # Load against the table's own schema, so a missing or misnamed column
+    # fails the load, and append
     client = bigquery.Client(project=project_id)
     try:
         job_config = bigquery.LoadJobConfig(

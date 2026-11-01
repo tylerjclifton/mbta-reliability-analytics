@@ -156,7 +156,7 @@ resource "google_cloud_run_v2_job" "transform" {
     parallelism = 0
     template {
       service_account = google_service_account.dbt_bigquery.email
-      timeout         = "600s"
+      timeout         = "600s" # 10 minutes for dbt build + freshness
       max_retries     = local.transform_max_retries
       containers {
         name  = "transform"

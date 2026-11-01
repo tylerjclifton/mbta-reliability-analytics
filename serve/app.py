@@ -25,9 +25,12 @@ single winter).
 Counting unit is the incident (gold.rail_incidents): one real-world event the
 MBTA may have posted as several alerts.
 
-The two ridership comparisons are defined where they're computed: "% vs
-typical" (weather) in load_ridership(), and "% vs calm days" (alert effects)
-in helpers.pct_vs_calm().
+Two ridership comparisons, each detailed where it's computed:
+  % vs typical    (weather) a day's entries vs the median for the same line,
+                  weekday, and month; see load_ridership()
+  % vs calm days  (alert effects) a day's entries vs the median of the line's
+                  calm days (no incident but a station closure) on the same
+                  weekday; see helpers.pct_vs_calm()
 """
 
 # Import standard libraries
@@ -308,6 +311,7 @@ def count_axis(fig, top, axis='y'):
 
 
 def show(fig, config=CHART_CONFIG):
+    """Render a Plotly figure full-width with the shared chart config (no zoom/pan toolbar)."""
     st.plotly_chart(fig, config=config, width='stretch')
 
 
@@ -377,6 +381,7 @@ MAX_BYTES_BILLED = 1024**3
 
 @st.cache_resource
 def get_client():
+    """BigQuery client shared by every query; each query is capped at MAX_BYTES_BILLED."""
     return bigquery.Client(
         project=PROJECT_ID,
         default_query_job_config=bigquery.QueryJobConfig(maximum_bytes_billed=MAX_BYTES_BILLED),
@@ -386,6 +391,7 @@ def get_client():
 # Cache 15 minutes: gold rebuilds hourly, so the page is at most ~75 minutes behind
 @st.cache_data(ttl=900, show_spinner=False)
 def load_incidents():
+    """gold.rail_incidents, one row per incident × route; timestamps as UTC datetimes."""
     df = get_client().query(f"""
         SELECT
             incident_id, route_id, route_name, line_name,
@@ -406,6 +412,7 @@ STATION_TRACKING_START = pd.Timestamp('2026-10-24', tz=TIMEZONE)
 
 @st.cache_data(ttl=900, show_spinner=False)
 def load_incident_stations():
+    """gold.rail_incident_stations, one row per incident × route × station, for the map."""
     df = get_client().query(f"""
         SELECT
             incident_id, station_id, route_name, line_name, station_name,
@@ -420,6 +427,7 @@ def load_incident_stations():
 
 @st.cache_data(ttl=900, show_spinner=False)
 def load_stations():
+    """gold.rail_stations, one row per station × line: the map's backdrop."""
     return get_client().query(f"""
         SELECT station_id, line_name, station_name, station_latitude, station_longitude
         FROM `{PROJECT_ID}.{GOLD_DATASET}.rail_stations`
@@ -428,6 +436,10 @@ def load_stations():
 
 @st.cache_data(ttl=900, show_spinner=False)
 def load_ridership():
+    """
+    gold.rail_ridership, one row per service date × line, plus each day's
+    "% vs typical" and whether it's a federal holiday.
+    """
     df = get_client().query(f"""
         SELECT
             service_date, line_name, gated_entries, active_incident_count,
@@ -682,6 +694,8 @@ with map_col:
             'Map view', ['Right now', 'Planned · next 30 days'], default='Right now',
             key='station_view', label_visibility='collapsed',
         ) or 'Right now'  # Clicking the selected option clears it; fall back to the default
+        # The view picks which incidents' stations to ring: active now, or
+        # planned to start within 30 days
         planned = view != 'Right now'
         hits = planned_hits if planned else active_hits
         markers = station_markers(hits, planned=planned)
@@ -803,6 +817,7 @@ else:
     with dur_col:
         with st.container(key='card_duration'):
             card_title('Duration by cause', 'Median, from first alert to all-clear')
+            # One labeled dot per named cause, in the same order as the cause chart
             dur = (history_events[history_events['incident_cause'].isin(named_causes)]
                    .groupby('incident_cause')['incident_duration_minutes'].median()
                    .reindex(named_causes))
@@ -830,6 +845,8 @@ else:
     with mix_col:
         with st.container(key='card_mix'):
             card_title('Cause mix by line', "Share of each line's incidents, top causes")
+            # Heatmap of cause × line: each cell is that cause's share of the line's
+            # incidents, so lines of different sizes compare fairly
             mix = (history[history['incident_cause'].isin(named_causes)]
                    .groupby(['incident_cause', 'line_name'])['incident_id'].nunique().unstack(fill_value=0)
                    .reindex(index=named_causes, columns=selected_lines, fill_value=0))
@@ -943,9 +960,11 @@ with st.container(key='card_monthly'):
 impact_col, dow_col = st.columns(2, gap='medium')
 
 # ── Ridership by alert effect ─────────────────────────────────────────────────
-# Each line vs its own calm days (helpers.pct_vs_calm says why). The
-# thresholds hold bars back until there's enough data to trust; the chart
-# fills in by itself as alert history grows, with no change needed here.
+# Each line is compared only with its own calm days (gold's is_calm_day), not a
+# monthly median, which would absorb a month-long shutdown into its own
+# baseline (helpers.pct_vs_calm). The thresholds hold bars back until there's
+# enough data to trust; the chart fills in by itself as alert history grows,
+# with no change needed here.
 IMPACT_EFFECTS = ['Delay', 'Suspension', 'Shuttle']
 MIN_CALM_WEEKDAYS = 4   # calm days of the same weekday needed before a day can be scored
 MIN_IMPACT_DAYS = 10    # scored days needed for a bar, both with the effect and calm
@@ -1026,6 +1045,8 @@ with impact_col:
 with dow_col:
     with st.container(key='card_dow'):
         card_title('Ridership by day of week', 'Average entries per day')
+        # Average per weekday over the 12 months to the latest published day, bars
+        # grouped by line
         recent = ridership[ridership['service_date'] >= ridership_year_start]
         dow = recent.groupby(['weekday', 'line_name'])['gated_entries'].mean().reset_index()
         fig = go.Figure()

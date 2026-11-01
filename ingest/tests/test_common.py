@@ -34,6 +34,7 @@ class FakeClient:
 
 @pytest.fixture
 def fake_bigquery(monkeypatch):
+    """Swap BigQuery for FakeClient with a fixed target table; returns the recorded loads."""
     FakeClient.loads = []
     monkeypatch.setattr(load.bigquery, 'Client', FakeClient)
     monkeypatch.setenv('BQ_PROJECT_ID', 'proj')

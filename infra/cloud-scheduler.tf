@@ -42,7 +42,7 @@ resource "google_cloud_scheduler_job" "transform" {
   name             = "transform"
   schedule         = var.transform_schedule
   time_zone        = var.scheduler_time_zone
-  attempt_deadline = "600s"
+  attempt_deadline = "600s" # 10 minutes
   paused           = false
 
   # Retries the call that starts the job, if it fails; the job itself never

@@ -277,11 +277,16 @@ cd transform && dbt build --profiles-dir . --target local
 docker build -t serve:dev serve && docker run --rm -p 8601:8080 \
   -v ~/.config/gcloud:/root/.config/gcloud:ro -e GOOGLE_CLOUD_PROJECT=mbta-reliability-analytics \
   -e GOLD_DATASET=dev_gold serve:dev          # → http://localhost:8601
+
+# Preview an infrastructure change against the deployed tag (the variables give
+# local credentials a quota project; docs/setup.md)
+cd infra && USER_PROJECT_OVERRIDE=true GOOGLE_BILLING_PROJECT=mbta-reliability-analytics \
+  terraform plan -var image_tag=$(git rev-parse --short=12 origin/main)
 ```
 
 Local runs never touch the live datasets. A local ingest run writes to `dev_bronze` (the same tables as bronze; rows expire after 7 days), never production bronze ([0012](docs/decisions/0012-local-ingest-writes-dev-bronze.md)); to write real bronze, run the Cloud Run job ([runbook](docs/runbook.md#run-a-job-now)). A local dbt build reads the real bronze and writes to `dev_silver` / `dev_gold`.
 
-To ship a change, push to `main` (below). To preview an infrastructure change first, run a local `terraform plan` against the deployed tag ([setup](docs/setup.md#4-terraform)). Occasional tasks (backfills, rebuilds, renames, rollbacks) are in the [runbook](docs/runbook.md).
+To ship a change, push to `main` (below). Occasional tasks (backfills, rebuilds, renames, rollbacks) are in the [runbook](docs/runbook.md).
 
 ### Continuous deployment
 
@@ -291,7 +296,7 @@ A push to `main` that passes CI deploys automatically (`deploy` job in `.github/
 2. `terraform apply -var image_tag=<commit>` — every job and the dashboard move to that commit's images
 3. Run the transform once, so model changes are live immediately
 
-GitHub authenticates to Google with **Workload Identity Federation** — a short-lived OIDC token exchanged for the `github-deployer` service account, so no keys exist anywhere. Only workflow runs on this repository's `main` branch are accepted (`infra/deploy.tf`). To roll back, see the [runbook](docs/runbook.md#roll-back-a-deploy).
+GitHub authenticates to Google with **Workload Identity Federation** — a short-lived OIDC token exchanged for the `github-deployer` service account, so no keys exist anywhere. Only workflow runs on this repository's `main` branch are accepted (`infra/deploy.tf`). Rolling back is re-running the deploy for an earlier commit ([runbook](docs/runbook.md#roll-back-a-deploy)).
 
 The deploy identity can't create itself, so `infra/deploy.tf` was applied once from a workstation (`terraform apply -var image_tag=<deployed tag>`); every apply since runs in CI.
 

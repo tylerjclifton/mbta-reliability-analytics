@@ -26,7 +26,7 @@ gcloud run jobs execute ingest-noaa-weather --region us-east1 --update-env-vars 
 
 ### Rebuild an incremental silver table
 
-`silver.mbta_alerts__by_route` and `silver.mbta_alerts__base` only read new snapshots each run. If their logic changes in a way that needs history reprocessed, rebuild them from bronze. A rebuild costs cents, but it reads every alert snapshot, so it eventually outgrows the 50 GiB per-query limit (date in the [roadmap](roadmap.md)).
+`silver.mbta_alerts__by_route` and `silver.mbta_alerts__base` only read new snapshots each run. If their logic changes in a way that needs history reprocessed, rebuild them from bronze. A rebuild costs cents, but it reads every alert snapshot, so it outgrows the 50 GiB per-query limit around mid-2030 ([roadmap](roadmap.md)).
 
 ```bash
 cd transform

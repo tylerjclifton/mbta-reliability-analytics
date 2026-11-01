@@ -33,7 +33,7 @@ Day the weather values summarize: midnight to midnight local standard time (1amâ
 {% enddocs %}
 
 {% docs incident_id %}
-One real-world event the MBTA may have posted as several alerts (updates, "earlier disabled train" follow-ups); the grouping rules are in silver.mbta_alerts__grouped. The value is the incident's first alert ID.
+One real-world event the MBTA may have posted as several alerts (updates, "earlier disabled train" follow-ups). Alerts share an incident when they have the same route, cause, effect, and location and follow on within 2 hours (6 for "earlier"/"residual" follow-ups); see silver.mbta_alerts__grouped. The value is the incident's first alert ID.
 {% enddocs %}
 
 {% docs first_seen_at %}
@@ -125,7 +125,7 @@ New snowfall depth at Boston Logan, inches, before melting.
 {% enddocs %}
 
 {% docs alert_end_at %}
-When the alert ended (UTC): the end time the MBTA posted or when the alert left the feed, whichever came first (rules in silver.mbta_alerts__resolved). NULL while still in the feed with no posted end.
+When the alert ended (UTC): the end time the MBTA posted or when the alert left the feed (midway between the last run that saw it and the next, at most 30 minutes after), whichever came first. NULL while still in the feed with no posted end. See silver.mbta_alerts__resolved.
 {% enddocs %}
 
 {% docs incident_cause %}

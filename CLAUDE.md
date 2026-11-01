@@ -16,6 +16,6 @@ Guidance for AI coding sessions in this repo. Humans: the same docs apply.
 
 ## Local environment
 - Python 3.13 (the system `python3` on macOS is 3.9 and too old). Without it, run checks in `python:3.13-slim` via Docker ([setup](docs/setup.md)).
-- Local `terraform plan` needs the deployed image tag and two quota-project variables; the command is in [setup](docs/setup.md#4-terraform).
+- Local `terraform plan`: `USER_PROJECT_OVERRIDE=true GOOGLE_BILLING_PROJECT=mbta-reliability-analytics terraform plan -var image_tag=$(git rev-parse --short=12 origin/main)` (why each part: [setup](docs/setup.md#4-terraform)).
 - Local dbt (`--target local`) writes only to `dev_silver` / `dev_gold`. Test model changes there against live bronze before pushing.
 - A local ingest run writes to `dev_bronze`, never production bronze ([0012](docs/decisions/0012-local-ingest-writes-dev-bronze.md)). Real bronze is written only by the Cloud Run jobs.

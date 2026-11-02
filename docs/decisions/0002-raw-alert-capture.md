@@ -26,3 +26,4 @@ The API never returns an alert once it ends, so for every alert that ended befor
 
 ## History
 - **2026-10-26:** with the raw table the only one written, it was renamed `bronze.mbta_alerts`, to match every other bronze table's `<source>_<entity>` name. `_raw` had been meant as a permanent marker for "records stored whole," but with one live alerts table it was just a break from the convention. It was renamed live, by the procedure in [0013](0013-bronze-tables-in-terraform.md), and no ingest run was missed. Silver's two incremental tables were renamed to match ([0010](0010-silver-naming-and-materialization.md)).
+- **2026-11-01:** the MBTA's LAMP archive turned out to keep every alert since September 2019, stops included, so June–October 2026 isn't unique to the legacy table, and station history can be backfilled ([roadmap](../roadmap.md)). The legacy table is still kept ([0001](0001-append-only-bronze.md)).

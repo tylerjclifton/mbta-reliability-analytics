@@ -11,9 +11,11 @@ Writes to:  bronze.mbta_alerts (append) — one row per alert per run: the
             alert's full JSON exactly as the API returned it
 
 The API only shows alerts that are active or upcoming; once an alert ends it
-disappears for good. Bronze's snapshots are therefore the only record of past
-alerts, and silver uses the last run an alert was seen in to tell when it ended
-(whichever comes first: that, or the end time the MBTA posted).
+disappears from the API. Bronze's snapshots are the project's own record of
+past alerts (the MBTA's LAMP archive also keeps them, but only a version per
+change; docs/roadmap.md), and silver uses the last run an alert was seen in to
+tell when it ended (whichever comes first: that, or the end time the MBTA
+posted).
 
 Each alert is stored whole rather than as chosen columns, and the whole feed
 is requested (no route filter, every activity), so new questions never depend

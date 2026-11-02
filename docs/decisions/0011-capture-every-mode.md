@@ -28,3 +28,4 @@ Modeling other modes isn't worth it: the core analysis needs gated ridership, wh
 - **2026-10-28:** `filter[activity]=ALL` was added the same day as the switch, after the first version relied on an unfiltered request returning everything.
 - **2026-10-28:** the rail route list briefly lived in three places that had to match; it was moved to `RAIL_ROUTES` the same day.
 - **2026-11-01:** "can't be done later" turned out to be wrong for most alerts: the MBTA's LAMP archive keeps every mode's alerts since September 2019 ([roadmap](../roadmap.md#the-mbtas-lamp-archive)). Capture continues as the project's own copy ([0001](0001-append-only-bronze.md)), with the 15-minute snapshots LAMP doesn't keep.
+- **2026-11-01:** bronze storage is now billed on compressed bytes, so the storage cost above (logical billing) no longer applies; bronze costs roughly 50× less ([0014](0014-bronze-physical-storage-billing.md)).

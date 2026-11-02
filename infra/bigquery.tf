@@ -137,6 +137,9 @@ resource "google_bigquery_dataset" "bronze" {
   description   = "Append-only raw history written by ingest jobs (all sources)"
   location      = var.location
 
+  # Bill storage on compressed bytes: repeated snapshots compress ~100× (0014)
+  storage_billing_model = "PHYSICAL"
+
   # Bronze is the only copy of data the sources don't keep themselves
   lifecycle {
     prevent_destroy = true

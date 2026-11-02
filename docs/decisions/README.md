@@ -31,6 +31,7 @@ Numbers are assigned in the order records are written and never change. The inde
 | [0006](0006-deploy-only-through-ci.md) | Deploy only by pushing to `main` | Accepted |
 | [0007](0007-dashboard-scales-to-zero.md) | The dashboard scales to zero; cold starts are acceptable | Accepted |
 | [0009](0009-runtime-versions.md) | dbt 1.12 and Python 3.13; dbt v2 skipped for now | Accepted |
+| [0014](0014-bronze-physical-storage-billing.md) | Bill bronze storage on physical (compressed) bytes | Accepted |
 
 ## Writing one
 

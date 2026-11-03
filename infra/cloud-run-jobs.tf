@@ -17,8 +17,16 @@ locals {
   transform_max_retries = 0
 
   # One entry per ingest job. Key = job folder under ingest/ = bronze table
-  # name with "-" for "_" (e.g. mbta-alerts → bronze.mbta_alerts).
+  # name with "-" for "_" (e.g. mbta-alerts → bronze.mbta_alerts). A null
+  # schedule means the job runs only on demand (docs/runbook.md).
   ingest_jobs = {
+    "lamp-alerts" = {
+      schedule          = null
+      uses_mbta_api_key = false
+      memory            = "2Gi" # 5M+ rows, loaded in batches sized for it (ingest/lamp-alerts/main.py)
+      timeout           = "1800s"
+      env               = {}
+    }
     "mbta-alerts" = {
       schedule          = var.alerts_ingestion_schedule
       uses_mbta_api_key = true

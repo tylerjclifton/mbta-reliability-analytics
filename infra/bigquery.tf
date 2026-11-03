@@ -64,6 +64,48 @@ locals {
       ]
     }
 
+    # Columns are LAMP's, with ".translation.text" dropped and "." → "_".
+    # *_datetime is Eastern local time; *_timestamp is the same moment in epoch
+    # seconds.
+    lamp_alerts = {
+      description = "The MBTA's LAMP alerts archive (performancedata.mbta.com): every alert since 2018, every mode, as LAMP flattens it. Loaded on demand, not on a schedule (decision 0016). Grain: alert × version × informed entity × active period × ingest run."
+      clustering  = ["id"]
+      columns = [
+        { name = "id", type = "INTEGER", description = "MBTA alert ID (the API's alert_id, as a number)" },
+        { name = "cause", type = "STRING", description = "GTFS-realtime cause enum (e.g. TECHNICAL_PROBLEM)" },
+        { name = "cause_detail", type = "STRING", description = "MBTA cause enum, as the API's cause (e.g. SIGNAL_PROBLEM)" },
+        { name = "effect", type = "STRING", description = "GTFS-realtime effect enum (e.g. DETOUR)" },
+        { name = "effect_detail", type = "STRING", description = "MBTA effect enum, as the API's effect (e.g. SHUTTLE)" },
+        { name = "severity_level", type = "STRING", description = "GTFS-realtime severity level (INFO, WARNING, SEVERE)" },
+        { name = "severity", type = "INTEGER", description = "MBTA severity, 0 (least) to 10 (most)" },
+        { name = "alert_lifecycle", type = "STRING", description = "MBTA lifecycle enum (e.g. NEW, ONGOING, UPCOMING)" },
+        { name = "duration_certainty", type = "STRING", description = "MBTA duration certainty enum (KNOWN, ESTIMATED, UNKNOWN)" },
+        { name = "header_text", type = "STRING", description = "Short alert text (English)" },
+        { name = "description_text", type = "STRING", description = "Long alert text (English)" },
+        { name = "service_effect_text", type = "STRING", description = "Short summary of the effect (English)" },
+        { name = "timeframe_text", type = "STRING", description = "When the alert applies, as text (English)" },
+        { name = "recurrence_text", type = "STRING", description = "How the alert recurs, as text (English)" },
+        { name = "created_datetime", type = "DATETIME", description = "When MBTA created the alert, Eastern" },
+        { name = "created_timestamp", type = "INTEGER", description = "When MBTA created the alert, epoch seconds" },
+        { name = "last_modified_datetime", type = "DATETIME", description = "When this version was posted, Eastern" },
+        { name = "last_modified_timestamp", type = "INTEGER", description = "When this version was posted, epoch seconds" },
+        { name = "last_push_notification_datetime", type = "DATETIME", description = "When MBTA last sent a push notification for the alert, Eastern" },
+        { name = "last_push_notification_timestamp", type = "INTEGER", description = "When MBTA last sent a push notification for the alert, epoch seconds" },
+        { name = "closed_datetime", type = "DATETIME", description = "When MBTA closed (ended) the alert, Eastern; NULL while open" },
+        { name = "closed_timestamp", type = "INTEGER", description = "When MBTA closed (ended) the alert, epoch seconds; NULL while open" },
+        { name = "active_period_start_datetime", type = "DATETIME", description = "Start of this active period, Eastern" },
+        { name = "active_period_start_timestamp", type = "INTEGER", description = "Start of this active period, epoch seconds" },
+        { name = "active_period_end_datetime", type = "DATETIME", description = "End of this active period, Eastern; NULL when open-ended" },
+        { name = "active_period_end_timestamp", type = "INTEGER", description = "End of this active period, epoch seconds; NULL when open-ended" },
+        { name = "informed_entity_route_id", type = "STRING", description = "MBTA route ID this entity names (e.g. Red, Green-B); NULL for a stop or facility alone" },
+        { name = "informed_entity_route_type", type = "INTEGER", description = "GTFS route type: 0 = light rail, 1 = subway, 2 = commuter rail, 3 = bus, 4 = ferry" },
+        { name = "informed_entity_direction_id", type = "INTEGER", description = "GTFS direction (0 or 1); NULL for both" },
+        { name = "informed_entity_stop_id", type = "STRING", description = "GTFS stop ID this entity names" },
+        { name = "informed_entity_facility_id", type = "STRING", description = "MBTA facility ID (elevator, escalator, …)" },
+        { name = "informed_entity_activities", type = "STRING", description = "Affected rider activities, pipe-separated (e.g. BOARD|EXIT|RIDE)" },
+      ]
+    }
+
     mbta_stops = {
       description = "Weekly snapshots of the MBTA stops API: each rail route's stations plus the stops inside them (platforms, entrances, nodes). Grain: stop × route × ingest run."
       clustering  = ["stop_id", "route_id"]

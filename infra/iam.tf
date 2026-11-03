@@ -63,9 +63,10 @@ resource "google_secret_manager_secret_iam_member" "ingest_reads_mbta_api_key" {
   member    = google_service_account.ingest.member
 }
 
-# The scheduler may start exactly these jobs (run.invoker includes run.jobs.run)
+# The scheduler may start exactly these jobs (run.invoker includes run.jobs.run):
+# the scheduled ingest jobs, not the on-demand ones
 resource "google_cloud_run_v2_job_iam_member" "scheduler_runs_ingest" {
-  for_each = google_cloud_run_v2_job.ingest
+  for_each = { for name, job in google_cloud_run_v2_job.ingest : name => job if local.ingest_jobs[name].schedule != null }
 
   name     = each.value.name
   location = each.value.location

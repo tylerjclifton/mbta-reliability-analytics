@@ -14,7 +14,28 @@ import zipfile
 
 # Import third party libraries
 import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
 import pytest
+
+# ── lamp-alerts ───────────────────────────────────────────────────────────────
+
+def test_lamp_alerts_renames_columns_and_keeps_integers_nullable(run_job):
+    lamp = pa.table({
+        'id': pa.array([1040505, 1040505], pa.int64()),
+        'header_text.translation.text': ['Shuttle buses replace trains', 'Shuttle buses replace trains'],
+        'closed_datetime': pa.array([datetime.datetime(2026, 10, 22, 12, 0), None], pa.timestamp('us')),
+        'informed_entity.route_type': pa.array([2, None], pa.int8()),
+    })
+    buffer = io.BytesIO()
+    pq.write_table(lamp, buffer)
+
+    df = run_job('lamp-alerts', [buffer.getvalue()])
+
+    assert list(df.columns) == ['id', 'header_text', 'closed_datetime', 'informed_entity_route_type']
+    assert df['informed_entity_route_type'].dtype == 'Int64'
+    assert df['informed_entity_route_type'].isna().tolist() == [False, True]
+
 
 # ── mbta-alerts ───────────────────────────────────────────────────────────────
 

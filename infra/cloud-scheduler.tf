@@ -13,7 +13,7 @@ locals {
 # ── Ingest triggers ───────────────────────────────────────────────────────────
 
 resource "google_cloud_scheduler_job" "ingest" {
-  for_each = local.ingest_jobs
+  for_each = { for name, job in local.ingest_jobs : name => job if job.schedule != null }
 
   name             = "ingest-${each.key}"
   schedule         = each.value.schedule

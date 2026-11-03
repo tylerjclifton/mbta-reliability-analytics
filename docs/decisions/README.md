@@ -14,6 +14,7 @@ Numbers are assigned in the order records are written and never change. The inde
 | [0012](0012-local-ingest-writes-dev-bronze.md) | Local ingest runs write to `dev_bronze`, never production bronze | Accepted |
 | [0013](0013-bronze-tables-in-terraform.md) | Bronze tables are defined in Terraform, not by ingest or dbt | Accepted |
 | [0015](0015-ridership-history-from-archive.md) | Ridership before the live layer comes from the MBTA's yearly archive, into the same bronze table | Accepted |
+| [0016](0016-alerts-before-capture-from-lamp.md) | Alerts from before full-JSON capture come from the MBTA's LAMP archive | Accepted |
 
 ## Modeling
 

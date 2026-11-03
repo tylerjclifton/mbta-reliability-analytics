@@ -12,7 +12,7 @@ A full-stack data engineering project tracking MBTA rail reliability, ridership,
 
 ## What it does
 
-Ingests data from five sources on an automated schedule, transforms it through a medallion architecture, and serves a live analytics dashboard.
+Ingests data from six sources, five on an automated schedule, transforms it through a medallion architecture, and serves a live analytics dashboard.
 
 | Source | Data | Schedule | Each run pulls |
 |---|---|---|---|
@@ -20,6 +20,7 @@ Ingests data from five sources on an automated schedule, transforms it through a
 | MBTA Routes API | Route metadata (names, types, colors) | Yearly — Jan 1 | Full route list (snapshot) |
 | MBTA Stops API | Stations and their platforms, with coordinates | Weekly — Mondays 6:30AM ET | Every rail station and the stops inside it (snapshot) |
 | NOAA GHCN-Daily | Daily temperature, precipitation, snowfall at Boston Logan | Daily — 6AM ET | Last 10 days (NOAA revises recent days) |
+| MBTA LAMP archive | Every alert since 2018 (the MBTA's own archive of the alerts feed) | On demand | The whole archive; supplies alerts from before full-JSON capture ([0016](docs/decisions/0016-alerts-before-capture-from-lamp.md)) |
 | MBTA ArcGIS Open Data | Gated station entries by line | Weekly — Mondays 6AM ET | Everything the layer holds, its last two years (catches revisions); 2014 – 2024-09 loaded once from the MBTA's yearly archive ([0015](docs/decisions/0015-ridership-history-from-archive.md)) |
 
 The dbt transform runs hourly at :35.
@@ -57,8 +58,8 @@ MBTA Alerts API  ──┐
 MBTA Routes API  ──┤
 MBTA Stops API   ──┤                        ┌─────────────────────────────────────────┐
 NOAA GHCN-Daily  ──┼──► Cloud Run Jobs ──►  │  BigQuery                               │──► Streamlit
-MBTA ArcGIS      ──┘         ↑              │  bronze → silver → gold                 │
-                      Cloud Scheduler       │            └─ dbt Core ─┘               │
+MBTA ArcGIS      ──┤         ↑              │  bronze → silver → gold                 │
+MBTA LAMP        ──┘  Cloud Scheduler       │            └─ dbt Core ─┘               │
                                             └─────────────────────────────────────────┘
 ```
 
@@ -82,6 +83,7 @@ Each layer is its own BigQuery dataset, with a dev sandbox beside it for local w
 | `mbta_routes` | route × ingest run | Yearly snapshot |
 | `mbta_ridership` | service date × line × ingest run | The layer's two years re-pulled weekly; days before 2024-10-01 from the yearly archive, loaded once |
 | `noaa_weather` | observation date × ingest run | Last 10 days re-pulled daily (NOAA revises recent days) |
+| `lamp_alerts` | alert × version × informed entity × active period × ingest run | The whole LAMP archive per load, on demand ([0016](docs/decisions/0016-alerts-before-capture-from-lamp.md)) |
 
 Silver models are named `<bronze table>__<step>`. `__base` is each source's cleaned copy, with no business rules; every other step does one job.
 
@@ -175,7 +177,7 @@ Each workload runs as its own service account with access granted per dataset (`
 | `ingest-jobs` | Ingest jobs | Write `bronze`; read the `mbta-api-key` secret |
 | `dbt-bigquery` | Transform job | Read `bronze`; write `silver` and `gold` |
 | `serve-bigquery` | Dashboard | Read `gold` |
-| `job-scheduler` | Cloud Scheduler | Start the six Cloud Run jobs: five ingest plus the transform (`run.invoker` on each job) |
+| `job-scheduler` | Cloud Scheduler | Start the six scheduled Cloud Run jobs: five ingest plus the transform (`run.invoker` on each job; not the on-demand `ingest-lamp-alerts`) |
 | `github-deployer` | CI/CD (GitHub Actions) | Build, push, and `terraform apply` — broad by necessity, usable only from this repo's `main` branch |
 
 The three data workloads also hold `bigquery.jobUser` (permission to run queries), and dbt holds `bigquery.user` (permission to list datasets); neither grants data access on its own. The MBTA API key lives in Secret Manager (`infra/secrets.tf`; Terraform owns the secret, the value is added by hand). Only the APIs the pipeline uses are enabled (`infra/apis.tf`), and Artifact Registry keeps the 5 newest versions of each image.
@@ -237,8 +239,9 @@ ingest/                 One shared image for every ingest job
   mbta-alerts/          MBTA service alert snapshots (every 15 minutes)
   mbta-routes/          MBTA route metadata snapshots (yearly)
   mbta-stops/           MBTA station and platform snapshots (weekly)
-  mbta-ridership/       ArcGIS gated entries, full history (weekly)
+  mbta-ridership/       ArcGIS gated entries, the layer's two years (weekly); yearly archive on demand
   noaa-weather/         NOAA GHCN-Daily for Boston Logan (daily)
+  lamp-alerts/          The MBTA's LAMP alerts archive, whole file (on demand)
 transform/              dbt Core project
   run.py                Job entrypoint: dbt build + freshness, failure reports
   models/bronze/        Source declarations + freshness thresholds

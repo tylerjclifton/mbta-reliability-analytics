@@ -101,7 +101,7 @@ locals {
     }
 
     mbta_ridership = {
-      description = "Gated station entries per day and line from MBTA ArcGIS open data; full published history every run. Grain: service date × line × ingest run."
+      description = "Gated station entries per day and line from MBTA ArcGIS open data: the layer's last two years every run, and days before 2024-10-01 from its yearly archive (decision 0015). Grain: service date × line × ingest run."
       clustering  = ["service_date", "route_or_line"]
       columns = [
         { name = "service_date", type = "DATE", description = "MBTA service date" },

@@ -8,7 +8,9 @@ values, paginated responses) handled.
 
 # Import standard libraries
 import datetime
+import io
 import json
+import zipfile
 
 # Import third party libraries
 import pandas as pd
@@ -170,6 +172,48 @@ def test_ridership_epoch_ms_becomes_service_date(run_job):
 def test_ridership_api_error_fails_the_job(run_job):
     with pytest.raises(SystemExit) as exit_info:
         run_job('mbta-ridership', [{'error': {'code': 400, 'message': 'bad query'}}])
+
+    assert exit_info.value.code == 1
+
+
+def archive_zip(files):
+    """The yearly archive: a zip holding one CSV per year, keyed by path."""
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, 'w') as archive:
+        for path, csv_text in files.items():
+            archive.writestr(path, csv_text)
+    return buffer.getvalue()
+
+
+def test_ridership_archive_sums_rail_days_before_the_layer(run_job, monkeypatch):
+    monkeypatch.setenv('FROM_ARCHIVE', 'true')
+    df = run_job('mbta-ridership', [archive_zip({
+        'GSE_by_year/GSE_2019.csv': (
+            'service_date,time_period,stop_id,station_name,route_or_line,gated_entries\n'
+            '2019-02-05,"(07:00:00)",place-dwnxg,Downtown Crossing,Red Line,100.5\n'
+            '2019-02-05,"(07:30:00)",place-dwnxg,Downtown Crossing,Red Line,50\n'
+            '2019-02-05,"(07:00:00)",place-sstat,South Station,Silver Line,999\n'
+        ),
+        # Columns in another order, as in later years' files
+        'GSE_by_year/GSE_2024.csv': (
+            'service_date,time_period,station_name,route_or_line,gated_entries,stop_id\n'
+            '2024-09-30,"(08:00:00)",Airport,Blue Line,10,place-aport\n'
+            '2024-10-01,"(08:00:00)",Airport,Blue Line,20,place-aport\n'
+        ),
+    })])
+
+    assert df.sort_values('service_date').to_dict('records') == [
+        {'service_date': datetime.date(2019, 2, 5), 'route_or_line': 'Red Line', 'gated_entries': 150.5},
+        {'service_date': datetime.date(2024, 9, 30), 'route_or_line': 'Blue Line', 'gated_entries': 10.0},
+    ]
+
+
+def test_ridership_archive_without_older_days_fails_the_job(run_job, monkeypatch):
+    monkeypatch.setenv('FROM_ARCHIVE', 'true')
+    with pytest.raises(SystemExit) as exit_info:
+        run_job('mbta-ridership', [archive_zip({
+            'GSE_by_year/GSE_2025.csv': 'service_date,route_or_line,gated_entries\n2025-01-02,Red Line,5\n',
+        })])
 
     assert exit_info.value.code == 1
 

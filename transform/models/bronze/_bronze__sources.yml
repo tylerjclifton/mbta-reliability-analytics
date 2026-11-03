@@ -64,8 +64,9 @@ sources:
 
       - name: mbta_ridership
         description: >
-          Gated station entries per day and line from MBTA ArcGIS open data,
-          full published history every run. Grain: service date × line × ingest run.
+          Gated station entries per day and line from MBTA ArcGIS open data:
+          the layer's last two years every run, and days before 2024-10-01 from
+          its yearly archive (decision 0015). Grain: service date × line × ingest run.
         config:
           freshness:
             # Weekly job

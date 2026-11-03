@@ -13,6 +13,7 @@ Numbers are assigned in the order records are written and never change. The inde
 | [0011](0011-capture-every-mode.md) | Capture the whole alerts feed (every mode); silver keeps rail | Accepted |
 | [0012](0012-local-ingest-writes-dev-bronze.md) | Local ingest runs write to `dev_bronze`, never production bronze | Accepted |
 | [0013](0013-bronze-tables-in-terraform.md) | Bronze tables are defined in Terraform, not by ingest or dbt | Accepted |
+| [0015](0015-ridership-history-from-archive.md) | Ridership before the live layer comes from the MBTA's yearly archive, into the same bronze table | Accepted |
 
 ## Modeling
 

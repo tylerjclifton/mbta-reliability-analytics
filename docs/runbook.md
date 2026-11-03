@@ -18,10 +18,18 @@ PYTHONPATH=ingest python ingest/<job>/main.py   # → dev_bronze.<table>; rows e
 
 ### Backfill weather
 
-NOAA revises recent days, so the job re-pulls a window. Widen it for a one-off backfill (800 days is about 2 years):
+NOAA revises recent days, so the job re-pulls a window. Widen it for a one-off backfill (800 days is about 2 years). The override applies to that execution only. Weather should reach back as far as ridership (2014-01-01 since 2026-11-03), or the transform warns about ridership days without weather.
 
 ```bash
 gcloud run jobs execute ingest-noaa-weather --region us-east1 --update-env-vars LOOKBACK_DAYS=800
+```
+
+### Backfill ridership
+
+The ridership layer holds only its last two years. Days before 2024-10-01 come from the MBTA's yearly archive, loaded by the same job in archive mode ([0015](decisions/0015-ridership-history-from-archive.md)). It was loaded once, on 2026-11-03; re-run it only if the MBTA revises past years.
+
+```bash
+gcloud run jobs execute ingest-mbta-ridership --region us-east1 --update-env-vars FROM_ARCHIVE=true --wait
 ```
 
 ### Rebuild an incremental silver table

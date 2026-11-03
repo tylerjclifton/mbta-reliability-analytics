@@ -22,7 +22,11 @@ mbta_reliability_analytics:
       type: bigquery
       method: oauth
       project: mbta-reliability-analytics
-      dataset: silver  # required default; every model sets its own dataset
+      # Every model sets its own dataset, so this is only a fallback, and it's
+      # a dev one: if a model ever loses its +schema (a stale partial-parse
+      # cache in target/ did, 2026-11-03), a local build lands in dev_silver,
+      # never in production
+      dataset: dev_silver
       location: us-east1
       threads: 4
       job_execution_timeout_seconds: 300

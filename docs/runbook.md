@@ -46,11 +46,13 @@ gcloud run jobs execute ingest-lamp-alerts --region us-east1 --wait
 
 ```bash
 cd transform
-dbt build --profiles-dir . --target local --full-refresh --select <model>   # in dev_silver first
-dbt build --profiles-dir . --target gcp   --full-refresh --select <model>   # then production silver
+dbt build --no-partial-parse --profiles-dir . --target local --full-refresh --select <model>   # in dev_silver first
+dbt build --no-partial-parse --profiles-dir . --target gcp   --full-refresh --select <model>   # then production silver
 ```
 
 The second command runs with your own credentials against production silver. It rebuilds only that table from bronze, and bronze is never touched. The next hourly transform carries on incrementally from there.
+
+`--no-partial-parse` makes dbt re-read every model's settings instead of trusting its cache in `target/`. On 2026-11-03 a stale cache had lost the folders' `+schema`, and a local build wrote to production silver. The local profile now falls back to `dev_silver` (`transform/profiles.yml`), but production commands have no such net. Before a production rebuild, check where the model will land: `dbt ls --no-partial-parse --profiles-dir . --target gcp --select <model> --output json --output-keys "name schema"`.
 
 ## Deploys
 

@@ -12,15 +12,16 @@ Layout:
   3. Stations affected — map of stations hit now or by planned work, most-affected stations
   4. Incident patterns — when, where, why, and how long (since alert tracking began)
   5. Ridership         — per-line tiles (latest month), monthly trend, ridership by alert effect, day of week
-  6. Weather           — rain, snow, and temperature vs. typical ridership
-  7. Footer            — sources, cadence, method notes
+  6. The long view     — ridership since 2014 against 2019, delays by length and shuttle-bus hours by year
+  7. Weather           — rain, snow, and temperature vs. typical ridership
+  8. Footer            — sources, cadence, method notes
 
 Time windows: every section covers the trailing 12 months, stated in its
-subtitle. Three exceptions, also labeled: the ridership tiles show the latest
+subtitle. Four exceptions, also labeled: the ridership tiles show the latest
 published month (each tile names it) against the same month a year earlier,
 the monthly ridership trend shows 24 months (to compare each month with a year
-earlier), and weather uses all available days (snowstorms are too rare for a
-single winter).
+earlier), the long view uses all history (its point), and weather uses all
+available days (snowstorms are too rare for a single winter).
 
 Counting unit is the incident (gold.rail_incidents): one real-world event the
 MBTA may have posted as several alerts.
@@ -55,8 +56,10 @@ from helpers import (
     fmt_duration,
     fmt_pct,
     freshness,
+    hours_by_year,
     one_row_per_incident,
     pct_vs_calm,
+    spread_labels,
     strip_route_prefix,
 )
 
@@ -1062,7 +1065,183 @@ with dow_col:
         show(fig)
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 6. Weather
+# 6. The long view
+# ══════════════════════════════════════════════════════════════════════════════
+
+# The last full year before the pandemic: the baseline for "how far back is ridership?"
+BASELINE_YEAR = 2019
+archive_year = ridership_all['service_date'].min().year
+
+# Yearly charts start with the first whole calendar year of continuous alert
+# history and end with the year in progress, dimmed and labeled "so far"
+coverage_day = coverage_start.tz_convert(TIMEZONE)
+first_full_year = coverage_day.year + (0 if (coverage_day.month, coverage_day.day) == (1, 1) else 1)
+this_year = now.tz_convert(TIMEZONE).year
+years = list(range(first_full_year, this_year + 1))
+year_labels = [f'{y} so far' if y == this_year else str(y) for y in years]
+year_opacity = [0.45 if y == this_year else 1.0 for y in years]
+
+# Delay lengths, an ordered scale: one violet hue, brighter = longer
+DELAY_BANDS = ['Under 30 min', '30 min – 1 hr', '1 hr or more']
+DELAY_COLORS = ['#5348a8', '#7f74e0', '#b8b0f5']
+
+section(
+    'The long view',
+    f"All history: ridership since {archive_year}, measured against each line's "
+    f'{BASELINE_YEAR} average, and disruption by year since {first_full_year}, the first full year of alert '
+    'history.',
+)
+
+# ── Recovery tiles: the last 12 months against the baseline year ─────────────
+baseline_days = ridership[ridership['service_date'].dt.year == BASELINE_YEAR]
+baseline = baseline_days.groupby('line_name')['gated_entries'].mean()
+recent_avg = (ridership[ridership['service_date'] >= ridership_year_start]
+              .groupby('line_name')['gated_entries'].mean())
+tiles = []
+for line in selected_lines:
+    if line not in baseline or line not in recent_avg:
+        continue
+    tiles.append(dict(label=f'{line} · last 12 months',
+                      value=f'{recent_avg[line] / baseline[line] * 100:.0f}%',
+                      sub=f'of{NBSP}its{NBSP}{BASELINE_YEAR}{NBSP}average · {fmt_count(recent_avg[line])} vs '
+                          f'{fmt_count(baseline[line])}{NBSP}per{NBSP}day',
+                      color=LINE_COLORS[line]))
+if tiles:
+    kpi_tiles(tiles)
+    st.write('')
+
+# ── Ridership since the archive begins, as a share of the baseline year ───────
+with st.container(key='card_long_ridership'):
+    card_title(f'Ridership since {archive_year}',
+               f'Average entries per day each month, as a share of the same month in {BASELINE_YEAR} '
+               f'(so {BASELINE_YEAR} itself is 100%)')
+    # Against the same calendar month, not the year's average, so the seasons
+    # (summer dips, holiday months) cancel out and the long trend shows
+    long_monthly = (full_months.groupby(['month', 'line_name'])['gated_entries'].mean()
+                    .rename('daily_avg').reset_index())
+    long_monthly['month_of_year'] = long_monthly['month'].dt.month
+    same_month = (long_monthly[long_monthly['month'].dt.year == BASELINE_YEAR]
+                  .set_index(['line_name', 'month_of_year'])['daily_avg'])
+    long_monthly['share'] = (long_monthly['daily_avg']
+                             / same_month.reindex(pd.MultiIndex.from_frame(
+                                 long_monthly[['line_name', 'month_of_year']])).to_numpy() * 100)
+    long_monthly['month_start'] = long_monthly['month'].dt.start_time
+    long_monthly = long_monthly.dropna(subset=['share'])
+
+    fig = go.Figure()
+    ends = []
+    for line in selected_lines:
+        m = long_monthly[long_monthly['line_name'] == line].sort_values('month_start')
+        if m.empty:
+            continue
+        fig.add_trace(go.Scatter(
+            x=m['month_start'], y=m['share'], name=line, mode='lines',
+            line=dict(color=LINE_COLORS[line], width=2),
+            customdata=m['daily_avg'],
+            hovertemplate=f'{line}: %{{y:.0f}}% · %{{customdata:,.0f}} per day<extra></extra>',
+        ))
+        ends.append((line, m.iloc[-1]))
+    # End dot on each line, and its name beside it, spaced so names never
+    # overlap (identity is never color alone; values are in the hover)
+    span = max(125, long_monthly['share'].max() * 1.05)
+    label_y = spread_labels([last['share'] for _, last in ends], min_gap=span * 0.06)
+    for (line, last), y in zip(ends, label_y, strict=True):
+        fig.add_trace(go.Scatter(
+            x=[last['month_start']], y=[last['share']], mode='markers',
+            marker=dict(color=LINE_COLORS[line], size=9, line=dict(color=CARD, width=2)),
+            showlegend=False, hoverinfo='skip', cliponaxis=False,
+        ))
+        fig.add_annotation(text=line, x=last['month_start'], y=y, xanchor='left', xshift=10, showarrow=False,
+                           font=dict(color=INK_2, size=11))
+    style(fig, height=360)
+    fig.update_layout(margin=dict(l=4, r=96, t=28, b=4), hovermode='x unified')
+    fig.update_xaxes(tickformat='%Y', dtick='M24', gridcolor='rgba(0,0,0,0)', tickangle=0,
+                     showspikes=True, spikemode='across', spikethickness=1, spikecolor=AXIS, spikedash='solid')
+    # The baseline is a labeled tick, not a label over the lines
+    ticks = list(range(0, int(span) + 1, 25))
+    fig.update_yaxes(range=[0, span], tickvals=ticks,
+                     ticktext=[f'{BASELINE_YEAR} · 100%' if t == 100 else f'{t}%' for t in ticks])
+    fig.add_hline(y=100, line=dict(color=AXIS, width=1))
+    # A few events that explain the shape, each a hairline with a label above the plot
+    for when, label in [('2015-02-01', 'Record snow'), ('2020-03-01', 'COVID-19'),
+                        ('2022-08-19', 'Orange Line shutdown')]:
+        when = pd.Timestamp(when)
+        if long_monthly['month_start'].min() <= when <= long_monthly['month_start'].max():
+            fig.add_vline(x=when, line=dict(color=GRID, width=1))
+            fig.add_annotation(text=label, x=when, xref='x', y=1, yref='paper', yanchor='bottom',
+                               showarrow=False, font=dict(color=MUTED, size=11))
+    show(fig)
+
+delay_col, shuttle_col = st.columns(2, gap='medium')
+
+# ── Delays per year, by how long they lasted ──────────────────────────────────
+with delay_col:
+    with st.container(key='card_delay_lengths'):
+        card_title('Delays per year, by length', 'From first alert to all-clear · the year in progress is dimmed')
+        delays = started_events[started_events['incident_effect'] == 'Delay'].assign(
+            year=lambda d: d['incident_start_at'].dt.tz_convert(TIMEZONE).dt.year,
+            band=lambda d: pd.cut(d['incident_duration_minutes'], [-np.inf, 30, 60, np.inf], right=False,
+                                  labels=DELAY_BANDS))
+        counts = (delays[delays['year'].isin(years)].groupby(['year', 'band'], observed=False).size()
+                  .unstack(fill_value=0).reindex(index=years, columns=DELAY_BANDS, fill_value=0))
+        fig = go.Figure()
+        # Longest delays at the bottom, against the baseline, so their growth reads directly
+        for band, color in reversed(list(zip(DELAY_BANDS, DELAY_COLORS, strict=True))):
+            fig.add_trace(go.Bar(
+                x=year_labels, y=counts[band], name=band,
+                marker=dict(color=color, opacity=year_opacity, line=dict(color=CARD, width=2)),
+                hovertemplate=f'%{{x}} · {band}: %{{y:,}} delays<extra></extra>',
+            ))
+        totals = counts.sum(axis=1)
+        fig.add_trace(go.Scatter(
+            x=year_labels, y=totals, mode='text', text=[f'{n:,}' for n in totals], textposition='top center',
+            textfont=dict(color=INK_2, size=11), showlegend=False, hoverinfo='skip', cliponaxis=False,
+        ))
+        style(fig, height=300, legend=True)
+        fig.update_layout(barmode='stack', barcornerradius=4, legend_traceorder='reversed')
+        # Years are categories: left to guess, Plotly reads them as dates and drops "2026 so far"
+        fig.update_xaxes(type='category', gridcolor='rgba(0,0,0,0)', tickfont=dict(color=INK_2, size=11))
+        count_axis(fig, totals.max() * 1.12)
+        show(fig)
+        long_ones = counts['1 hr or more']
+        if len(years) > 2:
+            last_full = years[-2]
+            st.caption(f'Delays of an hour or more: {long_ones[first_full_year]:,} in {first_full_year}, '
+                       f"{long_ones[last_full]:,} in {last_full}. Short ones held steadier, so the rise isn't "
+                       'just more alerts being posted.')
+
+# ── Shuttle-bus hours per year, by line ───────────────────────────────────────
+with shuttle_col:
+    with st.container(key='card_shuttle_hours'):
+        card_title('Shuttle-bus hours per year', 'Hours shuttle buses replaced trains on part of the line · '
+                   'overlapping diversions count once · the year in progress is dimmed')
+        shuttles = started[started['incident_effect'] == 'Shuttle'].rename(
+            columns={'incident_start_at': 'start_at', 'incident_end_at': 'end_at'})
+        hours = (hours_by_year(shuttles[['line_name', 'start_at', 'end_at']], now)
+                 .pivot(index='year', columns='line_name', values='hours')
+                 .reindex(index=years, columns=selected_lines).fillna(0))
+        fig = go.Figure()
+        for line in selected_lines:
+            fig.add_trace(go.Bar(
+                x=year_labels, y=hours[line], name=line,
+                marker=dict(color=LINE_COLORS[line], opacity=year_opacity, line=dict(color=CARD, width=2)),
+                hovertemplate=f'%{{x}} · {line}: %{{y:,.0f}} hours<extra></extra>',
+            ))
+        totals = hours.sum(axis=1)
+        fig.add_trace(go.Scatter(
+            x=year_labels, y=totals, mode='text', text=[f'{h / 1000:.{1 if h < 10_000 else 0}f}K hr' for h in totals],
+            textposition='top center', textfont=dict(color=INK_2, size=11), showlegend=False, hoverinfo='skip',
+            cliponaxis=False,
+        ))
+        style(fig, height=300, legend=True)
+        # Legend in line order, as everywhere else (Plotly reverses it for stacks)
+        fig.update_layout(barmode='stack', barcornerradius=4, legend_traceorder='normal')
+        fig.update_xaxes(type='category', gridcolor='rgba(0,0,0,0)', tickfont=dict(color=INK_2, size=11))
+        count_axis(fig, max(totals.max(), 1) * 1.12)
+        show(fig)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 7. Weather
 # ══════════════════════════════════════════════════════════════════════════════
 
 section(
@@ -1120,7 +1299,7 @@ with temp_col:
         st.caption('Daily mean temperature, (high + low) / 2, in °F')
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 7. Footer
+# 8. Footer
 # ══════════════════════════════════════════════════════════════════════════════
 
 st.markdown("""

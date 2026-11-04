@@ -1,7 +1,7 @@
 """
 Pure helpers for the dashboard — formatting, data freshness, incident shaping
-(which are active, one row per incident), and the ridership-vs-calm-days
-comparison.
+(which are active, one row per incident, hours covered per year), the
+ridership-vs-calm-days comparison, and chart label spacing.
 
 Kept out of app.py (which starts Streamlit when imported) so they can be unit
 tested; see serve/tests/test_helpers.py.
@@ -129,6 +129,55 @@ def active_at(df, now):
     """Rows whose incident is in effect at `now`: started, and not yet ended (NULL end = ongoing)."""
     return df[(df['incident_start_at'] <= now)
               & (df['incident_end_at'].isna() | (df['incident_end_at'] >= now))]
+
+
+def spread_labels(positions, min_gap):
+    """
+    Nudge label positions (e.g. the y of each line's end label) apart so no two
+    sit closer than `min_gap`, keeping their order and staying as close to
+    where they started as the spacing allows. Returns positions in input order.
+    """
+    order = sorted(range(len(positions)), key=lambda i: positions[i])
+    placed = [positions[i] for i in order]
+    for k in range(1, len(placed)):
+        placed[k] = max(placed[k], placed[k - 1] + min_gap)
+    # Push the whole stack back down by half its overshoot, so labels spread
+    # both ways around their marks rather than only upward
+    overshoot = sum(p - positions[i] for p, i in zip(placed, order, strict=True)) / max(len(placed), 1)
+    placed = [p - overshoot / 2 for p in placed]
+    result = [0.0] * len(positions)
+    for p, i in zip(placed, order, strict=True):
+        result[i] = p
+    return result
+
+
+def hours_by_year(spans, now):
+    """
+    Hours per line per calendar year (Eastern) that at least one span covers,
+    so spans overlapping on a line count once. `spans` needs line_name,
+    start_at, and end_at (NaT = still going, so it ends now); spans that
+    haven't started are skipped. A span is split at each New Year it crosses.
+    """
+    rows = []
+    for line, group in spans.groupby('line_name'):
+        ends = group['end_at'].fillna(now).clip(upper=now)
+        merged = []
+        for start, end in sorted(zip(group['start_at'], ends, strict=True)):
+            if end <= start:
+                continue
+            if merged and start <= merged[-1][1]:
+                merged[-1][1] = max(merged[-1][1], end)
+            else:
+                merged.append([start, end])
+        for start, end in merged:
+            start, end = start.tz_convert(TIMEZONE), end.tz_convert(TIMEZONE)
+            for year in range(start.year, end.year + 1):
+                year_start = pd.Timestamp(year=year, month=1, day=1, tz=TIMEZONE)
+                year_end = pd.Timestamp(year=year + 1, month=1, day=1, tz=TIMEZONE)
+                hours = (min(end, year_end) - max(start, year_start)).total_seconds() / 3600
+                rows.append((line, year, hours))
+    by_year = pd.DataFrame(rows, columns=['line_name', 'year', 'hours'])
+    return by_year.groupby(['line_name', 'year'], as_index=False)['hours'].sum()
 
 
 def one_row_per_incident(df):

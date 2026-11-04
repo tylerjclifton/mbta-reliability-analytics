@@ -33,15 +33,17 @@ Dark theme; official MBTA line colors for every line-level visual, a neutral vio
 
 **Service status** — KPIs (active now, planned in 30 days, last 30 days vs prior, median duration); incidents happening now and planned work coming up, one card per incident
 
-**Stations affected** — a map of the whole network showing the stations hit right now or by planned work in the next 30 days (ringed and labeled, with each incident on hover; + / − / reset buttons to zoom, drag to pan, while the scroll wheel still scrolls the page; the OpenStreetMap/CARTO credit sits under the map), and the most-affected stations since station tracking began
+**Stations affected** — a map of the whole network showing the stations hit right now or by planned work in the next 30 days (ringed and labeled, with each incident on hover; + / − / reset buttons to zoom, drag to pan, while the scroll wheel still scrolls the page; the OpenStreetMap/CARTO credit sits under the map), and the most-affected stations over the trailing 12 months
 
 **Incident patterns** — incidents per week, by line, by cause and effect, median duration by cause, cause mix by line (heatmap)
 
 **Ridership** — per-line tiles: the latest published month's average entries per day vs the same month a year earlier (each tile names its month); 24-month trend; ridership by alert effect (delay, suspension, shuttle) vs each line's calm days; day of week
 
+**The long view** — per-line tiles: the last 12 months' ridership as a share of 2019, the last full year before the pandemic; ridership every month since 2014 as a share of each line's 2019 average, with a few events marked; delays per year by how long they lasted; and hours of shuttle-bus service per year, by line (overlapping diversions count once). Yearly charts start with the first full year of alert history and show the year in progress dimmed.
+
 **Weather** — ridership on rainy, snowy, and unusually cold/warm days vs normal-weather days
 
-Ridership figures are **average entries per day**, weekends included. Time windows: every section covers the trailing 12 months, except the ridership tiles (the latest published month), the ridership trend (24 months, for year-over-year), and weather (all history — storms are rare).
+Ridership figures are **average entries per day**, weekends included. Time windows: every section covers the trailing 12 months, except the ridership tiles (the latest published month), the ridership trend (24 months, for year-over-year), the long view (all history, its point), and weather (all history — storms are rare).
 
 Incident history counts from when alert coverage became continuous (detected as the first incident after the last 14-day gap; with the LAMP archive that's September 2019), so missing data never reads as a quiet day.
 

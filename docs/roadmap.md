@@ -2,10 +2,6 @@
 
 Planned work, roughly in order, with why. Move an item to a [decision record](decisions/) once it's decided, and delete it once it's done.
 
-## Next
-
-- **Long-range charts.** Ridership and weather reach back to 2014-01-01 ([0015](decisions/0015-ridership-history-from-archive.md)), incidents to 2019-09-05 ([0016](decisions/0016-alerts-before-capture-from-lamp.md)): the 2015 snow winter, the pre-pandemic years, the COVID collapse and recovery, the 2022 Orange Line shutdown, and the 2023 slow zones and their 2024 repair. Most sections show the trailing 12 or 24 months, so the history mostly shows up only in new views (ridership since 2014, incidents per year since 2019). Weather already uses all days.
-
 ## Later
 
 - **MBTA estimate accuracy model.** Are the MBTA's posted end times any good, and can a model beat them? Early sign, from only 5 alerts: estimates sit ~2 hours out while delays clear in ~30 minutes. LAMP keeps every version's posted end and the close time back to 2019, so this no longer has to wait for months of 15-minute snapshots (they began 2026-10-21); those snapshots add finer detail on when estimates change.

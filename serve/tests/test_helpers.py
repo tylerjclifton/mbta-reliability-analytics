@@ -1,6 +1,7 @@
 """
 Tests for serve/helpers.py — dashboard formatting, data freshness, incident
-shaping, and the ridership-vs-calm-days comparison.
+shaping, the ridership-vs-calm-days comparison, hours covered per year, and
+chart label spacing.
 """
 
 # Import third party libraries
@@ -15,9 +16,11 @@ from helpers import (
     fmt_duration,
     fmt_pct,
     freshness,
+    hours_by_year,
     join_routes,
     one_row_per_incident,
     pct_vs_calm,
+    spread_labels,
     strip_route_prefix,
 )
 
@@ -136,3 +139,46 @@ def test_effect_vs_calm_reports_only_lines_with_enough_days():
 
     assert out[['line_name', 'effect', 'days', 'calm_days']].values.tolist() == [['Red Line', 'Shuttle', 3, 3]]
     assert out['pct'].iloc[0] == pytest.approx(-20)
+
+
+def span(line, start, end):
+    """One span for hours_by_year, times in Eastern."""
+    return {'line_name': line, 'start_at': pd.Timestamp(start, tz='America/New_York'),
+            'end_at': pd.Timestamp(end, tz='America/New_York') if end else pd.NaT}
+
+
+NOW = pd.Timestamp('2026-06-01 12:00', tz='America/New_York')
+
+
+def test_hours_by_year_counts_overlapping_spans_once_per_line():
+    spans = pd.DataFrame([
+        span('Green Line', '2025-03-01 10:00', '2025-03-01 14:00'),   # e.g. the B branch
+        span('Green Line', '2025-03-01 12:00', '2025-03-01 16:00'),   # the C branch, overlapping
+        span('Red Line', '2025-03-01 12:00', '2025-03-01 13:00'),
+    ])
+    out = hours_by_year(spans, NOW).set_index('line_name')['hours']
+    assert out.to_dict() == {'Green Line': 6.0, 'Red Line': 1.0}
+
+
+def test_hours_by_year_splits_a_span_at_new_year():
+    out = hours_by_year(pd.DataFrame([span('Red Line', '2024-12-31 22:00', '2025-01-01 03:00')]), NOW)
+    assert out.set_index('year')['hours'].to_dict() == {2024: 2.0, 2025: 3.0}
+
+
+def test_hours_by_year_ends_ongoing_spans_now_and_skips_future_ones():
+    spans = pd.DataFrame([
+        span('Red Line', '2026-06-01 10:00', None),                     # still going
+        span('Red Line', '2026-07-01 09:00', '2026-07-01 17:00'),       # planned
+    ])
+    assert hours_by_year(spans, NOW)['hours'].tolist() == [2.0]
+
+
+def test_spread_labels_keeps_order_and_minimum_gap():
+    out = spread_labels([83, 79, 64, 70], min_gap=7)
+    assert sorted(out, reverse=True) == [out[0], out[1], out[3], out[2]]   # order kept
+    gaps = sorted(out)
+    assert all(b - a >= 7 - 1e-9 for a, b in zip(gaps, gaps[1:], strict=False))
+
+
+def test_spread_labels_leaves_well_spaced_labels_alone():
+    assert spread_labels([10, 30, 50], min_gap=7) == [10, 30, 50]

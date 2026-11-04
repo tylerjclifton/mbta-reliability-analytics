@@ -4,9 +4,7 @@ Planned work, roughly in order, with why. Move an item to a [decision record](de
 
 ## Next
 
-- **Backfill history.** Ridership and weather reach back to 2014-01-01 ([0015](decisions/0015-ridership-history-from-archive.md)), covering the 2015 snow winter, the pre-pandemic years, the COVID collapse and recovery, the 2022 Orange Line shutdown, and the 2023 slow zones and their 2024 repair. Left:
-  1. **Alerts from [LAMP](#the-mbtas-lamp-archive)**, back to September 2019. Fills the June 8 – July 1, 2026 gap and adds stations for alerts from before full-JSON capture ([0002](decisions/0002-raw-alert-capture.md)). A new bronze table, never the existing ones ([0001](decisions/0001-append-only-bronze.md)), with its own `__base` model reshaped to the API's columns: LAMP's `effect_detail` holds the API's `effect` values (`DELAY`, `SHUTTLE`, …), timestamps are epoch numbers, and there's one row per stop × active period × version instead of one JSON per alert. LAMP keeps a version only when an alert changes, so backfilled alerts end at LAMP's close time instead of when they left the feed: check the two agree on alerts both sources have before mixing them. Old alerts can name stops that no longer exist (Lechmere moved, and the Green Line Extension opened, 2020–22), so their stations map through the archived GTFS for their date; line-level counts don't depend on it.
-  2. **Long-range charts.** Most sections show the trailing 12 or 24 months, so the history mostly shows up only in new views (ridership since 2014, incidents per year since 2019). Weather already uses all days.
+- **Long-range charts.** Ridership and weather reach back to 2014-01-01 ([0015](decisions/0015-ridership-history-from-archive.md)), incidents to 2019-09-05 ([0016](decisions/0016-alerts-before-capture-from-lamp.md)): the 2015 snow winter, the pre-pandemic years, the COVID collapse and recovery, the 2022 Orange Line shutdown, and the 2023 slow zones and their 2024 repair. Most sections show the trailing 12 or 24 months, so the history mostly shows up only in new views (ridership since 2014, incidents per year since 2019). Weather already uses all days.
 
 ## Later
 

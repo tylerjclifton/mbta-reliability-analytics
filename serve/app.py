@@ -405,11 +405,6 @@ def load_incidents():
     return df
 
 
-# Station lists come from the alerts' full JSON (bronze.mbta_alerts), captured
-# since this date; incidents that ended earlier have no stations
-STATION_TRACKING_START = pd.Timestamp('2026-10-24', tz=TIMEZONE)
-
-
 @st.cache_data(ttl=900, show_spinner=False)
 def load_incident_stations():
     """gold.rail_incident_stations, one row per incident × route × station, for the map."""
@@ -482,16 +477,18 @@ if incidents_all.empty and ridership_all.empty:
     st.warning('No data available yet.')
     st.stop()
 
-# Alert tracking began with the first ingest run; incident history starts there
-tracking_start = incidents_all['ingested_at'].min()
+# Incident history begins with the earliest incident: the MBTA's LAMP archive
+# supplies alerts from before the project's own capture (decision 0016)
+tracking_start = incidents_all['incident_start_at'].min()
 
 # Incident history only counts from when coverage became continuous. The
 # subway never goes two weeks without an incident, so a gap that long means
-# alerts weren't being captured (the pre-October pipeline missed June 8 – July 1,
-# 2026). Coverage starts at the first incident after the last such gap, measured
-# from the start of tracking and over incidents that have already begun (gaps
-# between future planned work don't count). Before it, an empty day would read
-# as a quiet day when it's really no data.
+# alerts weren't being captured (the project's own pipeline missed June 8 –
+# July 1, 2026, a gap LAMP now fills). Coverage starts at the first incident
+# after the last such gap, measured from the start of tracking and over
+# incidents that have already begun (gaps between future planned work don't
+# count). Before it, an empty day would read as a quiet day when it's really no
+# data.
 _starts = incidents_all.loc[incidents_all['incident_start_at'].between(tracking_start, now), 'incident_start_at']
 _starts = pd.concat([pd.Series([tracking_start]), _starts]).sort_values().reset_index(drop=True)
 _after_gap = _starts[_starts.diff() > pd.Timedelta(days=14)]
@@ -604,11 +601,12 @@ with next_col:
 # 3. Stations affected
 # ══════════════════════════════════════════════════════════════════════════════
 
-# Trailing 12 months — or since station tracking began, while that's more recent
-stations_window_start = max(STATION_TRACKING_START, now - pd.DateOffset(months=12))
+# Trailing 12 months — or since continuous alert tracking began, while that's
+# more recent. Every incident's stations are known (its JSON, or LAMP's entities).
+stations_window_start = max(coverage_start, now - pd.DateOffset(months=12))
 stations_window_label = (
-    'Trailing 12 months' if stations_window_start > STATION_TRACKING_START
-    else f'Since station tracking began on {fmt_day(STATION_TRACKING_START)}, {STATION_TRACKING_START.year}'
+    'Trailing 12 months' if stations_window_start > coverage_start
+    else f'Since continuous alert tracking began on {fmt_day(coverage_start)}, {coverage_start.year}'
 )
 
 section(

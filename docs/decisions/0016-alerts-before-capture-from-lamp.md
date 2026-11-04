@@ -28,3 +28,8 @@ Compared with `silver.mbta_alerts__resolved` on 2026-11-03 (614 rail alert × ro
 - Old alerts can name stops that no longer exist (Lechmere moved, and the Green Line Extension opened, 2020–22). Those stations need the archived GTFS for their date to reach the map; line-level counts don't depend on them.
 - LAMP rewrites its file in place and could change; bronze keeps each loaded copy ([0001](0001-append-only-bronze.md)).
 - Each load is ~5M rows. Silver processes it once into small incremental tables, so the hourly transform never re-reads it.
+
+## History
+- **2026-11-04:** built and checked in dev before deploying.
+  - LAMP has 222 more rail alert × route rows than the old pipeline for July 2 – October 23, 2026 (736 vs 513). 217 of them never reached `bronze.mbta_alerts_legacy`: that pipeline's runs were often hours apart, so short delays (median 26 minutes) slipped between them. Every alert it did capture is in LAMP.
+  - Ten retired Green Line B branch platforms (stop IDs 70136–70145, named 2019–2021) have no station today, so `silver.mbta_alerts__by_station` leaves them out rather than map them through the archived GTFS: the map only covers the last 12 months.

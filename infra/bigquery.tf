@@ -9,7 +9,7 @@
 #           any change Terraform would make by replacing it, follows decision
 #           0013 instead.
 #   silver  dbt models: each source's cleaned copy plus steps built on it
-#           (views, except two incremental alert tables).
+#           (views, except three incremental alert tables).
 #   gold    dbt tables the dashboard reads, rebuilt every transform run.
 #
 # Dev sandboxes mirror the layers for local work, so nothing local touches the

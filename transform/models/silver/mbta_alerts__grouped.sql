@@ -107,7 +107,6 @@ SELECT
     is_in_feed,
     first_seen_at,
     last_seen_at,
-    -- The latest version of an alert is the one from its last-seen run
-    last_seen_at                                                AS ingested_at,
-    'ingest-mbta-alerts'                                        AS ingested_by
+    ingested_at,
+    ingested_by
 FROM incidents

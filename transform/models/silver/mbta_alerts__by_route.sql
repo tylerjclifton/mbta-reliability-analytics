@@ -1,21 +1,18 @@
 {#
   silver.mbta_alerts__by_route — one row per alert × route
 
-  The latest snapshot of every alert ever seen, split into one row per rail
-  route and renamed to project conventions, plus when it was first and last
-  seen. A reshaping step, with history from the frozen table stitched in; no
-  business rules yet (those start in silver.mbta_alerts__resolved). Enum
-  values stay as the API sends them (e.g. SIGNAL_PROBLEM).
+  The latest snapshot of every alert seen since full-JSON capture began
+  (2026-10-24), split into one row per rail route and renamed to project
+  conventions, plus when it was first and last seen. A reshaping step; no
+  business rules yet (those start in silver.mbta_alerts__resolved). Enum values
+  stay as the API sends them (e.g. SIGNAL_PROBLEM).
 
-  Two bronze tables feed it, split at var alerts_raw_capture_start
-  (2026-10-24 14:11 UTC):
-    - before it, bronze.mbta_alerts_legacy: the frozen shaped table, which the
-      ingest wrote directly at alert × route grain
-    - from it on, bronze.mbta_alerts: each alert's full JSON, split here
-      into one row per rail route with the same rules the ingest used (one row
-      per target route in informed_entity; the first active period). Both
-      tables were written from the capture start until the cutover and
-      matched row for row (decision 0002).
+  Each alert's full JSON (bronze.mbta_alerts) is split into one row per rail
+  route it names (one row per target route in informed_entity; the first
+  active period), the rules the old ingest used for the frozen
+  bronze.mbta_alerts_legacy. No model reads that table anymore: alerts that
+  ended before full-JSON capture come from the MBTA's LAMP archive instead
+  (silver.lamp_alerts__by_route; decision 0016).
 
   This is where alerts are narrowed to rail: since 2026-10-28 bronze holds the
   whole feed (bus, commuter rail, ferry too; decision 0011), and an alert that
@@ -26,14 +23,12 @@
   that whole history for every model and test that uses it — about 9 times per
   hourly transform — which outgrows BigQuery's free query tier within a year.
   This table is incremental: each run reads only the snapshots added since the
-  last run, and once past the capture start never reads the frozen table
-  again. Bronze remains the complete history; `dbt build --full-refresh`
+  last run. Bronze remains the complete history; `dbt build --full-refresh`
   rebuilds this table from it.
 
   Steps:
-    1. new_snapshots — snapshots after the latest one already here: frozen
-                       shaped rows before the capture start, full JSON split per
-                       route from it on; the API's epoch placeholder → NULL
+    1. new_snapshots — snapshots after the latest one already here, split per
+                       rail route; the API's epoch placeholder → NULL
     2. candidates    — those rows, plus the existing row for each alert they touch
     3. final select  — per alert × route: latest version's fields, earliest
                        first-seen, latest last-seen
@@ -56,49 +51,16 @@
     'alert_created_at', 'alert_updated_at',
 ] -%}
 
-{%- set capture_start = var('alerts_raw_capture_start') -%}
-
 {#- The newest snapshot already processed (none on a first build), compiled
     in as a literal so bronze's partitions are pruned -#}
-{%- set processed_through = last_processed_snapshot() -%}
-
-{#- The frozen table only holds snapshots before the capture start, so skip it
-    entirely once this table has processed past it (both strings share one
-    timestamp format, so they compare correctly as text) -#}
-{%- set read_frozen = processed_through is none or processed_through < capture_start %}
+{%- set processed_through = last_processed_snapshot() %}
 
 WITH
 
     -- 1. Snapshots not yet processed, renamed. The API uses the epoch
     --    (1970-01-01) for "not set"; treat it as NULL.
     new_snapshots AS (
-        {%- if read_frozen %}
-        -- Before the capture start: the frozen shaped table
-        SELECT
-            alert_id,
-            route                                      AS route_id,
-            {{ null_if_epoch('active_period_start') }} AS posted_start_at,
-            {{ null_if_epoch('active_period_end') }}   AS posted_end_at,
-            duration_certainty                         AS alert_duration_certainty,
-            header                                     AS alert_header,
-            description                                AS alert_description,
-            cause                                      AS alert_cause,
-            effect                                     AS alert_effect,
-            severity                                   AS alert_severity,
-            created_at                                 AS alert_created_at,
-            updated_at                                 AS alert_updated_at,
-            ingested_at
-        FROM {{ source('bronze', 'mbta_alerts_legacy') }}
-        WHERE
-            ingested_at < TIMESTAMP '{{ capture_start }}'
-            {%- if processed_through %}
-            AND ingested_at > TIMESTAMP '{{ processed_through }}'
-            {%- endif %}
-
-        UNION ALL
-        {%- endif %}
-
-        -- From the capture start on: full JSON, one row per rail route it names
+        -- Full JSON, one row per rail route it names
         SELECT
             alert_id,
             route_id,
@@ -140,11 +102,9 @@ WITH
             -- mbta_alerts__by_station
             INNER JOIN {{ ref('mbta_routes__base') }} AS rail
                 ON entity_route_id = rail.route_id
-            WHERE
-                r.ingested_at >= TIMESTAMP '{{ capture_start }}'
-                {%- if processed_through %}
-                AND r.ingested_at > TIMESTAMP '{{ processed_through }}'
-                {%- endif %}
+            {%- if processed_through %}
+            WHERE r.ingested_at > TIMESTAMP '{{ processed_through }}'
+            {%- endif %}
         ) AS raw_split
     ),
 

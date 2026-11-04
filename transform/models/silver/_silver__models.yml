@@ -45,6 +45,42 @@ models:
         description: "{{ doc('last_seen_at') }}"
         data_tests: [not_null]
 
+  - name: lamp_alerts__base
+    description: >
+      One row per rail alert in the MBTA's LAMP archive: its latest version,
+      renamed toward the API's names, with its informed entities and first
+      active period. Incremental table that reads bronze only after a new load
+      (see model header; decision 0016).
+    columns:
+      - name: alert_id
+        description: "{{ doc('alert_id') }}"
+        data_tests: [unique, not_null]
+      - name: alert_cause
+        description: MBTA cause enum, as the API's cause (LAMP's cause_detail).
+      - name: alert_effect
+        description: MBTA effect enum, as the API's effect (LAMP's effect_detail).
+        data_tests: [not_null]
+      - name: posted_start_at
+        description: Start of the latest version's first active period (UTC).
+      - name: posted_end_at
+        description: End of that period (UTC); NULL when open-ended.
+      - name: alert_created_at
+        description: "{{ doc('alert_created_at') }}"
+        data_tests: [not_null]
+      - name: alert_updated_at
+        description: When the latest version was posted (UTC).
+      - name: alert_closed_at
+        description: "{{ doc('alert_closed_at') }}"
+      - name: informed_entities
+        description: >
+          The latest version's distinct informed entities (route_id, stop_id,
+          direction_id); a NULL direction means both.
+      - name: ingested_at
+        description: The latest LAMP load (UTC); the table's incremental marker.
+        data_tests: [not_null]
+      - name: ingested_by
+        description: "{{ doc('ingested_by') }}"
+
   - name: mbta_routes__base
     description: One row per rail route — the latest snapshot, plus the line it belongs to.
     columns:
@@ -206,10 +242,10 @@ models:
 
   - name: mbta_alerts__by_route
     description: >
-      One row per alert × route ever seen: the latest snapshot split by rail
-      route and renamed to project conventions (enum values as the API sends
-      them), plus first/last seen; history before full-JSON capture comes from
-      mbta_alerts_legacy. Incremental table, so the transform reads only new
+      One row per alert × route seen since full-JSON capture began
+      (2026-10-24): the latest snapshot split by rail route and renamed to
+      project conventions (enum values as the API sends them), plus first/last
+      seen. Earlier alerts come from LAMP (lamp_alerts__by_route). Incremental table, so the transform reads only new
       snapshots instead of re-reading all of bronze (see model header).
     data_tests:
       - unique_combination:
@@ -249,11 +285,33 @@ models:
         description: "{{ doc('last_seen_at') }}"
         data_tests: [not_null]
 
+  - name: lamp_alerts__by_route
+    description: >
+      One row per LAMP alert × rail route: lamp_alerts__base split by the rail
+      routes its entities name, with mbta_alerts__by_route's columns plus the
+      close time. mbta_alerts__resolved takes the alerts that ended before
+      full-JSON capture from here (decision 0016).
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [alert_id, route_id]
+    columns:
+      - name: alert_id
+        description: "{{ doc('alert_id') }}"
+        data_tests: [not_null]
+      - name: route_id
+        description: "{{ doc('route_id') }}"
+        data_tests: [not_null]
+      - name: alert_closed_at
+        description: "{{ doc('alert_closed_at') }}"
+
   - name: mbta_alerts__resolved
     description: >
       One row per service-affecting alert × route, with when it really started
-      and ended and whether it's still in the feed (see model header). Effects
-      in var non_service_alert_effects are excluded. Enums as in mbta_alerts__by_route.
+      and ended and whether it's still in the feed (see model header): alerts
+      seen since full-JSON capture from the snapshots, earlier ones from LAMP.
+      Effects in var non_service_alert_effects are excluded. Enums as in
+      mbta_alerts__by_route.
     data_tests:
       - unique_combination:
           arguments:
@@ -266,12 +324,25 @@ models:
         description: >
           When the alert left the feed (UTC): midway between the last run that
           saw it and the next, at most 30 minutes after last seen. Meaningless
-          while is_in_feed.
+          while is_in_feed; NULL for LAMP alerts, which never were in a snapshot.
+      - name: alert_closed_at
+        description: "{{ doc('alert_closed_at') }} Set for LAMP alerts only."
       - name: alert_start_at
         description: "{{ doc('alert_start_at') }}"
         data_tests: [not_null]
       - name: alert_end_at
         description: "{{ doc('alert_end_at') }}"
+      - name: ingested_at
+        description: >
+          When the run that wrote this version started (UTC): the last-seen
+          snapshot, or the LAMP load.
+        data_tests: [not_null]
+      - name: ingested_by
+        description: "{{ doc('ingested_by') }}"
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [ingest-mbta-alerts, ingest-lamp-alerts]
 
   - name: mbta_alerts__grouped
     description: >
@@ -344,9 +415,11 @@ models:
       - name: is_in_feed
         description: "{{ doc('alert_is_in_feed') }}"
       - name: first_seen_at
-        description: "{{ doc('first_seen_at') }}"
+        description: "{{ doc('first_seen_at') }} NULL for LAMP alerts."
       - name: last_seen_at
-        description: Last ingest run that included this alert (UTC). Equals ingested_at.
+        description: >
+          Last ingest run that included this alert (UTC); equals ingested_at.
+          NULL for LAMP alerts.
       - name: ingested_at
         description: "{{ doc('ingested_at') }}"
       - name: ingested_by

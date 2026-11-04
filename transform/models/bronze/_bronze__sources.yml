@@ -24,10 +24,18 @@ sources:
         description: >
           Frozen: 15-minute snapshots of the MBTA alerts API (rail routes only)
           as the old ingest shaped them, 2026-06-07 to 2026-10-24. Never written
-          since the alerts cutover; never delete (decision 0002). Silver reads it
-          only for history before var alerts_raw_capture_start.
+          since the alerts cutover; never delete (decision 0002). No model reads
+          it: LAMP supplies those months instead (decision 0016).
           Grain: alert × route × ingest run.
         # No freshness check: nothing writes it anymore
+
+      - name: lamp_alerts
+        description: >
+          The MBTA's LAMP alerts archive: every alert since 2018, every mode,
+          flattened by LAMP. Silver takes rail alerts from before full-JSON
+          capture from it (decision 0016). Grain: alert × version × informed
+          entity × active period × ingest run.
+        # No freshness check: loaded on demand, not on a schedule
 
       - name: mbta_alerts
         description: >

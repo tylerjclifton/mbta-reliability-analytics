@@ -10,7 +10,8 @@ version: 2
 # dashboard's incident counts and durations.
 #
 #   mbta_alerts__resolved  end time (posted end vs leaving the feed, the 30-minute
-#                          midpoint cap), start fallback, which alerts are dropped
+#                          midpoint cap; LAMP's close), start fallback, which
+#                          alerts are dropped, which source an alert comes from
 #   mbta_alerts__grouped   2- and 6-hour follow-up windows (and their edges),
 #                          what keeps alerts apart (route, cause, location)
 #
@@ -24,9 +25,10 @@ version: 2
 unit_tests:
 
   # ── mbta_alerts__resolved ─────────────────────────────────────────────────
-  # Every test uses the same ingest runs, from both bronze alert tables:
-  #   legacy  06:00            (a pre-2026-10 gap: the next run is 4 hours later)
-  #   live    10:00, 10:15, 10:30  (10:30 is the latest run: "still in the feed")
+  # Every test uses the same ingest runs: 06:00, then (after an outage) 10:00,
+  # 10:15, 10:30 — the latest run, so "still in the feed". Full-JSON capture
+  # starts that day at midnight (var alerts_raw_capture_start), and LAMP history
+  # on 2025-01-01 (var lamp_alerts_start).
 
   - name: resolved_end_time_rules
     description: >
@@ -34,15 +36,19 @@ unit_tests:
       whichever came first: the posted end, or midway to the next run, capped
       at 30 minutes after last seen.
     model: mbta_alerts__resolved
+    overrides: &resolved_vars
+      vars:
+        alerts_raw_capture_start: '2026-01-05 00:00:00'
+        lamp_alerts_start: '2025-01-01'
     given:
-      - input: source('bronze', 'mbta_alerts_legacy')
-        rows: &legacy_runs
-          - {ingested_at: '2026-01-05 06:00:00'}
       - input: source('bronze', 'mbta_alerts')
-        rows: &live_runs
+        rows: &runs
+          - {ingested_at: '2026-01-05 06:00:05'}
           - {ingested_at: '2026-01-05 10:00:05'}
           - {ingested_at: '2026-01-05 10:15:05'}
           - {ingested_at: '2026-01-05 10:30:05'}
+      - input: ref('lamp_alerts__by_route')
+        rows: &no_lamp []
       - input: ref('mbta_alerts__by_route')
         rows:
           # In the latest run, no posted end → ongoing
@@ -62,7 +68,7 @@ unit_tests:
              posted_start_at: '2026-01-05 09:00:00', posted_end_at: '2026-01-05 18:00:00', last_seen_at: '2026-01-05 10:15:05'}
           # Next run 4 hours later → the midpoint would be 08:00; capped at 06:30
           - {alert_id: midpoint_capped, route_id: Red, alert_effect: DELAY,
-             posted_start_at: '2026-01-05 05:00:00', posted_end_at: null, last_seen_at: '2026-01-05 06:00:00'}
+             posted_start_at: '2026-01-05 05:00:00', posted_end_at: null, last_seen_at: '2026-01-05 06:00:05'}
     expect:
       rows:
         - {alert_id: in_feed_ongoing,        is_in_feed: true,  alert_end_at: null}
@@ -70,16 +76,17 @@ unit_tests:
         - {alert_id: left_feed,              is_in_feed: false, alert_end_at: '2026-01-05 10:07:35'}
         - {alert_id: posted_end_first,       is_in_feed: false, alert_end_at: '2026-01-05 10:05:00'}
         - {alert_id: left_before_posted_end, is_in_feed: false, alert_end_at: '2026-01-05 10:22:35'}
-        - {alert_id: midpoint_capped,        is_in_feed: false, alert_end_at: '2026-01-05 06:30:00'}
+        - {alert_id: midpoint_capped,        is_in_feed: false, alert_end_at: '2026-01-05 06:30:05'}
 
   - name: resolved_start_falls_back_to_created
     description: An alert with no posted start starts when the MBTA created it.
     model: mbta_alerts__resolved
+    overrides: *resolved_vars
     given:
-      - input: source('bronze', 'mbta_alerts_legacy')
-        rows: *legacy_runs
       - input: source('bronze', 'mbta_alerts')
-        rows: *live_runs
+        rows: *runs
+      - input: ref('lamp_alerts__by_route')
+        rows: *no_lamp
       - input: ref('mbta_alerts__by_route')
         rows:
           - {alert_id: posted_start, route_id: Red, alert_effect: DELAY,
@@ -97,11 +104,12 @@ unit_tests:
       that left the feed before its start never took effect and is dropped;
       one still in the feed is kept.
     model: mbta_alerts__resolved
+    overrides: *resolved_vars
     given:
-      - input: source('bronze', 'mbta_alerts_legacy')
-        rows: *legacy_runs
       - input: source('bronze', 'mbta_alerts')
-        rows: *live_runs
+        rows: *runs
+      - input: ref('lamp_alerts__by_route')
+        rows: *no_lamp
       - input: ref('mbta_alerts__by_route')
         rows:
           - {alert_id: service_alert, route_id: Red, alert_effect: DELAY,
@@ -118,6 +126,54 @@ unit_tests:
       rows:
         - {alert_id: service_alert}
         - {alert_id: announced_in_feed}
+
+  - name: resolved_lamp_alerts_before_capture
+    description: >
+      LAMP supplies alerts the snapshots never saw that ended before full-JSON
+      capture: each ends at its close, or its posted end if earlier. Alerts the
+      snapshots saw, that ended after the capture start, that were created
+      before var lamp_alerts_start, that ended before starting, or that have
+      neither a close nor a posted end are left out.
+    model: mbta_alerts__resolved
+    overrides: *resolved_vars
+    given:
+      - input: source('bronze', 'mbta_alerts')
+        rows: *runs
+      - input: ref('mbta_alerts__by_route')
+        rows:
+          # Also in LAMP: the snapshots' copy wins
+          - {alert_id: seen_by_snapshots, route_id: Red, alert_effect: DELAY,
+             posted_start_at: '2026-01-05 09:00:00', last_seen_at: '2026-01-05 10:30:05'}
+      - input: ref('lamp_alerts__by_route')
+        rows:
+          - {alert_id: closed, route_id: Red, alert_effect: DELAY, alert_created_at: '2025-06-01 08:00:00',
+             posted_start_at: '2025-06-01 08:00:00', posted_end_at: '2025-06-01 10:00:00', alert_closed_at: '2025-06-01 08:40:00'}
+          # Posted end (09:00) before the close (09:30) → the posted end
+          - {alert_id: posted_end_first, route_id: Red, alert_effect: DELAY, alert_created_at: '2025-06-01 08:00:00',
+             posted_start_at: '2025-06-01 08:00:00', posted_end_at: '2025-06-01 09:00:00', alert_closed_at: '2025-06-01 09:30:00'}
+          # Never closed → the posted end
+          - {alert_id: never_closed, route_id: Red, alert_effect: SHUTTLE, alert_created_at: '2025-06-01 08:00:00',
+             posted_start_at: '2025-06-02 05:00:00', posted_end_at: '2025-06-02 23:00:00'}
+          - {alert_id: seen_by_snapshots, route_id: Red, alert_effect: DELAY, alert_created_at: '2026-01-05 09:00:00',
+             posted_start_at: '2026-01-05 09:00:00', alert_closed_at: '2026-01-05 10:40:00'}
+          # Closed after the capture start, though the snapshots missed it
+          - {alert_id: ended_after_capture, route_id: Red, alert_effect: DELAY, alert_created_at: '2026-01-04 23:50:00',
+             posted_start_at: '2026-01-04 23:50:00', alert_closed_at: '2026-01-05 00:10:00'}
+          - {alert_id: before_lamp_start, route_id: Red, alert_effect: DELAY, alert_created_at: '2024-12-31 08:00:00',
+             posted_start_at: '2024-12-31 08:00:00', alert_closed_at: '2024-12-31 09:00:00'}
+          # Closed before its announced start → never took effect
+          - {alert_id: closed_before_start, route_id: Red, alert_effect: SHUTTLE, alert_created_at: '2025-06-01 08:00:00',
+             posted_start_at: '2025-06-03 05:00:00', alert_closed_at: '2025-06-02 12:00:00'}
+          - {alert_id: no_end_known, route_id: Red, alert_effect: DELAY, alert_created_at: '2025-06-01 08:00:00',
+             posted_start_at: '2025-06-01 08:00:00'}
+          - {alert_id: elevator, route_id: Red, alert_effect: ELEVATOR_CLOSURE, alert_created_at: '2025-06-01 08:00:00',
+             posted_start_at: '2025-06-01 08:00:00', alert_closed_at: '2025-06-01 09:00:00'}
+    expect:
+      rows:
+        - {alert_id: closed,            is_in_feed: false, alert_end_at: '2025-06-01 08:40:00'}
+        - {alert_id: posted_end_first,  is_in_feed: false, alert_end_at: '2025-06-01 09:00:00'}
+        - {alert_id: never_closed,      is_in_feed: false, alert_end_at: '2025-06-02 23:00:00'}
+        - {alert_id: seen_by_snapshots, is_in_feed: true,  alert_end_at: null}
 
   # ── mbta_alerts__grouped ──────────────────────────────────────────────────
   # Alerts are Red Line, cause DISABLED_TRAIN, effect DELAY unless a test is

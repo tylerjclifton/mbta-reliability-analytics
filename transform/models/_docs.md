@@ -8,6 +8,10 @@ When the ingest run that wrote this version started (UTC). Every row written by 
 Cloud Run job that wrote this version (e.g. `ingest-mbta-alerts`).
 {% enddocs %}
 
+{% docs alert_closed_at %}
+When the MBTA closed (ended) the alert (UTC), from LAMP; NULL while open or never closed.
+{% enddocs %}
+
 {% docs alert_id %}
 MBTA alert ID. One alert can apply to several routes.
 {% enddocs %}

@@ -6,15 +6,16 @@
   rules live in silver.mbta_alerts__grouped. The dashboard counts, times, and
   categorizes incidents so a re-posted event isn't counted twice.
 
-  stations_affected counts the stations the incident's alerts name. It needs
-  the alerts' full JSON, captured since 2026-10-24: NULL means none of the
-  incident's alerts were captured (so unknown), while 0 means they were but
-  named no stations, as with most line-wide delays.
+  stations_affected counts the stations the incident's alerts name, from each
+  alert's stop list: its full JSON, or LAMP's entities for alerts before
+  full-JSON capture (decision 0016). NULL means no alert's stop list is known,
+  while 0 means they were known but named no stations, as with most line-wide
+  delays.
 
   Steps:
     1. incident_alerts   — every alert with its route's name, line, and type
-    2. incident_stations — per incident × route: whether any alert has full JSON
-                           data, and how many distinct stations they name
+    2. incident_stations — per incident × route: whether any alert's stop list
+                           is known, and how many distinct stations they name
     3. incidents         — one row per incident: the span of all its alerts,
                            the latest alert's text, and how many alerts it took
     4. final select      — incidents with their station count
@@ -34,7 +35,14 @@ WITH
             ON a.route_id = r.route_id
     ),
 
-    -- 2. Stations named across each incident's alerts
+    -- 2. Stations named across each incident's alerts, and whether any of
+    --    their stop lists is known (in the JSON or in LAMP)
+    captured_alerts AS (
+        SELECT alert_id FROM {{ ref('mbta_alerts__base') }}
+        UNION DISTINCT
+        SELECT alert_id FROM {{ ref('lamp_alerts__base') }}
+    ),
+
     incident_stations AS (
         SELECT
             a.incident_id,
@@ -42,7 +50,7 @@ WITH
             LOGICAL_OR(captured.alert_id IS NOT NULL) AS has_stop_data,
             COUNT(DISTINCT s.station_id)         AS station_count
         FROM {{ ref('mbta_alerts__grouped') }} AS a
-        LEFT JOIN {{ ref('mbta_alerts__base') }} AS captured
+        LEFT JOIN captured_alerts AS captured
             ON a.alert_id = captured.alert_id
         LEFT JOIN {{ ref('mbta_alerts__by_station') }} AS s
             ON
@@ -96,7 +104,7 @@ WITH
             route_id
     )
 
--- 4. Station count: NULL when no alert's full JSON was captured (unknown), else the count
+-- 4. Station count: NULL when no alert's stop list is known, else the count
 SELECT
     i.* EXCEPT (ingested_at),
     IF(st.has_stop_data, st.station_count, NULL) AS stations_affected,

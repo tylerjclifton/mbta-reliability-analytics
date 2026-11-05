@@ -50,13 +50,15 @@ Dark theme; official MBTA line colors for every line-level visual, a neutral vio
 
 **Incident patterns** — incidents per week, by line, by cause and effect, median duration by cause, cause mix by line (heatmap)
 
-**Ridership** — per-line tiles: the latest published month's average entries per day vs the same month a year earlier (each tile names its month); 24-month trend; ridership by alert effect (delay, suspension, shuttle) vs each line's calm days; day of week
+**Disruption by year** — delays per year by how long they lasted, and hours of shuttle-bus service per year by line (overlapping diversions count once), for every full year of alert history plus the year in progress, dimmed
 
-**The long view** — per-line tiles: the last 12 months' ridership as a share of 2019, the last full year before the pandemic; ridership since 2014 as average entries per day, each month plus a trailing 12-month average that evens out the seasons, with a few events marked; delays per year by how long they lasted; and hours of shuttle-bus service per year, by line (overlapping diversions count once). Yearly charts start with the first full year of alert history and show the year in progress dimmed.
+**Ridership** — per-line tiles: the latest published month's average entries per day vs the same month a year earlier and in 2019, the last full year before the pandemic (each tile names its month); monthly ridership, switchable between the last 2 years and all history since 2014 (each month plus a trailing 12-month average that evens out the seasons, with a few events marked); ridership by alert effect (delay, suspension, shuttle) vs each line's calm days; day of week
 
 **Weather** — ridership on rainy, snowy, and unusually cold/warm days vs normal-weather days
 
-Ridership figures are **average entries per day**, weekends included. Time windows: every section covers the trailing 12 months, except the ridership tiles (the latest published month), the ridership trend (24 months, for year-over-year), the long view (all history, its point), and weather (all history — storms are rare).
+Time windows: every section covers the trailing 12 months, except the ridership tiles (the latest published month), monthly ridership (2 years, for year-over-year, or all history), disruption by year (every full year of alert history), and weather (all history — storms are rare).
+
+Statistics follow one rule everywhere. Volumes are averages: ridership is **average entries per day**, weekends and holidays included, because volumes add up. "Typical" values are medians: incident durations, and every baseline a comparison is made against, so a shutdown or a months-long incident can't skew them. Comparisons are like-for-like: same line, same month (so seasons and the long trend cancel), weekday-adjusted, with federal holidays left out.
 
 Incident history counts from when alert coverage became continuous (detected as the first incident after the last 14-day gap; with the LAMP archive that's September 2019), so missing data never reads as a quiet day.
 

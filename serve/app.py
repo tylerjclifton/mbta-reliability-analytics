@@ -29,9 +29,9 @@ MBTA may have posted as several alerts.
 Two ridership comparisons, each detailed where it's computed:
   % vs typical    (weather) a day's entries vs the median for the same line,
                   weekday, and month; see load_ridership()
-  % vs calm days  (alert effects) a day's entries vs the median of the line's
-                  calm days (no incident but a station closure) on the same
-                  weekday; see helpers.pct_vs_calm()
+  % vs calm days  (alert effects) a day's entries vs the line's calm days (no
+                  incident but a station closure) in the same month, adjusted
+                  for the day of the week; see helpers.pct_vs_calm()
 """
 
 # Import standard libraries
@@ -961,13 +961,12 @@ with st.container(key='card_monthly'):
 impact_col, dow_col = st.columns(2, gap='medium')
 
 # ── Ridership by alert effect ─────────────────────────────────────────────────
-# Each line is compared only with its own calm days (gold's is_calm_day), not a
-# monthly median, which would absorb a month-long shutdown into its own
-# baseline (helpers.pct_vs_calm). The thresholds hold bars back until there's
-# enough data to trust; the chart fills in by itself as alert history grows,
-# with no change needed here.
+# Each line is compared only with its own calm days (gold's is_calm_day) in
+# the same month, so seasons and the long trend cancel; calm days only, so a
+# shutdown never lowers its own baseline (helpers.pct_vs_calm). The thresholds
+# hold bars back until there's enough data to trust.
 IMPACT_EFFECTS = ['Delay', 'Suspension', 'Shuttle']
-MIN_CALM_WEEKDAYS = 4   # calm days of the same weekday needed before a day can be scored
+MIN_CALM_DAYS = 4       # calm days a line needs in a month before that month's days can be scored
 MIN_IMPACT_DAYS = 10    # scored days needed for a bar, both with the effect and calm
 
 with impact_col:
@@ -977,14 +976,14 @@ with impact_col:
         tracking_day = coverage_start.tz_convert(TIMEZONE).tz_localize(None).normalize()
         impact_start = max(tracking_day, ridership_year_start)
         card_title('Ridership by alert effect',
-                   'Each line vs its own calm days'
+                   'Each line vs its own calm days in the same month'
                    + ('' if impact_start == ridership_year_start
                       else f' · since continuous alert tracking began {fmt_day(coverage_start)}'))
         tracked = ordinary_days[ordinary_days['service_date'] >= impact_start]
         # Days that are neither calm nor one of IMPACT_EFFECTS (e.g. only a
         # service change) sit out of both sides of the comparison
         tracked = tracked.assign(effect=tracked['most_severe_effect'], is_calm=tracked['is_calm_day'])
-        tracked = tracked.assign(pct_vs_calm=pct_vs_calm(tracked, MIN_CALM_WEEKDAYS))
+        tracked = tracked.assign(pct_vs_calm=pct_vs_calm(tracked, MIN_CALM_DAYS))
         impact = effect_vs_calm(tracked, IMPACT_EFFECTS, MIN_IMPACT_DAYS)
         waiting = [line for line in selected_lines if line not in set(impact['line_name'])]
 
@@ -1034,12 +1033,12 @@ with impact_col:
                                    xshift=-label_width, y=heading, yref='y', showarrow=False,
                                    font=dict(color=INK, size=12))
             show(fig)
-        st.caption("0% = that line's calm days (no incident other than a station closure), same day of the week. Each "
-                   "day counts under its most severe alert: shuttle buses, then a suspension, then a delay. "
-                   "Shuttle riders skip the fare gates; a suspension may cover only part of a line or day. "
-                   f"Bars appear once a line has {MIN_IMPACT_DAYS} days of an effect and {MIN_IMPACT_DAYS} calm "
-                   f"days, each compared with at least {MIN_CALM_WEEKDAYS} calm days of the same weekday. "
-                   "Holidays excluded."
+        st.caption("0% = that line's calm days (no incident other than a station closure) in the same month, "
+                   "adjusted for the day of the week, so seasons and the long trend don't count. Each bar is the "
+                   "median day. Each day counts under its most severe alert: shuttle buses, then a suspension, "
+                   "then a delay. Shuttle riders skip the fare gates; a suspension may cover only part of a line or "
+                   f"day. Bars appear once a line has {MIN_IMPACT_DAYS} days of an effect and {MIN_IMPACT_DAYS} calm "
+                   f"days, in months with at least {MIN_CALM_DAYS} calm days. Holidays excluded."
                    + (f" Still collecting: {', '.join(waiting)}." if waiting else ''))
 
 # ── Day of week ───────────────────────────────────────────────────────────────
@@ -1243,8 +1242,9 @@ with shuttle_col:
 section(
     'Weather',
     f"Every day since {ridership_all['service_date'].min():%b %Y} — snowstorms and downpours are too rare "
-    "to judge from one year. Each day is measured against typical for its line, weekday, and month, then "
-    "compared with normal-weather days. Holidays are left out of this comparison only.",
+    "to judge from one year. Each day is measured against typical for its line, weekday, and month; each "
+    "bar is the median day in its band, compared with normal-weather days. Holidays are left out of this "
+    "comparison only.",
 )
 
 wx = ordinary_days.dropna(subset=['avg_temperature_f'])
@@ -1252,13 +1252,19 @@ wx = ordinary_days.dropna(subset=['avg_temperature_f'])
 
 def band_summary(df, column, bins, labels, baseline):
     """
-    Average % vs typical per band of `column`, re-expressed relative to the
-    `baseline` band (normal conditions), so the chart reads "heavy rain days
-    run 5.7 points below dry days". Also returns the day count per band.
+    The median day's % vs typical per band of `column`, re-expressed relative
+    to the `baseline` band (normal conditions), so the chart reads "heavy rain
+    days run 3.6 points below dry days". Also returns the day count per band.
+
+    The median, not the mean: when a line is shut for most of a month, its
+    "typical" for that month is near zero, and its open days score in the
+    tens of thousands of percent. About 90 such days since 2014 (the Blue Line
+    in July 2024, the Orange Line around its 2022 shutdown) swung band means
+    by up to 80 points; the median ignores them.
     """
     banded = df.assign(band=pd.cut(df[column], bins=bins, labels=labels))
     summary = (banded.groupby('band', observed=False)
-               .agg(pct=('pct_vs_typical', 'mean'), days=('service_date', 'nunique'))
+               .agg(pct=('pct_vs_typical', 'median'), days=('service_date', 'nunique'))
                .reset_index().dropna(subset=['pct']))
     reference = summary.loc[summary['band'] == baseline, 'pct']
     summary['pct'] -= reference.iloc[0] if len(reference) else 0

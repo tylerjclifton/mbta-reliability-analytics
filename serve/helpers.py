@@ -85,41 +85,54 @@ def join_routes(route_names):
 
 def pct_vs_calm(days, min_calm_days):
     """
-    Each day's gated entries vs the median of its line's calm days on the same
-    weekday, in percent (−20 = a fifth fewer entries than a calm day).
+    Each day's gated entries vs its line's calm days in the same month, adjusted
+    for the day of the week, in percent (−20 = a fifth fewer entries than a calm
+    day would have had).
 
-    `days` needs line_name, weekday, gated_entries, and is_calm (gold's
-    is_calm_day, defined in gold/rail_ridership.sql). Comparing like weekdays
-    removes the weekend pattern, and pooling calm days only keeps shutdowns out
-    of the baseline however long they run; a monthly median would absorb a
-    month-long shutdown into its own baseline. A line × weekday with fewer than
-    `min_calm_days` calm days has no trustworthy baseline yet, so its days come
-    back NaN.
+    `days` needs line_name, month, weekday, gated_entries, and is_calm (gold's
+    is_calm_day, defined in gold/rail_ridership.sql).
+      1. Weekday shape: each line's calm-day median per weekday, over all the
+         days given, relative to its overall calm-day median. Dividing by it
+         puts every day on a common weekday footing.
+      2. Baseline: the line's median weekday-adjusted calm day in that month.
+         Same month, so seasons and the long trend (the recovery, a line's
+         slow decline) cancel; calm days only, so a shutdown, however long,
+         never lowers its own baseline.
+    A line × month with fewer than `min_calm_days` calm days, or a weekday with
+    none, has no trustworthy baseline, so its days come back NaN.
     """
-    calm = days[days['is_calm']].groupby(['line_name', 'weekday'])['gated_entries']
-    keys = pd.MultiIndex.from_frame(days[['line_name', 'weekday']])
-    baseline = calm.median().where(calm.size() >= min_calm_days).reindex(keys).to_numpy()
-    return (days['gated_entries'] / baseline - 1) * 100
+    calm = days[days['is_calm']]
+    by_weekday = calm.groupby(['line_name', 'weekday'])['gated_entries'].median()
+    shape = by_weekday / calm.groupby('line_name')['gated_entries'].median().reindex(
+        by_weekday.index.get_level_values('line_name')).to_numpy()
+    factor = shape.reindex(pd.MultiIndex.from_frame(days[['line_name', 'weekday']])).to_numpy()
+    adjusted = days['gated_entries'] / factor
+
+    calm_adjusted = adjusted[days['is_calm']].groupby([calm['line_name'], calm['month']])
+    baseline = calm_adjusted.median().where(calm_adjusted.size() >= min_calm_days)
+    baseline = baseline.reindex(pd.MultiIndex.from_frame(days[['line_name', 'month']])).to_numpy()
+    return (adjusted / baseline - 1) * 100
 
 
 def effect_vs_calm(days, effects, min_days):
     """
     Per line × effect: how far ridership on days with that effect ran from the
     line's calm days. Expects pct_vs_calm and effect (the day's most severe
-    effect) columns. `pct` is re-expressed relative to the calm days' own
-    average, so calm days sit at exactly 0%. A line × effect needs `min_days`
-    scored days, and its line `min_days` scored calm days, to be reported.
+    effect) columns. `pct` is the median scored day, re-expressed relative to
+    the calm days' own median so calm days sit at exactly 0% (medians, so one
+    odd day can't swing a bar). A line × effect needs `min_days` scored days,
+    and its line `min_days` scored calm days, to be reported.
     """
     scored = days.dropna(subset=['pct_vs_calm'])
-    calm = scored[scored['is_calm']].groupby('line_name')['pct_vs_calm'].agg(mean_calm='mean', size_calm='size')
+    calm = scored[scored['is_calm']].groupby('line_name')['pct_vs_calm'].agg(median_calm='median', size_calm='size')
     hit = (scored[scored['effect'].isin(effects)].groupby(['line_name', 'effect'])['pct_vs_calm']
-           .agg(['mean', 'size']).reset_index())
+           .agg(['median', 'size']).reset_index())
     out = hit.join(calm, on='line_name')
     out = out[(out['size'] >= min_days) & (out['size_calm'] >= min_days)]
     return pd.DataFrame({
         'line_name': out['line_name'],
         'effect':    out['effect'],
-        'pct':       ((1 + out['mean'] / 100) / (1 + out['mean_calm'] / 100) - 1) * 100,
+        'pct':       ((1 + out['median'] / 100) / (1 + out['median_calm'] / 100) - 1) * 100,
         'days':      out['size'],
         'calm_days': out['size_calm'],
     }).reset_index(drop=True)

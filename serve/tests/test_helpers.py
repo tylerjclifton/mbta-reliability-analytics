@@ -99,9 +99,13 @@ def test_one_row_per_incident_collapses_branches():
 
 
 def ridership_days(rows):
-    """Line-days for the calm-day comparisons: (line, weekday, entries, effect or None)."""
-    df = pd.DataFrame(rows, columns=['line_name', 'weekday', 'gated_entries', 'effect'])
-    return df.assign(is_calm=df['effect'].isna())
+    """
+    Line-days for the calm-day comparisons: (line, weekday, entries, effect or
+    None[, month]); the month defaults to January 2026.
+    """
+    rows = [row if len(row) == 5 else (*row, '2026-01') for row in rows]
+    df = pd.DataFrame(rows, columns=['line_name', 'weekday', 'gated_entries', 'effect', 'month'])
+    return df.assign(is_calm=df['effect'].isna(), month=pd.PeriodIndex(df['month'], freq='M'))
 
 
 def test_pct_vs_calm_ignores_disrupted_days_in_the_baseline():
@@ -120,6 +124,19 @@ def test_pct_vs_calm_compares_like_weekdays_and_lines():
     ])
 
     assert pct_vs_calm(df, min_calm_days=2).iloc[-2:].tolist() == [-25, -50]
+
+
+def test_pct_vs_calm_compares_within_the_month():
+    # Ridership doubled from January to February (a trend, or the seasons). A
+    # February shuttle day at 180 is 10% below February's calm days, though
+    # it's above the calm days pooled across both months.
+    df = ridership_days([
+        ('Red Line', 0, 100, None, '2026-01'), ('Red Line', 0, 100, None, '2026-01'),
+        ('Red Line', 0, 200, None, '2026-02'), ('Red Line', 0, 200, None, '2026-02'),
+        ('Red Line', 0, 180, 'Shuttle', '2026-02'),
+    ])
+
+    assert pct_vs_calm(df, min_calm_days=2).iloc[-1] == pytest.approx(-10)
 
 
 def test_pct_vs_calm_needs_enough_calm_days():

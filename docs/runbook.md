@@ -54,6 +54,8 @@ dbt build --no-partial-parse --profiles-dir . --target gcp   --full-refresh --se
 
 The second command runs with your own credentials against production silver. It rebuilds only that table from bronze, and bronze is never touched. The next hourly transform carries on incrementally from there.
 
+**Adding a column to one of these tables needs this rebuild right after the deploy.** Each incremental run reads the table's existing rows back to merge them, so a new column fails the run until the table has it (2026-11-05: the deploy's transform failed on `alert_closed_at`, and every hourly run would have too). Push, then rebuild production straight away and rerun the transform: `gcloud run jobs execute transform --region us-east1 --wait`. Gold keeps the last good build meanwhile.
+
 `--no-partial-parse` makes dbt re-read every model's settings instead of trusting its cache in `target/`. On 2026-11-03 a stale cache had lost the folders' `+schema`, and a local build wrote to production silver. The local profile now falls back to `dev_silver` (`transform/profiles.yml`), but production commands have no such net. Before a production rebuild, check where the model will land: `dbt ls --no-partial-parse --profiles-dir . --target gcp --select <model> --output json --output-keys "name schema"`.
 
 ## Deploys

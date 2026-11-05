@@ -36,6 +36,8 @@ gcloud run jobs execute ingest-mbta-ridership --region us-east1 --update-env-var
 
 `ingest-lamp-alerts` has no schedule: it supplies alerts from before the project's own full-JSON capture ([0016](decisions/0016-alerts-before-capture-from-lamp.md)), so one load covers it. It takes several minutes (5M+ rows in ~50 batches). Re-run it only to pick up a correction LAMP makes to old alerts; silver drops the rows a new load repeats.
 
+Don't put it on a schedule. Each load adds the whole archive to bronze (~3.4 GB uncompressed), and `silver.lamp_alerts__base` rebuilds from every load after a new one, so a dozen loads would push that rebuild past the 50 GiB per-query limit. Regular reloads need the model to read only the newest complete load first ([roadmap](roadmap.md)).
+
 ```bash
 gcloud run jobs execute ingest-lamp-alerts --region us-east1 --wait
 ```

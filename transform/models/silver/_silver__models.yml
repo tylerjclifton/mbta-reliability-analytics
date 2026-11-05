@@ -284,6 +284,10 @@ models:
       - name: last_seen_at
         description: "{{ doc('last_seen_at') }}"
         data_tests: [not_null]
+      - name: alert_closed_at
+        description: >
+          When the MBTA closed the alert (UTC), if a snapshot caught it after
+          closing; alerts stay in the feed only a few minutes after.
 
   - name: lamp_alerts__by_route
     description: >
@@ -326,7 +330,9 @@ models:
           saw it and the next, at most 30 minutes after last seen. Meaningless
           while is_in_feed; NULL for LAMP alerts, which never were in a snapshot.
       - name: alert_closed_at
-        description: "{{ doc('alert_closed_at') }} Set for LAMP alerts only."
+        description: >
+          {{ doc('alert_closed_at') }} Always set for LAMP alerts; for snapshot
+          alerts, only when a run caught the alert after it closed.
       - name: alert_start_at
         description: "{{ doc('alert_start_at') }}"
         data_tests: [not_null]

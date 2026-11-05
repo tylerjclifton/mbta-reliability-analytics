@@ -15,11 +15,14 @@
     start  = posted start, else when MBTA created the alert
     end    = whichever comes first:
                - the end time the MBTA posted (an estimate, usually on the hour)
-               - snapshots: when the alert left the feed, halfway between the
-                 last ingest run that saw it and the next run (runs are every
-                 15 minutes), capped at 30 minutes after it was last seen
-               - LAMP: when the MBTA closed it
-             NULL while the alert is still in the feed with no posted end
+               - when the MBTA closed it: always known for LAMP alerts, and for
+                 snapshot alerts when a run caught it closed (alerts stay in
+                 the feed a few minutes after closing)
+               - otherwise, for snapshots, when the alert left the feed:
+                 halfway between the last ingest run that saw it and the next
+                 run (runs are every 15 minutes), capped at 30 minutes after it
+                 was last seen
+             NULL while the alert is still in the feed, open, with no posted end
   Alerts that ended before their start never took effect (cancelled, or
   re-posted under a new alert ID) and are dropped, as are LAMP alerts with
   neither a close nor a posted end.
@@ -117,10 +120,13 @@ SELECT
     last_seen_at,
     is_in_feed,
     left_feed_at,
-    CAST(NULL AS TIMESTAMP)                     AS alert_closed_at,
+    alert_closed_at,
     -- No posted start → fall back to when the alert was created
     COALESCE(posted_start_at, alert_created_at) AS alert_start_at,
     CASE
+        -- Caught closed → whichever came first: the posted end or the close
+        WHEN posted_end_at < alert_closed_at THEN posted_end_at
+        WHEN alert_closed_at IS NOT NULL THEN alert_closed_at
         -- Still in the feed → ends at its posted end (NULL = ongoing)
         WHEN is_in_feed THEN posted_end_at
         -- Left the feed → whichever came first: the posted end or leaving
@@ -131,8 +137,10 @@ SELECT
     last_seen_at                                AS ingested_at,
     'ingest-mbta-alerts'                        AS ingested_by
 FROM cleaned
--- Left the feed before starting → never took effect
-WHERE is_in_feed OR left_feed_at > COALESCE(posted_start_at, alert_created_at)
+-- Left the feed or closed before starting → never took effect
+WHERE
+    (is_in_feed OR left_feed_at > COALESCE(posted_start_at, alert_created_at))
+    AND (alert_closed_at IS NULL OR alert_closed_at > COALESCE(posted_start_at, alert_created_at))
 
 UNION ALL
 

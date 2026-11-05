@@ -34,7 +34,8 @@ unit_tests:
     description: >
       Still in the feed → the posted end (NULL if none). Left the feed →
       whichever came first: the posted end, or midway to the next run, capped
-      at 30 minutes after last seen.
+      at 30 minutes after last seen. Caught closed → the close, or the posted
+      end if earlier, in or out of the feed.
     model: mbta_alerts__resolved
     overrides: &resolved_vars
       vars:
@@ -69,6 +70,13 @@ unit_tests:
           # Next run 4 hours later → the midpoint would be 08:00; capped at 06:30
           - {alert_id: midpoint_capped, route_id: Red, alert_effect: DELAY,
              posted_start_at: '2026-01-05 05:00:00', posted_end_at: null, last_seen_at: '2026-01-05 06:00:05'}
+          # Caught closed in the latest run, still lingering in the feed → the close
+          - {alert_id: closed_in_feed, route_id: Red, alert_effect: DELAY, posted_start_at: '2026-01-05 09:00:00',
+             posted_end_at: null, alert_closed_at: '2026-01-05 10:25:00', last_seen_at: '2026-01-05 10:30:05'}
+          # Caught closed (10:03) before leaving the feed (10:07:35) → the close
+          - {alert_id: closed_then_left, route_id: Red, alert_effect: DELAY, posted_start_at: '2026-01-05 09:00:00',
+             posted_end_at: '2026-01-05 12:00:00', alert_closed_at: '2026-01-05 10:03:00',
+             last_seen_at: '2026-01-05 10:00:05'}
     expect:
       rows:
         - {alert_id: in_feed_ongoing,        is_in_feed: true,  alert_end_at: null}
@@ -77,6 +85,8 @@ unit_tests:
         - {alert_id: posted_end_first,       is_in_feed: false, alert_end_at: '2026-01-05 10:05:00'}
         - {alert_id: left_before_posted_end, is_in_feed: false, alert_end_at: '2026-01-05 10:22:35'}
         - {alert_id: midpoint_capped,        is_in_feed: false, alert_end_at: '2026-01-05 06:30:05'}
+        - {alert_id: closed_in_feed,         is_in_feed: true,  alert_end_at: '2026-01-05 10:25:00'}
+        - {alert_id: closed_then_left,       is_in_feed: false, alert_end_at: '2026-01-05 10:03:00'}
 
   - name: resolved_start_falls_back_to_created
     description: An alert with no posted start starts when the MBTA created it.

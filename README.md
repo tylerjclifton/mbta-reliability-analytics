@@ -23,6 +23,19 @@ Ingests data from six sources, five on an automated schedule, transforms it thro
 | MBTA LAMP archive | Every alert since 2018 (the MBTA's own archive of the alerts feed) | On demand | The whole archive; supplies alerts from before full-JSON capture ([0016](docs/decisions/0016-alerts-before-capture-from-lamp.md)) |
 | MBTA ArcGIS Open Data | Gated station entries by line | Weekly — Mondays 6AM ET | Everything the layer holds, its last two years (catches revisions); 2014 – 2024-09 loaded once from the MBTA's yearly archive ([0015](docs/decisions/0015-ridership-history-from-archive.md)) |
 
+### Data sources at a glance
+
+Each kind of data has one live source, and history from an archive where the live source doesn't reach back. Every period comes from exactly one of them, so nothing downstream counts a record twice.
+
+| Data | Live source | History | Seam | History starts |
+|---|---|---|---|---|
+| Alerts | MBTA API, every 15 minutes | MBTA LAMP archive, loaded once | Alerts seen from 2026-10-24 on (full-JSON capture) come from the API; earlier ones from LAMP | 2019-09-05 |
+| Ridership | ArcGIS layer (its last two years), weekly | MBTA yearly archive, loaded once into the same table | 2024-10-01 | 2014-01-01 |
+| Weather | NOAA GHCN-Daily, daily | Same source, re-pulled further back once | None | 2014-01-01 |
+| Routes, stops | MBTA API | Not kept: the MBTA archives every past schedule ([0011](docs/decisions/0011-capture-every-mode.md)) | — | Current only |
+
+Bronze overlaps a little on purpose, since it's append-only and never trimmed ([0001](docs/decisions/0001-append-only-bronze.md)): LAMP's load and the API both hold late October 2026, and the frozen `mbta_alerts_legacy` table repeats June–October 2026. Silver takes each alert from one source only. Repeated snapshots (every alert each 15 minutes, two years of ridership each week) are how revisions and end times are captured; bronze bills compressed bytes, so they cost next to nothing ([0014](docs/decisions/0014-bronze-physical-storage-billing.md)).
+
 The dbt transform runs hourly at :35.
 
 ---
@@ -47,9 +60,9 @@ Ridership figures are **average entries per day**, weekends included. Time windo
 
 Incident history counts from when alert coverage became continuous (detected as the first incident after the last 14-day gap; with the LAMP archive that's September 2019), so missing data never reads as a quiet day.
 
-The weather charts use **% vs typical**: a day's entries vs the median for the same line, day of week, and month (federal holidays excluded), so line size, weekends, and seasons don't skew them.
+The weather charts use **% vs typical**: a day's entries vs the median for the same line, day of week, and month (federal holidays excluded), so line size, weekends, and seasons don't skew them. Each bar is the median day in its band: a line shut for most of a month has a near-zero typical that month, and its open days would swamp an average.
 
-The alert-effect chart uses **% vs calm days** instead: a day's entries vs the median of that line's calm days (no incident other than a station closure, which closes one stop rather than disrupting the line) on the same day of week, over the trailing 12 months of alert tracking. A monthly median would absorb a month-long shutdown into its own baseline. Bars appear only once a line has enough calm days to compare with (10 days per bar, 4 calm days per weekday), so the chart fills in by itself as alert history grows.
+The alert-effect chart uses **% vs calm days** instead: a day's entries vs that line's calm days (no incident other than a station closure, which closes one stop rather than disrupting the line) in the same month, adjusted for the day of the week, over the trailing 12 months. Comparing within the month cancels seasons and the long trend; using calm days only means a shutdown never lowers its own baseline, as a plain monthly median would. Each bar is the median day, and appears once a line has 10 days of the effect and 10 calm days, in months with at least 4 calm days.
 
 ---
 
@@ -116,7 +129,7 @@ Silver models are named `<bronze table>__<step>`. `__base` is each source's clea
 
 **Alerts → stations.** Alerts name the stops they affect, mostly by platform and direction. `silver.mbta_alerts__by_station` unpacks that list from each alert's latest version (its full JSON, or LAMP's entities) and rolls platforms up to their station using `silver.mbta_stops__base`, one row per alert × route × station. It sits beside the alert × route models instead of changing their grain. Shuttles, suspensions, and station closures name their stations; most delays are line-wide and name none, so `gold.rail_incidents.stations_affected` is 0 for them. A few retired platforms LAMP names have no station today and are left out (model header).
 
-**Alert end times.** An alert ends at whichever comes first: the end time the MBTA posted (an estimate, usually rounded to the hour), or for snapshot alerts when it left the feed (midway between the last 15-minute run that saw it and the next, capped at 30 minutes after it was last seen), or for LAMP alerts when the MBTA closed it. Since July 2026, 82% of alerts left the feed before their posted end. Alerts leave the feed a few minutes after closing, so LAMP-era durations run about 4 minutes shorter on median ([0016](docs/decisions/0016-alerts-before-capture-from-lamp.md)).
+**Alert end times.** An alert ends at whichever comes first: the end time the MBTA posted (an estimate, usually rounded to the hour), or when the MBTA closed it. LAMP always has the close; a snapshot has it when a run catches the alert in the few minutes it stays in the feed after closing. Otherwise a snapshot alert ends when it left the feed (midway between the last 15-minute run that saw it and the next, capped at 30 minutes after it was last seen), a few minutes after the true close ([0016](docs/decisions/0016-alerts-before-capture-from-lamp.md)). Since July 2026, 82% of alerts left the feed before their posted end.
 
 **Alerts → incidents.** The MBTA often posts several alerts for one event (an update, or "delays due to an earlier disabled train at JFK/UMass"). `silver.mbta_alerts__grouped` groups them: same route, cause, effect, and station named in the header, starting within 2 hours of the incident's latest end (6 hours for "earlier"/"residual" follow-ups). Alerts that don't affect train service (notices, elevator/parking issues — `non_service_alert_effects` in `dbt_project.yml`) are excluded in `silver.mbta_alerts__resolved`; bronze keeps them.
 

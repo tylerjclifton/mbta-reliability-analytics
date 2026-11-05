@@ -48,7 +48,7 @@
 {%- set alert_columns = [
     'alert_id', 'route_id', 'posted_start_at', 'posted_end_at', 'alert_duration_certainty',
     'alert_header', 'alert_description', 'alert_cause', 'alert_effect', 'alert_severity',
-    'alert_created_at', 'alert_updated_at',
+    'alert_created_at', 'alert_updated_at', 'alert_closed_at',
 ] -%}
 
 {#- The newest snapshot already processed (none on a first build), compiled
@@ -74,6 +74,7 @@ WITH
             alert_severity,
             alert_created_at,
             alert_updated_at,
+            alert_closed_at,
             ingested_at
         FROM (
             SELECT
@@ -90,6 +91,8 @@ WITH
                 SAFE_CAST(JSON_VALUE(r.alert_json, '$.attributes.severity') AS INT64)      AS alert_severity,
                 TIMESTAMP(JSON_VALUE(r.alert_json, '$.attributes.created_at'))             AS alert_created_at,
                 TIMESTAMP(JSON_VALUE(r.alert_json, '$.attributes.updated_at'))             AS alert_updated_at,
+                -- Set once the MBTA closes the alert; it stays in the feed a few minutes after
+                TIMESTAMP(JSON_VALUE(r.alert_json, '$.attributes.closed_timestamp'))       AS alert_closed_at,
                 r.ingested_at
             FROM {{ source('bronze', 'mbta_alerts') }} AS r
             -- One row per distinct route among the alert's informed entities...

@@ -9,7 +9,7 @@ Cloud Run job that wrote this version (e.g. `ingest-mbta-alerts`).
 {% enddocs %}
 
 {% docs alert_closed_at %}
-When the MBTA closed (ended) the alert (UTC), from LAMP; NULL while open or never closed.
+When the MBTA closed (ended) the alert (UTC); NULL while open, never closed, or not seen closed.
 {% enddocs %}
 
 {% docs alert_id %}

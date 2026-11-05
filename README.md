@@ -39,7 +39,7 @@ Dark theme; official MBTA line colors for every line-level visual, a neutral vio
 
 **Ridership** — per-line tiles: the latest published month's average entries per day vs the same month a year earlier (each tile names its month); 24-month trend; ridership by alert effect (delay, suspension, shuttle) vs each line's calm days; day of week
 
-**The long view** — per-line tiles: the last 12 months' ridership as a share of 2019, the last full year before the pandemic; ridership every month since 2014 as a share of each line's 2019 average, with a few events marked; delays per year by how long they lasted; and hours of shuttle-bus service per year, by line (overlapping diversions count once). Yearly charts start with the first full year of alert history and show the year in progress dimmed.
+**The long view** — per-line tiles: the last 12 months' ridership as a share of 2019, the last full year before the pandemic; ridership since 2014 as average entries per day, each month plus a trailing 12-month average that evens out the seasons, with a few events marked; delays per year by how long they lasted; and hours of shuttle-bus service per year, by line (overlapping diversions count once). Yearly charts start with the first full year of alert history and show the year in progress dimmed.
 
 **Weather** — ridership on rainy, snowy, and unusually cold/warm days vs normal-weather days
 

@@ -1087,9 +1087,8 @@ DELAY_COLORS = ['#5348a8', '#7f74e0', '#b8b0f5']
 
 section(
     'The long view',
-    f"All history: ridership since {archive_year}, measured against each line's "
-    f'{BASELINE_YEAR} average, and disruption by year since {first_full_year}, the first full year of alert '
-    'history.',
+    f'All history: ridership since {archive_year}, with the last 12 months against {BASELINE_YEAR}, and '
+    f'disruption by year since {first_full_year}, the first full year of alert history.',
 )
 
 # ── Recovery tiles: the last 12 months against the baseline year ─────────────
@@ -1110,44 +1109,45 @@ if tiles:
     kpi_tiles(tiles)
     st.write('')
 
-# ── Ridership since the archive begins, as a share of the baseline year ───────
+# ── Ridership since the archive begins: each month and the 12-month trend ────
 with st.container(key='card_long_ridership'):
     card_title(f'Ridership since {archive_year}',
-               f'Average entries per day each month, as a share of the same month in {BASELINE_YEAR} '
-               f'(so {BASELINE_YEAR} itself is 100%)')
-    # Against the same calendar month, not the year's average, so the seasons
-    # (summer dips, holiday months) cancel out and the long trend shows
-    long_monthly = (full_months.groupby(['month', 'line_name'])['gated_entries'].mean()
-                    .rename('daily_avg').reset_index())
-    long_monthly['month_of_year'] = long_monthly['month'].dt.month
-    same_month = (long_monthly[long_monthly['month'].dt.year == BASELINE_YEAR]
-                  .set_index(['line_name', 'month_of_year'])['daily_avg'])
-    long_monthly['share'] = (long_monthly['daily_avg']
-                             / same_month.reindex(pd.MultiIndex.from_frame(
-                                 long_monthly[['line_name', 'month_of_year']])).to_numpy() * 100)
+               'Average entries per day: each month (faint) and the trailing 12 months (bold), which evens '
+               'out the seasons so the long trend shows')
+    long_monthly = (full_months.groupby(['line_name', 'month'])['gated_entries'].mean()
+                    .rename('daily_avg').reset_index().sort_values(['line_name', 'month']))
+    # Twelve consecutive whole months, so every point averages a full year of seasons
+    long_monthly['trend'] = (long_monthly.groupby('line_name')['daily_avg']
+                             .transform(lambda s: s.rolling(12, min_periods=12).mean()))
     long_monthly['month_start'] = long_monthly['month'].dt.start_time
-    long_monthly = long_monthly.dropna(subset=['share'])
 
     fig = go.Figure()
     ends = []
     for line in selected_lines:
-        m = long_monthly[long_monthly['line_name'] == line].sort_values('month_start')
+        m = long_monthly[long_monthly['line_name'] == line]
         if m.empty:
             continue
+        # The month itself, faint; it carries the hover, with the trend alongside
         fig.add_trace(go.Scatter(
-            x=m['month_start'], y=m['share'], name=line, mode='lines',
-            line=dict(color=LINE_COLORS[line], width=2),
-            customdata=m['daily_avg'],
-            hovertemplate=f'{line}: %{{y:.0f}}% · %{{customdata:,.0f}} per day<extra></extra>',
+            x=m['month_start'], y=m['daily_avg'], mode='lines', legendgroup=line, showlegend=False,
+            line=dict(color=LINE_COLORS[line], width=1), opacity=0.35,
+            customdata=m['trend'],
+            hovertemplate=f'{line}: %{{y:,.0f}} per day · 12-month avg %{{customdata:,.0f}}<extra></extra>',
         ))
-        ends.append((line, m.iloc[-1]))
-    # End dot on each line, and its name beside it, spaced so names never
+        trend = m.dropna(subset=['trend'])
+        fig.add_trace(go.Scatter(
+            x=trend['month_start'], y=trend['trend'], name=line, mode='lines', legendgroup=line,
+            line=dict(color=LINE_COLORS[line], width=2.5), hoverinfo='skip',
+        ))
+        if not trend.empty:
+            ends.append((line, trend.iloc[-1]))
+    # End dot on each trend line, and its name beside it, spaced so names never
     # overlap (identity is never color alone; values are in the hover)
-    span = max(125, long_monthly['share'].max() * 1.05)
-    label_y = spread_labels([last['share'] for _, last in ends], min_gap=span * 0.06)
+    top = long_monthly['daily_avg'].max()
+    label_y = spread_labels([last['trend'] for _, last in ends], min_gap=top * 0.06)
     for (line, last), y in zip(ends, label_y, strict=True):
         fig.add_trace(go.Scatter(
-            x=[last['month_start']], y=[last['share']], mode='markers',
+            x=[last['month_start']], y=[last['trend']], mode='markers',
             marker=dict(color=LINE_COLORS[line], size=9, line=dict(color=CARD, width=2)),
             showlegend=False, hoverinfo='skip', cliponaxis=False,
         ))
@@ -1157,11 +1157,7 @@ with st.container(key='card_long_ridership'):
     fig.update_layout(margin=dict(l=4, r=96, t=28, b=4), hovermode='x unified')
     fig.update_xaxes(tickformat='%Y', dtick='M24', gridcolor='rgba(0,0,0,0)', tickangle=0,
                      showspikes=True, spikemode='across', spikethickness=1, spikecolor=AXIS, spikedash='solid')
-    # The baseline is a labeled tick, not a label over the lines
-    ticks = list(range(0, int(span) + 1, 25))
-    fig.update_yaxes(range=[0, span], tickvals=ticks,
-                     ticktext=[f'{BASELINE_YEAR} · 100%' if t == 100 else f'{t}%' for t in ticks])
-    fig.add_hline(y=100, line=dict(color=AXIS, width=1))
+    count_axis(fig, top)
     # A few events that explain the shape, each a hairline with a label above the plot
     for when, label in [('2015-02-01', 'Record snow'), ('2020-03-01', 'COVID-19'),
                         ('2022-08-19', 'Orange Line shutdown')]:

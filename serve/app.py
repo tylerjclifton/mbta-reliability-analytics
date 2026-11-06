@@ -2,7 +2,7 @@
 Serve: MBTA Reliability & Ridership dashboard (Streamlit)
 
 Reads:      gold.rail_incidents, gold.rail_incident_stations, gold.rail_stations,
-            gold.rail_ridership (cached for 15 minutes)
+            gold.rail_shapes, gold.rail_ridership (cached for 15 minutes)
 Deployed:   Cloud Run service `serve` (infra/cloud-run-services.tf), public at
             tylerclifton.com
 
@@ -66,6 +66,7 @@ from pandas.tseries.holiday import USFederalHolidayCalendar
 from helpers import (
     TIMEZONE,
     active_at,
+    decode_polyline,
     effect_vs_calm,
     esc,
     fmt_count,
@@ -85,6 +86,7 @@ from helpers import (
 # ══════════════════════════════════════════════════════════════════════════════
 
 # Surfaces and ink (dark theme; page background is set in .streamlit/config.toml)
+PAGE   = '#0b0d10'   # page background
 CARD   = '#13161b'   # card surface
 BORDER = 'rgba(255,255,255,0.08)'
 INK    = '#f0efec'   # primary text
@@ -511,6 +513,16 @@ def load_stations():
 
 
 @st.cache_data(ttl=900, show_spinner=False)
+def load_shapes():
+    """gold.rail_shapes, one row per canonical shape × route, decoded: the map's lines."""
+    df = get_client().query(f"""
+        SELECT line_name, shape_id, shape_polyline
+        FROM `{PROJECT_ID}.{GOLD_DATASET}.rail_shapes`
+    """).to_dataframe()
+    return df.assign(points=df['shape_polyline'].map(decode_polyline))
+
+
+@st.cache_data(ttl=900, show_spinner=False)
 def load_ridership():
     """
     gold.rail_ridership, one row per service date × line, plus each day's
@@ -548,6 +560,7 @@ if 'loaded' not in st.session_state:
 incidents_all = load_incidents()
 incident_stations_all = load_incident_stations()
 stations_all = load_stations()
+shapes_all = load_shapes()
 ridership_all = load_ridership()
 loading.empty()
 st.session_state['loaded'] = True
@@ -610,6 +623,7 @@ selected_lines = st.pills(
 incidents = incidents_all[incidents_all['line_name'].isin(selected_lines)]
 incident_stations = incident_stations_all[incident_stations_all['line_name'].isin(selected_lines)]
 stations = stations_all[stations_all['line_name'].isin(selected_lines)]
+shapes = shapes_all[shapes_all['line_name'].isin(selected_lines)]
 ridership = ridership_all[ridership_all['line_name'].isin(selected_lines)]
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -720,24 +734,34 @@ active_hits = active_at(incident_stations, now)
 planned_hits = incident_stations[incident_stations['incident_start_at'].between(now, now + pd.Timedelta(days=30))]
 
 
-def station_map(backdrop, markers, height=560):
+def station_map(backdrop, shapes, markers, height=560):
     """
-    Every station as a dot in its line's color, on a soft light halo so official
-    Blue stays visible on the dark map. The base map has no place names: the
-    map names the transit system instead (MAP_LABELS), with affected stations
-    large, ringed, and always named.
+    The network as a transit map: each line drawn in its color, every station a
+    small light dot on it, and the base map dimmed with no place names. The map
+    names the system instead (MAP_LABELS), with affected stations large, ringed,
+    and always named. Map labels use Open Sans: they're drawn from the map's font
+    server, which doesn't have the page's font.
     """
     fig = go.Figure()
+    for line in LINES:
+        paths = shapes[shapes['line_name'] == line]['points']
+        if paths.empty:
+            continue
+        # One trace per line: a None between paths lifts the pen
+        lats = [lat for path in paths for lat in [point[0] for point in path] + [None]]
+        lons = [lon for path in paths for lon in [point[1] for point in path] + [None]]
+        # A soft light casing under the line, so official Blue stays visible on the dark map
+        fig.add_trace(go.Scattermap(lat=lats, lon=lons, mode='lines', opacity=0.25,
+                                    line=dict(color=INK, width=5), hoverinfo='skip'))
+        fig.add_trace(go.Scattermap(lat=lats, lon=lons, mode='lines',
+                                    line=dict(color=LINE_COLORS[line], width=3), hoverinfo='skip'))
+
     for line in LINES:
         bg = backdrop[backdrop['line_name'] == line]
         if len(bg):
             fig.add_trace(go.Scattermap(
                 lat=bg['station_latitude'], lon=bg['station_longitude'], mode='markers',
-                marker=dict(size=10, color=INK, opacity=0.28), hoverinfo='skip',
-            ))
-            fig.add_trace(go.Scattermap(
-                lat=bg['station_latitude'], lon=bg['station_longitude'], mode='markers',
-                marker=dict(size=7, color=LINE_COLORS[line], opacity=1),
+                marker=dict(size=5, color=INK, opacity=1),
                 hovertext=bg['station_name'] + ' · ' + line, hoverinfo='text',
             ))
 
@@ -753,7 +777,7 @@ def station_map(backdrop, markers, height=560):
             lat=group['station_latitude'], lon=group['station_longitude'], mode='markers+text',
             marker=dict(size=1, opacity=0),
             text=group['station_name'], textposition=position,
-            textfont=dict(color=INK_2, size=11, family=FONT), hoverinfo='skip',
+            textfont=dict(color=INK_2, size=11, family='Open Sans Regular'), hoverinfo='skip',
         ))
 
     for line in LINES:
@@ -763,13 +787,13 @@ def station_map(backdrop, markers, height=560):
             # with its name (Blue Line's color is low-contrast, so never color alone)
             fig.add_trace(go.Scattermap(
                 lat=hit['lat'], lon=hit['lon'], mode='markers',
-                marker=dict(size=24, color=LINE_COLORS[line], opacity=0.3), hoverinfo='skip',
+                marker=dict(size=18, color=LINE_COLORS[line], opacity=0.35), hoverinfo='skip',
             ))
             fig.add_trace(go.Scattermap(
                 lat=hit['lat'], lon=hit['lon'], mode='markers+text',
-                marker=dict(size=12, color=LINE_COLORS[line], opacity=1),
+                marker=dict(size=10, color=LINE_COLORS[line], opacity=1),
                 text=hit['station_name'], textposition='top right',
-                textfont=dict(color=INK, size=11, family=FONT),
+                textfont=dict(color=INK, size=11, family='Open Sans Bold'),
                 hovertext='<b>' + hit['station_name'] + '</b><br>' + hit['detail'], hoverinfo='text',
             ))
     fig.update_layout(
@@ -787,7 +811,13 @@ def station_map(backdrop, markers, height=560):
         # Wonderland. Map zoom levels use 512px tiles. On a phone the east and
         # west ends sit just off screen; drag or zoom out to see them. No town
         # names on the base map, so nothing outshines the stations.
-        map=dict(style='carto-darkmatter-nolabels', center=dict(lat=42.322, lon=-71.12), zoom=10.2),
+        map=dict(
+            style='carto-darkmatter-nolabels', center=dict(lat=42.322, lon=-71.12), zoom=10.2,
+            # A veil over the base map, under the data, so roads recede behind the lines
+            layers=[dict(sourcetype='geojson', type='fill', below='traces', color=PAGE, opacity=0.55, source=dict(
+                type='Feature', properties={}, geometry=dict(
+                    type='Polygon', coordinates=[[[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]]])))],
+        ),
     )
     return fig
 
@@ -814,7 +844,7 @@ with map_col:
              f"{n_incidents} incident{'s' if n_incidents != 1 else ''} · hover or tap a station for details")
             if n_stations else ('No planned work naming stations' if planned else 'No stations affected right now'),
         )
-        show(station_map(stations, markers), config=MAP_CONFIG)
+        show(station_map(stations, shapes, markers), config=MAP_CONFIG)
         st.markdown(
             '<div class="map-credit">Map data © <a href="https://www.openstreetmap.org/copyright">'
             'OpenStreetMap</a> contributors · © <a href="https://carto.com/attributions">CARTO</a></div>',
@@ -1357,7 +1387,7 @@ def band_summary(df, column, bins, labels, baseline):
 
 
 rain = band_summary(wx[wx['snowfall_in'].fillna(0) == 0], 'precipitation_in',
-                    [-0.01, 0, 0.1, 0.5, 100], ['Dry', 'Light', 'Moderate', 'Heavy'], baseline='Dry')
+                    [-0.01, 0, 0.1, 0.5, 100], ['None', '≤ 0.1″', '0.1–0.5″', '0.5″+'], baseline='None')
 winter = wx[wx['service_date'].dt.month.isin([12, 1, 2, 3])]
 snow = band_summary(winter, 'snowfall_in', [-0.01, 0, 1, 4, 100], ['None', '≤ 1″', '1–4″', '4″+'], baseline='None')
 temp = wx.assign(temp_vs_month=wx['avg_temperature_f'] - wx.groupby('month')['avg_temperature_f'].transform('mean'))
@@ -1376,20 +1406,20 @@ rain_col, snow_col, temp_col = st.columns(3, gap='medium')
 with rain_col:
     with st.container(key='card_rain'):
         card_title('Rain', 'By daily rainfall · snow days are in the Snow chart')
-        show(band_bars(rain, 'Dry', weather_range))
-        st.caption('Light ≤ 0.1″ · Moderate 0.1–0.5″ · Heavy > 0.5″')
+        show(band_bars(rain, 'None', weather_range))
+        st.caption('Inches of rain, as liquid')
 
 with snow_col:
     with st.container(key='card_snow'):
         card_title('Snow', 'By daily snowfall · December–March')
         show(band_bars(snow, 'None', weather_range))
-        st.caption('Depth of new snow, before melting')
+        st.caption('Inches of new snow, before melting')
 
 with temp_col:
     with st.container(key='card_temp'):
         card_title('Temperature', "By degrees above or below the month's average")
         show(band_bars(temps, '± 5°', weather_range))
-        st.caption('Daily mean temperature, (high + low) / 2, in °F')
+        st.caption('Degrees °F, on the daily mean: (high + low) / 2')
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 8. Footer

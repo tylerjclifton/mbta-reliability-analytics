@@ -1,7 +1,8 @@
 """
 Pure helpers for the dashboard — formatting, data freshness, incident shaping
 (which are active, one row per incident, hours covered per year), the
-ridership-vs-calm-days comparison, and chart label spacing.
+ridership-vs-calm-days comparison, chart label spacing, and decoding the map's
+line shapes.
 
 Kept out of app.py (which starts Streamlit when imported) so they can be unit
 tested; see serve/tests/test_helpers.py.
@@ -144,6 +145,27 @@ def active_at(df, now):
     """Rows whose incident is in effect at `now`: started, and not yet ended (NULL end = ongoing)."""
     return df[(df['incident_start_at'] <= now)
               & (df['incident_end_at'].isna() | (df['incident_end_at'] >= now))]
+
+
+def decode_polyline(encoded):
+    """
+    Google's encoded polyline format → [(lat, lon), ...], at its 5 decimal
+    places. Each value is a variable-length delta from the point before it.
+    """
+    points, values, index = [], [0, 0], 0
+    while index < len(encoded):
+        for axis in range(2):
+            shift, chunk = 0, 0
+            while True:
+                byte = ord(encoded[index]) - 63
+                index += 1
+                chunk |= (byte & 0x1f) << shift
+                shift += 5
+                if byte < 0x20:
+                    break
+            values[axis] += ~(chunk >> 1) if chunk & 1 else chunk >> 1
+        points.append((values[0] / 1e5, values[1] / 1e5))
+    return points
 
 
 def spread_labels(positions, min_gap):

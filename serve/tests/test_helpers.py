@@ -1,7 +1,7 @@
 """
 Tests for serve/helpers.py — dashboard formatting, data freshness, incident
-shaping, the ridership-vs-calm-days comparison, hours covered per year, and
-chart label spacing.
+shaping, the ridership-vs-calm-days comparison, hours covered per year, chart
+label spacing, and decoding the map's line shapes.
 """
 
 # Import third party libraries
@@ -11,6 +11,7 @@ import pytest
 # Import the helpers under test
 from helpers import (
     active_at,
+    decode_polyline,
     effect_vs_calm,
     fmt_count,
     fmt_duration,
@@ -193,6 +194,14 @@ def test_hours_by_year_ends_ongoing_spans_now_and_skips_future_ones():
         span('Red Line', '2026-07-01 09:00', '2026-07-01 17:00'),       # planned
     ])
     assert hours_by_year(spans, NOW)['hours'].tolist() == [2.0]
+
+
+def test_decode_polyline_matches_googles_published_example():
+    assert decode_polyline('_p~iF~ps|U_ulLnnqC_mqNvxq`@') == [(38.5, -120.2), (40.7, -120.95), (43.252, -126.453)]
+
+
+def test_decode_polyline_handles_an_empty_path():
+    assert decode_polyline('') == []
 
 
 def test_spread_labels_keeps_order_and_minimum_gap():

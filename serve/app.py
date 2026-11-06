@@ -122,6 +122,22 @@ LABEL_GAP = '\u2003'
 # Thickness of a ranked chart's bars, in pixels
 BAR_PX = 22
 
+# Who built this, linked from the header and footer
+AUTHOR = 'Tyler Clifton'
+GITHUB_URL = 'https://github.com/tylerjclifton'
+REPO_URL = f'{GITHUB_URL}/mbta-reliability-analytics'
+
+# Stations the map always names, to orient the reader: each line's ends and the
+# main hubs. Value = where the name sits relative to its dot.
+MAP_LABELS = {
+    'Alewife': 'middle left', 'Medford/Tufts': 'top center', 'Union Square': 'middle left',
+    'Oak Grove': 'top center', 'Wonderland': 'middle right', 'Riverside': 'middle left',
+    'Boston College': 'top left', 'Cleveland Circle': 'bottom center', 'Heath Street': 'bottom left',
+    'Forest Hills': 'bottom center', 'Ashmont': 'middle left', 'Braintree': 'bottom center',
+    'Harvard': 'top left', 'Kenmore': 'top left', 'Park Street': 'middle left', 'North Station': 'top right',
+    'South Station': 'middle right', 'JFK/UMass': 'middle right',
+}
+
 # Charts are read-only: no toolbar, zoom, or pan (they fight page scrolling on mobile)
 CHART_CONFIG = {'displayModeBar': False, 'scrollZoom': False, 'doubleClick': False}
 
@@ -158,6 +174,7 @@ html, body, .stMarkdown, .stMarkdown *, .stCaption *, .st-key-line_filter button
 .hero p  {{ color: {INK_2}; font-size: 1.05rem; margin: 0 0 1rem; max-width: 54rem; }}
 .status  {{ display: inline-flex; flex-wrap: wrap; gap: 0.35rem 1rem; color: {MUTED};
             font-size: 0.8rem; margin-bottom: 1.25rem; }}
+.status a, .footer a {{ color: {INK_2}; text-decoration: underline; text-underline-offset: 2px; }}
 /* Alerts status dot, colored by freshness() — late and stale also say so in text */
 .status .dot::before {{ content: ""; display: inline-block; width: 7px; height: 7px;
             border-radius: 50%; margin-right: 0.4rem; vertical-align: 1px; }}
@@ -407,10 +424,11 @@ def share_bars(counts, colors=ACCENT, height=None):
     )
 
 
-def band_bars(df, baseline, height=260):
+def band_bars(df, baseline, y_range, height=260):
     """
     Weather-band bars: each band vs the `baseline` band (drawn at zero), signed
-    label on each bar. Expects columns band, pct, days.
+    label on each bar. Expects columns band, pct, days. `y_range` is passed in
+    so charts side by side can share one scale.
     """
     fig = go.Figure(go.Bar(
         x=df['band'].astype(str), y=df['pct'],
@@ -425,8 +443,7 @@ def band_bars(df, baseline, height=260):
         hoverinfo='text',
     ))
     style(fig, height=height)
-    span = max(abs(df['pct']).max(), 2) * 1.35
-    fig.update_yaxes(range=[-span, span], ticksuffix='%', zeroline=True, zerolinecolor=AXIS, zerolinewidth=1)
+    fig.update_yaxes(range=y_range, ticksuffix='%', zeroline=True, zerolinecolor=AXIS, zerolinewidth=1)
     fig.update_xaxes(tickfont=dict(color=INK_2, size=11))
     return fig
 
@@ -579,6 +596,8 @@ st.markdown(f"""
   <div class="status">
     <span class="dot {alerts_freshness}">{alerts_status}</span>
     <span>Ridership through {ridership_through.strftime("%b %-d, %Y")}</span>
+    <span>Built by <a href="{GITHUB_URL}" target="_blank" rel="noopener">{AUTHOR}</a> ·
+      <a href="{REPO_URL}" target="_blank" rel="noopener">Source on GitHub</a></span>
   </div>
 </div>
 """, unsafe_allow_html=True)
@@ -702,28 +721,53 @@ planned_hits = incident_stations[incident_stations['incident_start_at'].between(
 
 
 def station_map(backdrop, markers, height=560):
-    """Every station as a faint dot in its line's color; affected stations large, ringed, and labeled."""
+    """
+    Every station as a dot in its line's color, on a soft light halo so official
+    Blue stays visible on the dark map. The base map has no place names: the
+    map names the transit system instead (MAP_LABELS), with affected stations
+    large, ringed, and always named.
+    """
     fig = go.Figure()
     for line in LINES:
         bg = backdrop[backdrop['line_name'] == line]
-        hit = markers[markers['line_name'] == line]
-        color = LINE_COLORS[line]
         if len(bg):
             fig.add_trace(go.Scattermap(
                 lat=bg['station_latitude'], lon=bg['station_longitude'], mode='markers',
-                marker=dict(size=6, color=color, opacity=0.45),
+                marker=dict(size=10, color=INK, opacity=0.28), hoverinfo='skip',
+            ))
+            fig.add_trace(go.Scattermap(
+                lat=bg['station_latitude'], lon=bg['station_longitude'], mode='markers',
+                marker=dict(size=7, color=LINE_COLORS[line], opacity=1),
                 hovertext=bg['station_name'] + ' · ' + line, hoverinfo='text',
             ))
+
+    # Orienting names, grouped by position (a trace takes only one). Drawn before
+    # the affected stations: where labels overlap, the map keeps the last drawn,
+    # and an affected station's name must always win. An invisible marker,
+    # because a text-only trace doesn't draw on this map type.
+    named = backdrop[backdrop['station_name'].isin(set(MAP_LABELS) - set(markers['station_name']))]
+    named = named.drop_duplicates('station_name')
+    named = named.assign(position=named['station_name'].map(MAP_LABELS))
+    for position, group in named.groupby('position'):
+        fig.add_trace(go.Scattermap(
+            lat=group['station_latitude'], lon=group['station_longitude'], mode='markers+text',
+            marker=dict(size=1, opacity=0),
+            text=group['station_name'], textposition=position,
+            textfont=dict(color=INK_2, size=11, family=FONT), hoverinfo='skip',
+        ))
+
+    for line in LINES:
+        hit = markers[markers['line_name'] == line]
         if len(hit):
             # A soft ring under each affected station, then the station itself
             # with its name (Blue Line's color is low-contrast, so never color alone)
             fig.add_trace(go.Scattermap(
                 lat=hit['lat'], lon=hit['lon'], mode='markers',
-                marker=dict(size=24, color=color, opacity=0.3), hoverinfo='skip',
+                marker=dict(size=24, color=LINE_COLORS[line], opacity=0.3), hoverinfo='skip',
             ))
             fig.add_trace(go.Scattermap(
                 lat=hit['lat'], lon=hit['lon'], mode='markers+text',
-                marker=dict(size=12, color=color, opacity=1),
+                marker=dict(size=12, color=LINE_COLORS[line], opacity=1),
                 text=hit['station_name'], textposition='top right',
                 textfont=dict(color=INK, size=11, family=FONT),
                 hovertext='<b>' + hit['station_name'] + '</b><br>' + hit['detail'], hoverinfo='text',
@@ -741,8 +785,9 @@ def station_map(backdrop, markers, height=560):
         # The middle of the system, zoomed so the whole network fits the map's
         # height: Braintree (42.21°N) to Oak Grove (42.44°N), Riverside to
         # Wonderland. Map zoom levels use 512px tiles. On a phone the east and
-        # west ends sit just off screen; drag or zoom out to see them.
-        map=dict(style='carto-darkmatter', center=dict(lat=42.322, lon=-71.12), zoom=10.1),
+        # west ends sit just off screen; drag or zoom out to see them. No town
+        # names on the base map, so nothing outshines the stations.
+        map=dict(style='carto-darkmatter-nolabels', center=dict(lat=42.322, lon=-71.12), zoom=10.2),
     )
     return fig
 
@@ -786,7 +831,7 @@ with rank_col:
                | (incident_stations['incident_end_at'] >= stations_window_start))
         ]
         ranked = (window_hits.groupby('station_name')['incident_id'].nunique()
-                  .sort_values(ascending=False).head(10))
+                  .sort_values(ascending=False).head(15))
         card_title('Most affected stations', f'{stations_window_label} · incidents naming each station')
         if ranked.empty:
             st.markdown('<div class="empty">No station-level incidents yet on the selected lines.</div>',
@@ -1283,8 +1328,8 @@ with dow_col:
 
 section(
     'Weather',
-    f"Every day since {ridership_all['service_date'].min():%b %Y}, since big storms are rare: the median day in "
-    'each band vs normal-weather days.',
+    f"Every day since {ridership_all['service_date'].min():%b %Y}, as big storms are rare: each band's median day "
+    'vs normal-weather days, on one scale.',
 )
 
 wx = ordinary_days.dropna(subset=['avg_temperature_f'])
@@ -1311,33 +1356,39 @@ def band_summary(df, column, bins, labels, baseline):
     return summary
 
 
+rain = band_summary(wx[wx['snowfall_in'].fillna(0) == 0], 'precipitation_in',
+                    [-0.01, 0, 0.1, 0.5, 100], ['Dry', 'Light', 'Moderate', 'Heavy'], baseline='Dry')
+winter = wx[wx['service_date'].dt.month.isin([12, 1, 2, 3])]
+snow = band_summary(winter, 'snowfall_in', [-0.01, 0, 1, 4, 100], ['None', '≤ 1″', '1–4″', '4″+'], baseline='None')
+temp = wx.assign(temp_vs_month=wx['avg_temperature_f'] - wx.groupby('month')['avg_temperature_f'].transform('mean'))
+temps = band_summary(temp, 'temp_vs_month', [-100, -10, -5, 5, 10, 100],
+                     ['≤ −10°', '−10 to −5°', '± 5°', '+5 to +10°', '≥ +10°'], baseline='± 5°')
+
+# One scale across all three, so bar heights compare honestly: a big snowstorm
+# really does move ridership far more than rain or temperature. Room past each
+# end for the value labels.
+all_pct = pd.concat([rain['pct'], snow['pct'], temps['pct']])
+low, high = min(all_pct.min(), -2), max(all_pct.max(), 0)
+weather_range = [low * 1.25, high + abs(low) * 0.2]
+
 rain_col, snow_col, temp_col = st.columns(3, gap='medium')
 
 with rain_col:
     with st.container(key='card_rain'):
         card_title('Rain', 'By daily rainfall · snow days are in the Snow chart')
-        rain = band_summary(wx[wx['snowfall_in'].fillna(0) == 0], 'precipitation_in',
-                            [-0.01, 0, 0.1, 0.5, 100], ['Dry', 'Light', 'Moderate', 'Heavy'], baseline='Dry')
-        show(band_bars(rain, baseline='Dry'))
+        show(band_bars(rain, 'Dry', weather_range))
         st.caption('Light ≤ 0.1″ · Moderate 0.1–0.5″ · Heavy > 0.5″')
 
 with snow_col:
     with st.container(key='card_snow'):
         card_title('Snow', 'By daily snowfall · December–March')
-        winter = wx[wx['service_date'].dt.month.isin([12, 1, 2, 3])]
-        snow = band_summary(winter, 'snowfall_in', [-0.01, 0, 1, 4, 100], ['None', '≤ 1″', '1–4″', '4″+'],
-                            baseline='None')
-        show(band_bars(snow, baseline='None'))
+        show(band_bars(snow, 'None', weather_range))
         st.caption('Depth of new snow, before melting')
 
 with temp_col:
     with st.container(key='card_temp'):
         card_title('Temperature', "By degrees above or below the month's average")
-        temp = wx.assign(temp_vs_month=wx['avg_temperature_f']
-                         - wx.groupby('month')['avg_temperature_f'].transform('mean'))
-        temps = band_summary(temp, 'temp_vs_month', [-100, -10, -5, 5, 10, 100],
-                             ['≤ −10°', '−10 to −5°', '± 5°', '+5 to +10°', '≥ +10°'], baseline='± 5°')
-        show(band_bars(temps, baseline='± 5°'))
+        show(band_bars(temps, '± 5°', weather_range))
         st.caption('Daily mean temperature, (high + low) / 2, in °F')
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1346,6 +1397,10 @@ with temp_col:
 
 st.markdown(f"""
 <div class="footer">
+  <b>Built by</b> · <a href="{GITHUB_URL}" target="_blank" rel="noopener">{AUTHOR}</a> ·
+  <a href="{REPO_URL}" target="_blank" rel="noopener">Source code, decision records, and runbook on GitHub</a><br>
+  <b>Stack</b> · Python ingest jobs on Cloud Run · BigQuery (bronze, silver, gold) · dbt Core · Terraform ·
+  GitHub Actions · Streamlit<br>
   <b>Sources</b> · MBTA V3 API (alerts since Oct 2026, routes, stops) · MBTA LAMP archive (earlier alerts, from
   Sep 2019) · MBTA Gated Station Entries (ArcGIS Open Data, with its yearly archive from 2014) · NOAA GHCN-Daily,
   Boston Logan (USW00014739)<br>

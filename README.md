@@ -42,11 +42,11 @@ The dbt transform runs hourly at :35.
 
 ## Dashboard
 
-Dark theme; official MBTA line colors for every line-level visual, a neutral violet for everything else. Every line-colored mark also carries a text label.
+Dark theme; official MBTA line colors for every line-level visual, a neutral violet for everything else. Every line-colored mark also carries a text label. The header and footer credit the author and link to this repo.
 
 **Service status** — KPIs (active now, planned in 30 days, last 30 days vs prior, median duration); incidents happening now and planned work coming up, one card per incident
 
-**Stations affected** — a map of the whole network showing the stations hit right now or by planned work in the next 30 days (ringed and labeled, with each incident on hover; + / − / reset buttons to zoom, drag to pan, while the scroll wheel still scrolls the page; the OpenStreetMap/CARTO credit sits under the map), and the most-affected stations over the trailing 12 months
+**Stations affected** — a map of the whole network, on a base map without place names so the stations stand out (line ends and main hubs are named), showing the stations hit right now or by planned work in the next 30 days (ringed and labeled, with each incident on hover; + / − / reset buttons to zoom, drag to pan, while the scroll wheel still scrolls the page; the OpenStreetMap/CARTO credit sits under the map), and the most-affected stations over the trailing 12 months
 
 **Incident patterns** — incidents per week, by line, by cause and effect, median duration by cause, cause mix by line (heatmap)
 
@@ -54,7 +54,7 @@ Dark theme; official MBTA line colors for every line-level visual, a neutral vio
 
 **Ridership** — per-line tiles: the latest published month's average entries per day vs the same month a year earlier and in 2019, the last full year before the pandemic (each tile names its month); monthly ridership, switchable between the last 2 years and all history since 2014 (each month plus a trailing 12-month average that evens out the seasons, with a few events marked); ridership by alert effect (delay, suspension, shuttle) vs each line's calm days; day of week
 
-**Weather** — ridership on rainy, snowy, and unusually cold/warm days vs normal-weather days
+**Weather** — ridership on rainy, snowy, and unusually cold/warm days vs normal-weather days, all on one scale
 
 Time windows: every section covers the trailing 12 months, except the ridership tiles (the latest published month), monthly ridership (2 years, for year-over-year, or all history), disruption by year (every full year of alert history), and weather (all history — storms are rare).
 

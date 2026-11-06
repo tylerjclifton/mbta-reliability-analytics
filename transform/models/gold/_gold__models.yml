@@ -121,6 +121,30 @@ models:
       - name: ingested_at
         description: "{{ doc('ingested_at') }}"
 
+  - name: rail_shapes
+    description: >
+      One row per canonical shape × route: the official path of each rail route
+      and the line it belongs to, for drawing the lines on the map.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [shape_id, route_id]
+    columns:
+      - name: shape_id
+        description: "{{ doc('shape_id') }}"
+        data_tests: [not_null]
+      - name: route_id
+        description: "{{ doc('route_id') }}"
+        data_tests: [not_null]
+      - name: line_name
+        description: "{{ doc('line_name') }}"
+        data_tests: [not_null]
+      - name: shape_polyline
+        description: "{{ doc('shape_polyline') }}"
+        data_tests: [not_null]
+      - name: ingested_at
+        description: "{{ doc('ingested_at') }}"
+
   - name: rail_stations
     description: >
       One row per station × line: every rail station's name and coordinates,

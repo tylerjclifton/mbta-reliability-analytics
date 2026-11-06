@@ -24,6 +24,14 @@ MBTA route ID: `Red`, `Orange`, `Blue`, or a Green Line branch (`Green-B` … `G
 MBTA station ID (e.g. `place-pktrm`, Park Street). Alerts name platforms; they roll up to this station. See silver.mbta_stops__base.
 {% enddocs %}
 
+{% docs shape_id %}
+GTFS shape ID: one path a route's trains follow. A `canonical-` prefix marks the route's official paths.
+{% enddocs %}
+
+{% docs shape_polyline %}
+The path, in Google's encoded polyline format.
+{% enddocs %}
+
 {% docs line_name %}
 Rail line: `Red Line`, `Orange Line`, `Blue Line`, or `Green Line` (all branches). Ridership is reported at this level.
 {% enddocs %}

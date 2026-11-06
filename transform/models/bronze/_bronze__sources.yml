@@ -50,6 +50,17 @@ sources:
             warn_after: {count: 1, period: hour}
             error_after: {count: 3, period: hour}
 
+      - name: mbta_shapes
+        description: >
+          Snapshots of the MBTA shapes API: the path of each rail route's
+          canonical patterns and their variants, as encoded polylines.
+          Grain: shape × route × ingest run.
+        config:
+          freshness:
+            # Weekly job
+            warn_after: {count: 8, period: day}
+            error_after: {count: 15, period: day}
+
       - name: mbta_stops
         description: >
           Snapshots of the MBTA stops API: each rail route's stations plus the

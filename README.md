@@ -118,6 +118,7 @@ Silver models are named `<bronze table>__<step>`. `__base` is each source's clea
 | `mbta_alerts__by_station` | alert × route × station | Which stations each alert affects, and in which direction |
 | `mbta_routes__base` | route | Each rail route and the line it belongs to |
 | `mbta_stops__base` | stop × route | Every station and platform, mapped to its station, with coordinates |
+| `mbta_shapes__base` | shape × route | The path of each rail route's patterns, from the latest snapshot only |
 | `mbta_ridership__base` | service date × line | The latest published entries, so MBTA revisions win |
 | `noaa_weather__base` | observation date | Weather in °F and inches, failed quality checks removed, latest value |
 
@@ -126,6 +127,7 @@ Silver models are named `<bronze table>__<step>`. `__base` is each source's clea
 | `rail_incidents` | incident × route | One row per real-world event — the MBTA's re-posted/follow-up alerts collapsed (dashboard reads this), with how many stations it names |
 | `rail_incident_stations` | incident × route × station | The stations each incident names, with coordinates and direction, for the map |
 | `rail_stations` | station × line | Every rail station's coordinates, the map's backdrop |
+| `rail_shapes` | shape × route | Each rail route's official path, for drawing the lines on the map |
 | `rail_ridership` | service date × line | Gated entries, active incident count, the day's most severe alert effect, whether it was a calm day, and weather |
 
 **`silver.mbta_alerts__by_route`, `silver.mbta_alerts__base`, and `silver.lamp_alerts__base` are tables, not views.** Everything else in silver is a view, recomputed every run ([0010](docs/decisions/0010-silver-naming-and-materialization.md)). Alert snapshots add ~15 GB/year to bronze (the whole feed, every mode; [0011](docs/decisions/0011-capture-every-mode.md)), and a view would re-read all of it for every model and test that uses alerts (~9× per transform), outgrowing the free query tier within a year. The two snapshot tables read only snapshots added since the last run, and the LAMP table reads bronze only after a new load, so cost stays flat; `dbt build --full-refresh` rebuilds them from bronze.
@@ -269,7 +271,7 @@ transform/              dbt Core project
   run.py                Job entrypoint: dbt build + freshness, failure reports
   models/bronze/        Source declarations + freshness thresholds
   models/silver/        __base cleaned copies + steps + data tests; unit tests for the alert rules
-  models/gold/          Dashboard tables (rail_incidents, rail_incident_stations, rail_stations, rail_ridership) + tests
+  models/gold/          Dashboard tables (rail_incidents, rail_incident_stations, rail_stations, rail_shapes, rail_ridership) + tests
   macros/               keep_latest_version, last_processed_snapshot, null_if_epoch, null_if_failed_ghcn_qc
   tests/generic/        unique_combination, accepted_range
 serve/                  Streamlit dashboard (app.py; pure helpers in helpers.py, tested in tests/)

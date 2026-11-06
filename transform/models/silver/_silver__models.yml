@@ -110,6 +110,38 @@ models:
       - name: ingested_by
         description: "{{ doc('ingested_by') }}"
 
+  - name: mbta_shapes__base
+    description: >
+      One row per shape × route in the latest snapshot: the path each rail route
+      follows, as an encoded polyline. Only the latest run, so retired shapes
+      drop off (see model header).
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [shape_id, route_id]
+    columns:
+      - name: shape_id
+        description: "{{ doc('shape_id') }}"
+        data_tests: [not_null]
+      - name: route_id
+        description: "{{ doc('route_id') }}"
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('mbta_routes__base')
+                field: route_id
+      - name: shape_polyline
+        description: "{{ doc('shape_polyline') }}"
+        data_tests: [not_null]
+      - name: is_canonical
+        description: True for the route's official paths; false for their variants.
+        data_tests: [not_null]
+      - name: ingested_at
+        description: "{{ doc('ingested_at') }}"
+      - name: ingested_by
+        description: "{{ doc('ingested_by') }}"
+
   - name: mbta_stops__base
     description: >
       One row per stop × route: every rail station and the stops inside it

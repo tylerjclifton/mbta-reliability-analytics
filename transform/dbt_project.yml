@@ -36,6 +36,8 @@ vars:
   non_service_alert_effects:
     - NOTICE
     - STATION_ISSUE
+    - ACCESS_ISSUE
+    - FACILITY_ISSUE
     - ESCALATOR_CLOSURE
     - ELEVATOR_CLOSURE
     - PARKING_CLOSURE

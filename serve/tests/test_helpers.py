@@ -47,6 +47,11 @@ def test_fmt_pct_uses_a_true_minus_sign():
     assert fmt_pct(2.1) == '+2.1%'
 
 
+def test_fmt_pct_shows_zero_unsigned():
+    assert fmt_pct(0) == '0.0%'
+    assert fmt_pct(-0.04) == '0.0%'
+
+
 @pytest.mark.parametrize('age_hours, expected', [
     (0.5, 'fresh'),
     (2, 'fresh'),    # boundary: a missed run or two is still on time

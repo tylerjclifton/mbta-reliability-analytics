@@ -34,6 +34,12 @@ against, so one shutdown or months-long incident can't skew them).
 Comparisons are like-for-like: same line, same month, weekday-adjusted, with
 federal holidays left out.
 
+Copy and numbers: section intros are one sentence or two; card subtitles are
+fragments joined by " · ", with no closing period; method detail lives in the
+footer. Counts take thousands separators, and K from 10,000 up (an axis uses K
+throughout once its top tick reaches that). Shares are whole percents, changes
+take one decimal. Partial periods are dimmed.
+
 Counting unit is the incident (gold.rail_incidents): one real-world event the
 MBTA may have posted as several alerts.
 
@@ -113,6 +119,9 @@ WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 
 # Space between a mark and its value label (an em space), so labels never touch bars or dots
 LABEL_GAP = '\u2003'
 
+# Thickness of a ranked chart's bars, in pixels
+BAR_PX = 22
+
 # Charts are read-only: no toolbar, zoom, or pan (they fight page scrolling on mobile)
 CHART_CONFIG = {'displayModeBar': False, 'scrollZoom': False, 'doubleClick': False}
 
@@ -166,6 +175,16 @@ div[class*="st-key-card_"] {{ background: {CARD}; border: 1px solid {BORDER}; bo
             padding: 1.15rem 1.25rem 0.75rem; }}
 .card-title {{ font-size: 1rem; font-weight: 600; color: {INK}; margin: 0; }}
 .card-sub   {{ font-size: 0.82rem; color: {MUTED}; margin: 0.15rem 0 0.5rem; }}
+
+/* Cards side by side share one height, so every row has one bottom edge */
+[data-testid="stColumn"] > [data-testid="stVerticalBlock"] {{ height: 100%; }}
+[data-testid="stColumn"] [data-testid="stLayoutWrapper"]:has(> div[class*="st-key-card_"]) {{ flex: 1 1 auto; }}
+
+/* Toggles and filters: the selected option is the strongest thing in the group */
+button[data-variant="segmented_control"][data-selected="true"] p,
+button[data-variant="pills"][data-selected="true"] p {{ color: {INK}; font-weight: 600; }}
+button[data-variant="segmented_control"]:not([data-selected="true"]) p,
+button[data-variant="pills"]:not([data-selected="true"]) p {{ color: {MUTED}; }}
 
 /* KPI tiles */
 .kpis {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 1rem; }}
@@ -226,7 +245,9 @@ div[class*="st-key-card_"] {{ background: {CARD}; border: 1px solid {BORDER}; bo
   .hero h1 {{ font-size: 1.9rem; }}
   .section {{ margin-top: 2.5rem; }}
   .kpis {{ grid-template-columns: repeat(2, 1fr); }}
+  .kpi {{ padding: 0.85rem 0.9rem; }}
   .kpi .value {{ font-size: 1.5rem; }}
+  .kpi .label, .kpi .sub {{ font-size: 0.74rem; }}
 }}
 </style>
 """, unsafe_allow_html=True)
@@ -315,13 +336,17 @@ def style(fig, height=300, legend=False):
 
 
 def count_axis(fig, top, axis='y'):
-    """Label a count axis like the KPI tiles (126K, 3.2M) with ~4 round ticks from 0 to `top`."""
+    """
+    Label a count axis like the KPI tiles (126K, 3.2M) with ~4 round ticks from
+    0 to `top`. One unit per axis: never 5,000 beside 10K.
+    """
     raw = max(top, 1) / 4
     magnitude = 10 ** np.floor(np.log10(raw))
     step = next(m * magnitude for m in (1, 2, 2.5, 5, 10) if m * magnitude >= raw)
     ticks = np.arange(0, top + step, step)
-    getattr(fig, f'update_{axis}axes')(tickvals=ticks, ticktext=[fmt_count(t) for t in ticks],
-                                       range=[0, ticks[-1] * 1.04])
+    in_thousands = 10_000 <= ticks[-1] < 1_000_000
+    labels = [f'{t / 1_000:g}K' if in_thousands and t else fmt_count(t) for t in ticks]
+    getattr(fig, f'update_{axis}axes')(tickvals=ticks, ticktext=labels, range=[0, ticks[-1] * 1.04])
 
 
 def show(fig, config=CHART_CONFIG):
@@ -348,15 +373,20 @@ def label_line_ends(fig, ends, top):
 
 
 def ranked_bars(labels, values, text, hover, colors=ACCENT, height=None):
-    """Horizontal bars, largest on top, value label at each bar's tip."""
+    """
+    Horizontal bars, largest on top, value label at each bar's tip. Bars are
+    BAR_PX thick however tall the chart is, so ranked charts match across cards.
+    """
     fig = go.Figure(go.Bar(
         x=values, y=labels, orientation='h',
         marker=dict(color=colors, cornerradius=4),
-        text=[LABEL_GAP + t for t in text], textposition='outside',
+        text=[LABEL_GAP + t for t in text], textposition='outside', constraintext='none',
         textfont=dict(color=INK_2, size=11), cliponaxis=False,
         hovertext=hover, hoverinfo='text',
     ))
-    style(fig, height=height or max(180, 34 * len(labels) + 30))
+    height = height or max(180, 34 * len(labels) + 30)
+    style(fig, height=height)
+    fig.update_layout(bargap=max(0.35, 1 - BAR_PX / ((height - 30) / max(len(labels), 1))))
     fig.update_yaxes(autorange='reversed', gridcolor='rgba(0,0,0,0)', tickfont=dict(color=INK_2, size=12))
     # Value labels render into a fixed right margin (not a share of the axis),
     # so the longest label fits at every screen width
@@ -370,24 +400,26 @@ def share_bars(counts, colors=ACCENT, height=None):
     share = counts / max(counts.sum(), 1) * 100
     return ranked_bars(
         labels=list(counts.index), values=list(counts.values),
-        text=[f'{n:.0f}  ·  {s:.0f}%' for n, s in zip(counts.values, share.values, strict=True)],
-        hover=[f'{label}: {n:.0f} incidents ({s:.0f}%)'
+        text=[f'{n:,.0f}  ·  {s:.0f}%' for n, s in zip(counts.values, share.values, strict=True)],
+        hover=[f'{label}: {n:,.0f} incidents ({s:.0f}%)'
                for label, n, s in zip(counts.index, counts.values, share.values, strict=True)],
         colors=colors, height=height,
     )
 
 
-def band_bars(df, height=260):
+def band_bars(df, baseline, height=260):
     """
-    Weather-band bars: each band vs the normal-conditions band (drawn at zero),
-    signed label on each bar. Expects columns band, pct, days.
+    Weather-band bars: each band vs the `baseline` band (drawn at zero), signed
+    label on each bar. Expects columns band, pct, days.
     """
     fig = go.Figure(go.Bar(
         x=df['band'].astype(str), y=df['pct'],
         marker=dict(color=ACCENT, cornerradius=4),
-        # The baseline band is zero by definition; label it as such
-        text=['baseline' if abs(v) < 1e-9 else fmt_pct(v) for v in df['pct']], textposition='outside',
-        cliponaxis=False, textfont=dict(color=INK_2, size=11),
+        # The baseline band is zero by definition; label it as such. Any other
+        # band can land on exactly zero too (medians often do), and shows it.
+        text=['baseline' if band == baseline else fmt_pct(pct)
+              for band, pct in zip(df['band'], df['pct'], strict=True)],
+        textposition='outside', constraintext='none', cliponaxis=False, textfont=dict(color=INK_2, size=11),
         hovertext=[f'{band}<br>{fmt_pct(pct)} vs normal days · {days} days'
                    for band, pct, days in zip(df['band'], df['pct'], df['days'], strict=True)],
         hoverinfo='text',
@@ -586,7 +618,7 @@ if len(prior_30):
     change = (len(last_30) / len(prior_30) - 1) * 100
     css = 'delta-up' if change <= 0 else 'delta-down'
     arrow = '▼' if change <= 0 else '▲'
-    trend = f'<span class="{css}">{arrow} {abs(change):.0f}%</span> vs prior 30 days'
+    trend = f'<span class="{css}">{arrow} {abs(change):.1f}%</span> vs prior 30 days'
 else:
     trend = 'first 30 days of tracking'
 
@@ -623,9 +655,9 @@ with next_col:
         card_title('Coming up', f'{len(upcoming)} planned by the MBTA')
         incident_list(
             upcoming,
-            lambda r: (f"Starts {fmt_day(r['incident_start_at'])}"
-                       + (f" · until {fmt_day(r['incident_end_at'])}" if pd.notna(r['incident_end_at']) else '')
-                       + f" · {fmt_duration(r['incident_duration_minutes'])}"),
+            lambda r: (f"Starts {fmt_day(r['incident_start_at'])} · "
+                       + (f"until {fmt_day(r['incident_end_at'])} · {fmt_duration(r['incident_duration_minutes'])}"
+                          if pd.notna(r['incident_end_at']) else 'no end time posted')),
             'No planned work announced.',
         )
 
@@ -734,7 +766,7 @@ with map_col:
         card_title(
             'Planned work, next 30 days' if planned else 'Affected right now',
             (f"{n_stations} station{'s' if n_stations != 1 else ''} · "
-             f"{n_incidents} incident{'s' if n_incidents != 1 else ''} · hover a station for details")
+             f"{n_incidents} incident{'s' if n_incidents != 1 else ''} · hover or tap a station for details")
             if n_stations else ('No planned work naming stations' if planned else 'No stations affected right now'),
         )
         show(station_map(stations, markers), config=MAP_CONFIG)
@@ -755,7 +787,7 @@ with rank_col:
         ]
         ranked = (window_hits.groupby('station_name')['incident_id'].nunique()
                   .sort_values(ascending=False).head(10))
-        card_title('Most affected stations', f'{stations_window_label}. Incidents naming each station.')
+        card_title('Most affected stations', f'{stations_window_label} · incidents naming each station')
         if ranked.empty:
             st.markdown('<div class="empty">No station-level incidents yet on the selected lines.</div>',
                         unsafe_allow_html=True)
@@ -791,7 +823,7 @@ else:
     week_col, line_col = st.columns([3, 2], gap='medium')
     with week_col:
         with st.container(key='card_weekly'):
-            card_title('Incidents per week', 'By the week the incident started · lighter bars: partial weeks')
+            card_title('Incidents per week', 'By the week the incident started · partial weeks dimmed')
             weeks = (history_events['incident_start_at'].dt.tz_convert(TIMEZONE).dt.tz_localize(None)
                      .dt.to_period('W-SUN').dt.start_time)
             weekly = weeks.value_counts().sort_index()
@@ -831,7 +863,7 @@ else:
 
     with cause_col:
         with st.container(key='card_causes'):
-            card_title('Incidents by cause', 'Top causes; the rest grouped as Other')
+            card_title('Incidents by cause', 'Top causes · the rest grouped as Other')
             show(share_bars(top_causes))
 
     with effect_col:
@@ -846,7 +878,7 @@ else:
 
     with dur_col:
         with st.container(key='card_duration'):
-            card_title('Duration by cause', 'Median, from first alert to all-clear')
+            card_title('Duration by cause', 'Median · first alert to all-clear')
             # One labeled dot per named cause, in the same order as the cause chart
             dur = (history_events[history_events['incident_cause'].isin(named_causes)]
                    .groupby('incident_cause')['incident_duration_minutes'].median()
@@ -874,7 +906,7 @@ else:
 
     with mix_col:
         with st.container(key='card_mix'):
-            card_title('Cause mix by line', "Share of each line's incidents, top causes")
+            card_title('Cause mix by line', "Share of each line's incidents · top causes")
             # Heatmap of cause × line: each cell is that cause's share of the line's
             # incidents, so lines of different sizes compare fairly
             mix = (history[history['incident_cause'].isin(named_causes)]
@@ -908,6 +940,18 @@ years = list(range(first_full_year, this_year + 1))
 year_labels = [f'{y} so far' if y == this_year else str(y) for y in years]
 year_opacity = [0.45 if y == this_year else 1.0 for y in years]
 
+
+def year_axis(fig):
+    """
+    The yearly charts' x-axis. Categories, because left to guess, Plotly reads
+    years as dates and drops "2026 so far"; "so far" on its own line, so labels
+    stay level at phone width.
+    """
+    fig.update_xaxes(type='category', tickmode='array', tickvals=year_labels, tickangle=0,
+                     ticktext=[label.replace(' so far', '<br>so far') for label in year_labels],
+                     gridcolor='rgba(0,0,0,0)', tickfont=dict(color=INK_2, size=11))
+
+
 # Delay lengths, an ordered scale: one violet hue, brighter = longer
 DELAY_BANDS = ['Under 30 min', '30 min – 1 hr', '1 hr or more']
 DELAY_COLORS = ['#5348a8', '#7f74e0', '#b8b0f5']
@@ -923,7 +967,7 @@ delay_col, shuttle_col = st.columns(2, gap='medium')
 # ── Delays per year, by how long they lasted ──────────────────────────────────
 with delay_col:
     with st.container(key='card_delay_lengths'):
-        card_title('Delays per year, by length', 'From first alert to all-clear')
+        card_title('Delays per year, by length', 'First alert to all-clear')
         delays = started_events[started_events['incident_effect'] == 'Delay'].assign(
             year=lambda d: d['incident_start_at'].dt.tz_convert(TIMEZONE).dt.year,
             band=lambda d: pd.cut(d['incident_duration_minutes'], [-np.inf, 30, 60, np.inf], right=False,
@@ -945,8 +989,7 @@ with delay_col:
         ))
         style(fig, height=300, legend=True)
         fig.update_layout(barmode='stack', barcornerradius=4, legend_traceorder='reversed')
-        # Years are categories: left to guess, Plotly reads them as dates and drops "2026 so far"
-        fig.update_xaxes(type='category', gridcolor='rgba(0,0,0,0)', tickfont=dict(color=INK_2, size=11))
+        year_axis(fig)
         count_axis(fig, totals.max() * 1.12)
         show(fig)
         long_ones = counts['1 hr or more']
@@ -959,8 +1002,7 @@ with delay_col:
 # ── Shuttle-bus hours per year, by line ───────────────────────────────────────
 with shuttle_col:
     with st.container(key='card_shuttle_hours'):
-        card_title('Shuttle-bus hours per year', 'Hours shuttle buses replaced trains on part of the line · '
-                   'overlapping diversions count once')
+        card_title('Shuttle-bus hours per year', 'Hours with shuttle buses on part of the line · overlaps count once')
         shuttles = started[started['incident_effect'] == 'Shuttle'].rename(
             columns={'incident_start_at': 'start_at', 'incident_end_at': 'end_at'})
         hours = (hours_by_year(shuttles[['line_name', 'start_at', 'end_at']], now)
@@ -975,14 +1017,14 @@ with shuttle_col:
             ))
         totals = hours.sum(axis=1)
         fig.add_trace(go.Scatter(
-            x=year_labels, y=totals, mode='text', text=[f'{h / 1000:.{1 if h < 10_000 else 0}f}K hr' for h in totals],
+            x=year_labels, y=totals, mode='text', text=[f'{h / 1000:.{1 if h < 10_000 else 0}f}K' for h in totals],
             textposition='top center', textfont=dict(color=INK_2, size=11), showlegend=False, hoverinfo='skip',
             cliponaxis=False,
         ))
         style(fig, height=300, legend=True)
         # Legend in line order, as everywhere else (Plotly reverses it for stacks)
         fig.update_layout(barmode='stack', barcornerradius=4, legend_traceorder='normal')
-        fig.update_xaxes(type='category', gridcolor='rgba(0,0,0,0)', tickfont=dict(color=INK_2, size=11))
+        year_axis(fig)
         count_axis(fig, max(totals.max(), 1) * 1.12)
         show(fig)
 
@@ -1000,7 +1042,6 @@ month_days = ridership.groupby(['line_name', 'month'])['service_date'].nunique()
 month_days = month_days[month_days['days'] == month_days['month'].dt.days_in_month]
 full_months = ridership.merge(month_days[['line_name', 'month']], on=['line_name', 'month'])
 latest_month = full_months['month'].max()
-latest_month_name = latest_month.strftime('%B')  # Periods don't take f-string date formats
 # Non-breaking spaces keep "Sep 2026" and "▲ 12.6%" whole when narrow tiles wrap
 NBSP = '\u00a0'
 latest_month_label = latest_month.strftime(f'%b{NBSP}%Y')
@@ -1019,11 +1060,8 @@ ridership_year_start = ridership_through - pd.DateOffset(months=12) + pd.Timedel
 
 section(
     'Ridership',
-    f"Through {ridership_through:%b %Y}, the latest the MBTA has published (it runs weeks to months behind, "
-    f"in batches). The tiles compare {latest_month_name}'s average entries per day with a year earlier and with "
-    f"{latest_month_name} {BASELINE_YEAR}, the last full year before the pandemic. The monthly chart shows the "
-    f"last 2 years or everything since {archive_year}; the charts below it cover the trailing 12 months. All "
-    "figures are average entries per day, weekends included.",
+    f'Through {ridership_through:%b %Y}, the latest the MBTA has published. Figures are average entries per day, '
+    'weekends included.',
 )
 
 # Every day except federal holidays — for the comparisons (day of week, "% vs
@@ -1038,7 +1076,7 @@ def change_vs(current, earlier, label):
         return None
     change = (current / earlier - 1) * 100
     return (f'<span class="{"delta-up" if change >= 0 else "delta-down"}">'
-            f'{"▲" if change >= 0 else "▼"}{NBSP}{abs(change):.1f}%</span>{NBSP}vs{NBSP}{label}')
+            f'{"▲" if change >= 0 else "▼"}{NBSP}{abs(change):.1f}%</span> vs{NBSP}{label}')
 
 
 tiles = []
@@ -1069,8 +1107,11 @@ monthly['trend'] = monthly.groupby('line_name')['daily_avg'].transform(lambda s:
 monthly['month_start'] = monthly['month'].dt.start_time
 
 RECENT_RANGE, ALL_RANGE = '2 years', f'Since {archive_year}'
-# A few events that explain the long shape, each a hairline with a label above the plot
-RIDERSHIP_EVENTS = [('2015-02-01', 'Record snow'), ('2020-03-01', 'COVID-19'), ('2022-08-19', 'Orange Line shutdown')]
+# A few events that explain the long shape, each a hairline with a label above
+# the plot: (date, label, anchor, shift in pixels), so neighbors don't collide at
+# phone width
+RIDERSHIP_EVENTS = [('2015-02-01', 'Record snow', 'center', -12), ('2020-03-01', 'COVID', 'right', 0),
+                    ('2022-08-19', 'Orange Line shutdown', 'left', 0)]
 
 with st.container(key='card_monthly'):
     ridership_range = st.segmented_control(
@@ -1079,9 +1120,8 @@ with st.container(key='card_monthly'):
     ) or RECENT_RANGE  # Clicking the selected option clears it; fall back to the default
     show_all = ridership_range == ALL_RANGE
     card_title('Monthly ridership',
-               'Average entries per day: each month (faint) and the trailing 12 months (bold), which evens out the '
-               'seasons so the long trend shows' if show_all
-               else 'Average entries per day each month · last 2 years, to compare with a year earlier')
+               f'Average entries per day · each month (faint) and trailing 12 months (bold), since {archive_year}'
+               if show_all else 'Average entries per day · each month, last 2 years')
     shown = monthly if show_all else monthly[monthly['month'] > latest_month - 24]
 
     fig = go.Figure()
@@ -1114,19 +1154,26 @@ with st.container(key='card_monthly'):
     top = shown['daily_avg'].max()
     label_line_ends(fig, ends, top)
     style(fig, height=360)
-    fig.update_layout(margin=dict(l=4, r=128, t=28 if show_all else 8, b=4), hovermode='x unified')
-    # Yearly ticks stay legible at phone width (the end labels take the right margin)
-    fig.update_xaxes(tickformat='%Y' if show_all else '%b %Y', dtick='M24' if show_all else 'M12',
+    # The end labels live in the right margin: names only in all history,
+    # name and value otherwise
+    fig.update_layout(margin=dict(l=4, r=84 if show_all else 128, t=28 if show_all else 8, b=4),
+                      hovermode='x unified')
+    # A fixed range: left to autorange, Plotly stretches the axis to fit the end
+    # labels, which squeezes the lines on a phone. Ticks spaced to stay legible there.
+    first_month, last_month = shown['month_start'].min(), shown['month_start'].max()
+    pad = (last_month - first_month) * 0.01
+    fig.update_xaxes(range=[first_month - pad, last_month + pad],
+                     tickformat='%Y' if show_all else '%b %Y', dtick='M36' if show_all else 'M12',
                      tick0=f'{latest_month.year}-01-01', gridcolor='rgba(0,0,0,0)', tickangle=0,
                      showspikes=True, spikemode='across', spikethickness=1, spikecolor=AXIS, spikedash='solid')
     count_axis(fig, top)
     if show_all:
-        for when, label in RIDERSHIP_EVENTS:
+        for when, label, anchor, shift in RIDERSHIP_EVENTS:
             when = pd.Timestamp(when)
-            if shown['month_start'].min() <= when <= shown['month_start'].max():
+            if first_month <= when <= last_month:
                 fig.add_vline(x=when, line=dict(color=GRID, width=1))
                 fig.add_annotation(text=label, x=when, xref='x', y=1, yref='paper', yanchor='bottom',
-                                   showarrow=False, font=dict(color=MUTED, size=11))
+                                   xanchor=anchor, xshift=shift, showarrow=False, font=dict(color=MUTED, size=11))
     show(fig)
 
 impact_col, dow_col = st.columns(2, gap='medium')
@@ -1147,9 +1194,9 @@ with impact_col:
         tracking_day = coverage_start.tz_convert(TIMEZONE).tz_localize(None).normalize()
         impact_start = max(tracking_day, ridership_year_start)
         card_title('Ridership by alert effect',
-                   'Each line vs its own calm days in the same month'
-                   + ('' if impact_start == ridership_year_start
-                      else f' · since continuous alert tracking began {fmt_day(coverage_start)}'))
+                   ('Trailing 12 months' if impact_start == ridership_year_start
+                    else f'Since continuous alert tracking began {fmt_day(coverage_start)}')
+                   + ' · each line vs its own calm days in the same month')
         tracked = ordinary_days[ordinary_days['service_date'] >= impact_start]
         # Days that are neither calm nor one of IMPACT_EFFECTS (e.g. only a
         # service change) sit out of both sides of the comparison
@@ -1159,8 +1206,7 @@ with impact_col:
         waiting = [line for line in selected_lines if line not in set(impact['line_name'])]
 
         if impact.empty:
-            st.markdown('<div class="empty">Not enough calm days to compare yet. Bars appear here as alert '
-                        'history builds.</div>', unsafe_allow_html=True)
+            st.markdown('<div class="empty">Too few calm days to compare.</div>', unsafe_allow_html=True)
         else:
             # Grouped by effect, lines in filter order within each group
             impact = (impact.assign(effect_order=impact['effect'].map(IMPACT_EFFECTS.index),
@@ -1181,6 +1227,7 @@ with impact_col:
                 orientation='h',
                 marker=dict(color=[LINE_COLORS[line] for line in impact['line_name']], cornerradius=4),
                 text=[LABEL_GAP + fmt_pct(p) + LABEL_GAP for p in impact['pct']], textposition='outside',
+                constraintext='none',
                 textfont=dict(color=INK_2, size=11), cliponaxis=False,
                 hovertext=[f'{line} · {effect}: {fmt_pct(p)} vs calm days<br>{days} days · {calm} calm days'
                            for line, effect, p, days, calm in zip(impact['line_name'], impact['effect'], impact['pct'],
@@ -1204,18 +1251,14 @@ with impact_col:
                                    xshift=-label_width, y=heading, yref='y', showarrow=False,
                                    font=dict(color=INK, size=12))
             show(fig)
-        st.caption("0% = that line's calm days (no incident other than a station closure) in the same month, "
-                   "adjusted for the day of the week, so seasons and the long trend don't count. Each bar is the "
-                   "median day. Each day counts under its most severe alert: shuttle buses, then a suspension, "
-                   "then a delay. Shuttle riders skip the fare gates; a suspension may cover only part of a line or "
-                   f"day. Bars appear once a line has {MIN_IMPACT_DAYS} days of an effect and {MIN_IMPACT_DAYS} calm "
-                   f"days, in months with at least {MIN_CALM_DAYS} calm days. Holidays excluded."
-                   + (f" Still collecting: {', '.join(waiting)}." if waiting else ''))
+        st.caption("0% = that line's calm days. Shuttle riders and Green Line surface stops don't pass fare gates, "
+                   "so these entries don't count them."
+                   + (f" Too few calm days to compare: {', '.join(waiting)}." if waiting else ''))
 
 # ── Day of week ───────────────────────────────────────────────────────────────
 with dow_col:
     with st.container(key='card_dow'):
-        card_title('Ridership by day of week', 'Average entries per day · holidays left out')
+        card_title('Ridership by day of week', 'Trailing 12 months · average entries per day · holidays left out')
         # Average per weekday over the 12 months to the latest published day, bars
         # grouped by line. Holidays left out: Monday holidays would pull Mondays down.
         recent = ordinary_days[ordinary_days['service_date'] >= ridership_year_start]
@@ -1225,7 +1268,7 @@ with dow_col:
             d = dow[dow['line_name'] == line].sort_values('weekday')
             fig.add_trace(go.Bar(
                 x=[WEEKDAYS[i][:3] for i in d['weekday']], y=d['gated_entries'], name=line,
-                marker=dict(color=LINE_COLORS[line], cornerradius=3),
+                marker=dict(color=LINE_COLORS[line], cornerradius=4),
                 hovertemplate=f'{line}<br>%{{x}}: %{{y:,.0f}} per day<extra></extra>',
             ))
         style(fig, height=280, legend=True)
@@ -1240,10 +1283,8 @@ with dow_col:
 
 section(
     'Weather',
-    f"Every day since {ridership_all['service_date'].min():%b %Y} — snowstorms and downpours are too rare "
-    "to judge from one year. Each day is measured against typical for its line, weekday, and month; each "
-    "bar is the median day in its band, compared with normal-weather days. Holidays are left out of this "
-    "comparison only.",
+    f"Every day since {ridership_all['service_date'].min():%b %Y}, since big storms are rare: the median day in "
+    'each band vs normal-weather days.',
 )
 
 wx = ordinary_days.dropna(subset=['avg_temperature_f'])
@@ -1277,7 +1318,7 @@ with rain_col:
         card_title('Rain', 'By daily rainfall · snow days are in the Snow chart')
         rain = band_summary(wx[wx['snowfall_in'].fillna(0) == 0], 'precipitation_in',
                             [-0.01, 0, 0.1, 0.5, 100], ['Dry', 'Light', 'Moderate', 'Heavy'], baseline='Dry')
-        show(band_bars(rain))
+        show(band_bars(rain, baseline='Dry'))
         st.caption('Light ≤ 0.1″ · Moderate 0.1–0.5″ · Heavy > 0.5″')
 
 with snow_col:
@@ -1286,7 +1327,7 @@ with snow_col:
         winter = wx[wx['service_date'].dt.month.isin([12, 1, 2, 3])]
         snow = band_summary(winter, 'snowfall_in', [-0.01, 0, 1, 4, 100], ['None', '≤ 1″', '1–4″', '4″+'],
                             baseline='None')
-        show(band_bars(snow))
+        show(band_bars(snow, baseline='None'))
         st.caption('Depth of new snow, before melting')
 
 with temp_col:
@@ -1296,26 +1337,32 @@ with temp_col:
                          - wx.groupby('month')['avg_temperature_f'].transform('mean'))
         temps = band_summary(temp, 'temp_vs_month', [-100, -10, -5, 5, 10, 100],
                              ['≤ −10°', '−10 to −5°', '± 5°', '+5 to +10°', '≥ +10°'], baseline='± 5°')
-        show(band_bars(temps))
+        show(band_bars(temps, baseline='± 5°'))
         st.caption('Daily mean temperature, (high + low) / 2, in °F')
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 8. Footer
 # ══════════════════════════════════════════════════════════════════════════════
 
-st.markdown("""
+st.markdown(f"""
 <div class="footer">
-  <b>Sources</b> · MBTA V3 API (alerts, routes, stops) · MBTA Gated Station Entries (ArcGIS Open Data) ·
-  NOAA GHCN-Daily, Boston Logan (USW00014739)<br>
+  <b>Sources</b> · MBTA V3 API (alerts since Oct 2026, routes, stops) · MBTA LAMP archive (earlier alerts, from
+  Sep 2019) · MBTA Gated Station Entries (ArcGIS Open Data, with its yearly archive from 2014) · NOAA GHCN-Daily,
+  Boston Logan (USW00014739)<br>
   <b>Refresh</b> · Page data hourly, from alerts checked every 15 minutes · Weather daily
   (NOAA posts ~3 days behind) · Ridership weekly (MBTA posts in batches, weeks to months behind)<br>
-  <b>Method</b> · An incident groups the alerts the MBTA posts for one event (same route, cause,
-  effect, and station, posted in close succession). Notices and facility issues (elevators,
-  parking) are excluded. An alert ends at the end time the MBTA posted or when it leaves the MBTA's
-  feed, whichever comes first. Ridership figures are averages per day, weekends and holidays
-  included. The weather charts compare a day to the median for the same line, day of week, and
-  month; the alert-effect chart compares it to that line's calm days (no incident other than a
-  station closure) on the same day of week. The ~10 federal holidays a year are left out of those
-  comparisons only, since a holiday isn't a typical day for its weekday.
+  <b>Incidents</b> · An incident groups the alerts the MBTA posts for one event (same route, cause, effect, and
+  station, posted in close succession). Notices and facility issues (elevators, escalators, parking) are excluded.
+  An alert ends at the end time the MBTA posted or when the MBTA closed it, whichever comes first; if the close
+  wasn't seen, when it left the MBTA's feed.<br>
+  <b>Ridership</b> · Gated entries, as averages per day, weekends and holidays included. {BASELINE_YEAR} is the last
+  full year before the pandemic.<br>
+  <b>Comparisons</b> · Like for like: same line and month, adjusted for day of week, with the ~10 federal holidays a
+  year left out, since a holiday isn't a typical day. Durations and baselines are medians, so one shutdown can't skew
+  them. Weather bars are the median day in each band vs normal-weather days. Alert-effect bars are the median day
+  with that effect vs the line's calm days (no incident other than a station closure), each day counted under its
+  most severe alert: shuttle buses, then a suspension, then a delay. A suspension may cover only part of a line or
+  day. A bar needs {MIN_IMPACT_DAYS} days of the effect and {MIN_IMPACT_DAYS} calm days, in months with at least
+  {MIN_CALM_DAYS} calm days.
 </div>
 """, unsafe_allow_html=True)

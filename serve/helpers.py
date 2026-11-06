@@ -45,7 +45,9 @@ def fmt_count(n):
 
 
 def fmt_pct(x, decimals=1):
-    """Signed percent with a true minus sign: +2.1% · −6.4%"""
+    """Signed percent with a true minus sign: +2.1% · −6.4% · 0.0%"""
+    if round(x, decimals) == 0:
+        return f'{0:.{decimals}f}%'
     return f'{x:+.{decimals}f}%'.replace('-', '−')
 
 

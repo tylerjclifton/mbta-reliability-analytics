@@ -122,6 +122,35 @@ def test_routes_request_the_rail_routes_and_shape_one_row_each(run_job, monkeypa
     }]
 
 
+# ── mbta-shapes ───────────────────────────────────────────────────────────────
+
+def shapes_body(*shape_ids):
+    """One route's shapes in the MBTA V3 API's JSON:API shape."""
+    return {'data': [{'id': shape_id, 'attributes': {'polyline': f'encoded-{shape_id}'}} for shape_id in shape_ids]}
+
+
+def test_shapes_request_each_rail_route_and_shape_one_row_per_shape(run_job, monkeypatch):
+    monkeypatch.delenv('MBTA_API_KEY', raising=False)
+    # The API doesn't name the route, so each row takes the route requested
+    df = run_job('mbta-shapes', [shapes_body('canonical-931_0009', '931_0010')] + [shapes_body('x')] * 6)
+
+    assert [request['params']['filter[route]'] for request in run_job.requests] == [
+        'Red', 'Blue', 'Orange', 'Green-B', 'Green-C', 'Green-D', 'Green-E']
+    assert df.iloc[:2].to_dict('records') == [
+        {'route_id': 'Red', 'shape_id': 'canonical-931_0009', 'polyline': 'encoded-canonical-931_0009'},
+        {'route_id': 'Red', 'shape_id': '931_0010', 'polyline': 'encoded-931_0010'},
+    ]
+    assert df['route_id'].nunique() == 7
+
+
+def test_shapes_route_with_none_fails_before_anything_loads(run_job):
+    # Silver reads only the latest run, so a partial snapshot would erase a line
+    with pytest.raises(SystemExit) as exit_info:
+        run_job('mbta-shapes', [shapes_body('x'), {'data': []}])
+
+    assert exit_info.value.code == 1
+
+
 # ── mbta-stops ────────────────────────────────────────────────────────────────
 
 def stop(stop_id, name, location_type, parent=None, platform=None):

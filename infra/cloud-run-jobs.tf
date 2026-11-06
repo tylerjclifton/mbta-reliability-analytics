@@ -41,6 +41,13 @@ locals {
       timeout           = "600s"
       env               = {}
     }
+    "mbta-shapes" = {
+      schedule          = var.shapes_ingestion_schedule
+      uses_mbta_api_key = true
+      memory            = "512Mi"
+      timeout           = "600s" # Seven requests, one per route
+      env               = {}
+    }
     "mbta-stops" = {
       schedule          = var.stops_ingestion_schedule
       uses_mbta_api_key = true

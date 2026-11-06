@@ -106,6 +106,16 @@ locals {
       ]
     }
 
+    mbta_shapes = {
+      description = "Weekly snapshots of the MBTA shapes API: the path of each rail route's canonical patterns and their variants. Grain: shape × route × ingest run."
+      clustering  = ["shape_id", "route_id"]
+      columns = [
+        { name = "route_id", type = "STRING", description = "MBTA route ID whose shapes were requested (e.g. Red, Green-B); the API doesn't return it" },
+        { name = "shape_id", type = "STRING", description = "GTFS shape ID; a canonical- prefix marks the route's official paths" },
+        { name = "polyline", type = "STRING", description = "The path, in Google's encoded polyline format" },
+      ]
+    }
+
     mbta_stops = {
       description = "Weekly snapshots of the MBTA stops API: each rail route's stations plus the stops inside them (platforms, entrances, nodes). Grain: stop × route × ingest run."
       clustering  = ["stop_id", "route_id"]

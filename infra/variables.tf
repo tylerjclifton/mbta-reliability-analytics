@@ -68,6 +68,12 @@ variable "stops_ingestion_schedule" {
   default     = "30 6 * * 1"
 }
 
+variable "shapes_ingestion_schedule" {
+  description = "Cron for MBTA shapes ingestion. Weekly (Mondays 6:45AM ET); shapes rarely change, and a new or rerouted stretch of track is picked up within a week."
+  type        = string
+  default     = "45 6 * * 1"
+}
+
 variable "routes_ingestion_schedule" {
   description = "Cron for MBTA routes ingestion. Yearly on Jan 1; routes rarely change."
   type        = string

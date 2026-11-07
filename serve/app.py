@@ -736,11 +736,12 @@ planned_hits = incident_stations[incident_stations['incident_start_at'].between(
 
 def station_map(backdrop, shapes, markers, height=560):
     """
-    The network as a transit map: each line drawn in its color, every station a
-    small light dot on it, and the base map dimmed with no place names. The map
-    names the system instead (MAP_LABELS), with affected stations large, ringed,
-    and always named. Map labels use Open Sans: they're drawn from the map's font
-    server, which doesn't have the page's font.
+    The network as a transit map: every station a dot in its line's color, the
+    line itself a faint path behind them, and the base map dimmed with no place
+    names. The map names the system instead (MAP_LABELS). Affected stations are
+    larger and outlined in white, and named where the labels fit; the rest show
+    their details on hover. Map labels use Open Sans: they're drawn from the map's
+    font server, which doesn't have the page's font.
     """
     fig = go.Figure()
     for line in LINES:
@@ -750,18 +751,21 @@ def station_map(backdrop, shapes, markers, height=560):
         # One trace per line: a None between paths lifts the pen
         lats = [lat for path in paths for lat in [point[0] for point in path] + [None]]
         lons = [lon for path in paths for lon in [point[1] for point in path] + [None]]
-        # A soft light casing under the line, so official Blue stays visible on the dark map
-        fig.add_trace(go.Scattermap(lat=lats, lon=lons, mode='lines', opacity=0.25,
-                                    line=dict(color=INK, width=5), hoverinfo='skip'))
-        fig.add_trace(go.Scattermap(lat=lats, lon=lons, mode='lines',
-                                    line=dict(color=LINE_COLORS[line], width=3), hoverinfo='skip'))
+        # Faint, so the stations stay the subject
+        fig.add_trace(go.Scattermap(lat=lats, lon=lons, mode='lines', opacity=0.3,
+                                    line=dict(color=LINE_COLORS[line], width=2), hoverinfo='skip'))
 
     for line in LINES:
         bg = backdrop[backdrop['line_name'] == line]
         if len(bg):
+            # A soft light halo, so official Blue stays visible on the dark map
             fig.add_trace(go.Scattermap(
                 lat=bg['station_latitude'], lon=bg['station_longitude'], mode='markers',
-                marker=dict(size=5, color=INK, opacity=1),
+                marker=dict(size=8, color=INK, opacity=0.25), hoverinfo='skip',
+            ))
+            fig.add_trace(go.Scattermap(
+                lat=bg['station_latitude'], lon=bg['station_longitude'], mode='markers',
+                marker=dict(size=6, color=LINE_COLORS[line], opacity=1),
                 hovertext=bg['station_name'] + ' · ' + line, hoverinfo='text',
             ))
 
@@ -783,15 +787,15 @@ def station_map(backdrop, shapes, markers, height=560):
     for line in LINES:
         hit = markers[markers['line_name'] == line]
         if len(hit):
-            # A soft ring under each affected station, then the station itself
-            # with its name (Blue Line's color is low-contrast, so never color alone)
+            # A white outline under each affected station, then the station itself
+            # with its name: its neighbors share its color, so color can't mark it
             fig.add_trace(go.Scattermap(
                 lat=hit['lat'], lon=hit['lon'], mode='markers',
-                marker=dict(size=18, color=LINE_COLORS[line], opacity=0.35), hoverinfo='skip',
+                marker=dict(size=12, color=INK, opacity=1), hoverinfo='skip',
             ))
             fig.add_trace(go.Scattermap(
                 lat=hit['lat'], lon=hit['lon'], mode='markers+text',
-                marker=dict(size=10, color=LINE_COLORS[line], opacity=1),
+                marker=dict(size=9, color=LINE_COLORS[line], opacity=1),
                 text=hit['station_name'], textposition='top right',
                 textfont=dict(color=INK, size=11, family='Open Sans Bold'),
                 hovertext='<b>' + hit['station_name'] + '</b><br>' + hit['detail'], hoverinfo='text',
@@ -813,7 +817,7 @@ def station_map(backdrop, shapes, markers, height=560):
         # names on the base map, so nothing outshines the stations.
         map=dict(
             style='carto-darkmatter-nolabels', center=dict(lat=42.322, lon=-71.12), zoom=10.2,
-            # A veil over the base map, under the data, so roads recede behind the lines
+            # A veil over the base map, under the data, so roads recede behind the stations
             layers=[dict(sourcetype='geojson', type='fill', below='traces', color=PAGE, opacity=0.55, source=dict(
                 type='Feature', properties={}, geometry=dict(
                     type='Polygon', coordinates=[[[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]]])))],
@@ -831,7 +835,7 @@ with map_col:
             'Map view', ['Right now', 'Planned · next 30 days'], default='Right now',
             key='station_view', label_visibility='collapsed',
         ) or 'Right now'  # Clicking the selected option clears it; fall back to the default
-        # The view picks which incidents' stations to ring: active now, or
+        # The view picks which incidents' stations to outline: active now, or
         # planned to start within 30 days
         planned = view != 'Right now'
         hits = planned_hits if planned else active_hits

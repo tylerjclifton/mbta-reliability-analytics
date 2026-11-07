@@ -47,7 +47,7 @@ Dark theme; official MBTA line colors for every line-level visual, a neutral vio
 
 **Service status** — KPIs (active now, planned in 30 days, last 30 days vs prior, median duration); incidents happening now and planned work coming up, one card per incident
 
-**Stations affected** — a transit map of the whole network: each line drawn in its color on a dimmed base map without place names, with line ends and main hubs named, showing the stations hit right now or by planned work in the next 30 days (ringed and labeled, with each incident on hover; + / − / reset buttons to zoom, drag to pan, while the scroll wheel still scrolls the page; the OpenStreetMap/CARTO credit sits under the map), and the most-affected stations over the trailing 12 months
+**Stations affected** — a transit map of the whole network: every station a dot in its line's color with the line a faint path behind them, on a dimmed base map without place names, with line ends and main hubs named, showing the stations hit right now or by planned work in the next 30 days (outlined in white and labeled where the names fit, with each incident on hover; + / − / reset buttons to zoom, drag to pan, while the scroll wheel still scrolls the page; the OpenStreetMap/CARTO credit sits under the map), and the most-affected stations over the trailing 12 months
 
 **Incident patterns** — incidents per week, by line, by cause and effect, median duration by cause, cause mix by line (heatmap)
 

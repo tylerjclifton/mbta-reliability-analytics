@@ -116,7 +116,8 @@ def ridership_days(rows):
 
 
 def test_pct_vs_calm_ignores_disrupted_days_in_the_baseline():
-    # Calm Mondays at 100; the shutdown Mondays at 50 must not drag the baseline down
+    # Calm Mondays at 100; the shutdown Mondays at 50
+    # must not drag the baseline down
     df = ridership_days([('Red Line', 0, 100, None)] * 2 + [('Red Line', 0, 50, 'Shuttle')] * 5)
 
     assert pct_vs_calm(df, min_calm_days=2).tolist() == [0, 0, -50, -50, -50, -50, -50]

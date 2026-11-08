@@ -1,24 +1,28 @@
 """
 Serve: MBTA Reliability & Ridership dashboard (Streamlit)
 
-Reads:      gold.rail_incidents, gold.rail_incident_stations, gold.rail_stations,
-            gold.rail_shapes, gold.rail_ridership (cached for 15 minutes)
+Reads:      gold.rail_incidents, gold.rail_incident_stations,
+            gold.rail_stations, gold.rail_shapes, gold.rail_ridership (cached
+            for 15 minutes)
 Deployed:   Cloud Run service `serve` (infra/cloud-run-services.tf), public at
             tylerclifton.com
 
 Layout:
   1. Header + line filter
   2. Service status     — KPIs, incidents happening now, planned work coming up
-  3. Stations affected  — map of stations hit now or by planned work, most-affected stations
+  3. Stations affected  — map of stations hit now or by planned work,
+                          most-affected stations
   4. Incident patterns  — when, where, why, and how long (trailing 12 months)
-  5. Disruption by year — delays by length and shuttle-bus hours, each full year of alert history
-  6. Ridership          — per-line tiles (latest month), monthly ridership (2 years or all history),
-                          ridership by alert effect, day of week
+  5. Disruption by year — delays by length and shuttle-bus hours, each full
+                          year of alert history
+  6. Ridership          — per-line tiles (latest month), monthly ridership
+                          (2 years or all history), ridership by alert
+                          effect, day of week
   7. Weather            — rain, snow, and temperature vs. typical ridership
+  8. Footer             — sources, cadence, method notes
 
 Sections 2–5 are about incidents, from right now to the long run; 6–7 about
 ridership and what moves it.
-  8. Footer             — sources, cadence, method notes
 
 Time windows: every section covers the trailing 12 months, stated in its
 subtitle. Four exceptions, also labeled: the ridership tiles show the latest
@@ -39,6 +43,14 @@ fragments joined by " · ", with no closing period; method detail lives in the
 footer. Counts take thousands separators, and K from 10,000 up (an axis uses K
 throughout once its top tick reaches that). Shares are whole percents, changes
 take one decimal. Partial periods are dimmed.
+
+Charts: each goes through style() (transparent surface, hairline grid, muted
+axes) and show() (read-only, so no chart traps page scrolling); the station map
+is the one figure that zooms. Color follows the entity: each line keeps its
+official color everywhere, in LINE_COLORS order, legends included; a single
+series uses ACCENT, and heatmaps use SEQUENTIAL. Text stays in the ink tokens,
+never a series color, and line-colored marks carry a direct label. Bars have
+rounded ends (cornerradius 4), and value labels sit LABEL_GAP from their marks.
 
 Counting unit is the incident (gold.rail_incidents): one real-world event the
 MBTA may have posted as several alerts.
@@ -86,7 +98,8 @@ from helpers import (
 # Design tokens
 # ══════════════════════════════════════════════════════════════════════════════
 
-# Surfaces and ink (dark theme; page background is set in .streamlit/config.toml)
+# Surfaces and ink (dark theme; page background is set
+# in .streamlit/config.toml)
 PAGE   = '#0b0d10'   # page background
 CARD   = '#13161b'   # card surface
 BORDER = 'rgba(255,255,255,0.08)'
@@ -119,7 +132,8 @@ LINES = list(LINE_COLORS)
 
 WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 
-# Space between a mark and its value label (an em space), so labels never touch bars or dots
+# Space between a mark and its value label (an em space), so
+# labels never touch bars or dots
 LABEL_GAP = '\u2003'
 
 # Thickness of a ranked chart's bars, in pixels
@@ -141,7 +155,8 @@ MAP_LABELS = {
     'South Station': 'middle right', 'JFK/UMass': 'middle right',
 }
 
-# Charts are read-only: no toolbar, zoom, or pan (they fight page scrolling on mobile)
+# Charts are read-only: no toolbar, zoom, or pan (they
+# fight page scrolling on mobile)
 CHART_CONFIG = {'displayModeBar': False, 'scrollZoom': False, 'doubleClick': False}
 
 # The station map zooms with +/−/reset buttons and pans by dragging; the scroll
@@ -190,7 +205,7 @@ html, body, .stMarkdown, .stMarkdown *, .stCaption *, .st-key-line_filter button
 .section h2 {{ font-size: 1.5rem; font-weight: 650; letter-spacing: -0.01em; margin: 0; padding: 0; color: {INK}; }}
 .section p  {{ color: {INK_2}; font-size: 0.92rem; margin: 0.35rem 0 0; max-width: 52rem; }}
 
-/* Cards: every st.container(key="card_...") */
+/* Cards: every st.container(key="card_<name>") */
 div[class*="st-key-card_"] {{ background: {CARD}; border: 1px solid {BORDER}; border-radius: 14px;
             padding: 1.15rem 1.25rem 0.75rem; }}
 .card-title {{ font-size: 1rem; font-weight: 600; color: {INK}; margin: 0; }}
@@ -319,7 +334,9 @@ def incident_items(df, when):
 
 
 def incident_list(df, when, empty_text, limit=5):
-    """First `limit` incidents inline; the rest behind a "Show more" expander."""
+    """
+    First `limit` incidents inline; the rest behind a "Show more" expander.
+    """
     if df.empty:
         st.markdown(f'<div class="empty">{empty_text}</div>', unsafe_allow_html=True)
         return
@@ -333,7 +350,10 @@ def incident_list(df, when, empty_text, limit=5):
 # ══════════════════════════════════════════════════════════════════════════════
 
 def style(fig, height=300, legend=False):
-    """Apply the shared chart style: transparent surface, hairline grid, muted axes."""
+    """
+    Apply the shared chart style: transparent surface,
+    hairline grid, muted axes.
+    """
     # automargin grows the margin to fit long tick labels ("Medical Emergency")
     # instead of clipping them; standoff keeps labels off the axis line
     axis = dict(gridcolor=GRID, linecolor=AXIS, zeroline=False, fixedrange=True, automargin=True,
@@ -370,7 +390,10 @@ def count_axis(fig, top, axis='y'):
 
 
 def show(fig, config=CHART_CONFIG):
-    """Render a Plotly figure full-width with the shared chart config (no zoom/pan toolbar)."""
+    """
+    Render a Plotly figure full-width with the shared
+    chart config (no zoom/pan toolbar).
+    """
     st.plotly_chart(fig, config=config, width='stretch')
 
 
@@ -416,7 +439,10 @@ def ranked_bars(labels, values, text, hover, colors=ACCENT, height=None):
 
 
 def share_bars(counts, colors=ACCENT, height=None):
-    """Ranked incident counts (a Series: label → count), each labeled with its count and share."""
+    """
+    Ranked incident counts (a Series: label → count), each
+    labeled with its count and share.
+    """
     share = counts / max(counts.sum(), 1) * 100
     return ranked_bars(
         labels=list(counts.index), values=list(counts.values),
@@ -457,25 +483,33 @@ def band_bars(df, baseline, y_range, height=260):
 PROJECT_ID = os.getenv('GCP_PROJECT_ID', 'mbta-reliability-analytics')
 # Dataset to read; point at dev_gold to preview a local dbt build
 GOLD_DATASET = os.getenv('GOLD_DATASET', 'gold')
-# Fail any single query that would bill more than 1 GiB (~$0.006), the dashboard's
-# cost guardrail (infra/quotas.tf says why it isn't a project-wide daily cap).
-# Each gold table was ~0.2 MiB in 2026-10, so this leaves decades of headroom.
+# Fail any single query that would bill more than 1 GiB (~$0.006), the
+# dashboard's cost guardrail (infra/quotas.tf says why it isn't a
+# project-wide daily cap). Each gold table was ~0.2 MiB in 2026-10, so
+# this leaves decades of headroom.
 MAX_BYTES_BILLED = 1024**3
 
 
 @st.cache_resource
 def get_client():
-    """BigQuery client shared by every query; each query is capped at MAX_BYTES_BILLED."""
+    """
+    BigQuery client shared by every query; each query is
+    capped at MAX_BYTES_BILLED.
+    """
     return bigquery.Client(
         project=PROJECT_ID,
         default_query_job_config=bigquery.QueryJobConfig(maximum_bytes_billed=MAX_BYTES_BILLED),
     )
 
 
-# Cache 15 minutes: gold rebuilds hourly, so the page is at most ~75 minutes behind
+# Cache 15 minutes: gold rebuilds hourly, so the page is
+# at most ~75 minutes behind
 @st.cache_data(ttl=900, show_spinner=False)
 def load_incidents():
-    """gold.rail_incidents, one row per incident × route; timestamps as UTC datetimes."""
+    """
+    gold.rail_incidents, one row per incident × route;
+    timestamps as UTC datetimes.
+    """
     df = get_client().query(f"""
         SELECT
             incident_id, route_id, route_name, line_name,
@@ -491,7 +525,10 @@ def load_incidents():
 
 @st.cache_data(ttl=900, show_spinner=False)
 def load_incident_stations():
-    """gold.rail_incident_stations, one row per incident × route × station, for the map."""
+    """
+    gold.rail_incident_stations, one row per incident ×
+    route × station, for the map.
+    """
     df = get_client().query(f"""
         SELECT
             incident_id, station_id, route_name, line_name, station_name,
@@ -515,7 +552,10 @@ def load_stations():
 
 @st.cache_data(ttl=900, show_spinner=False)
 def load_shapes():
-    """gold.rail_shapes, one row per canonical shape × route, decoded: the map's lines."""
+    """
+    gold.rail_shapes, one row per canonical shape ×
+    route, decoded: the map's lines.
+    """
     df = get_client().query(f"""
         SELECT line_name, shape_id, shape_polyline
         FROM `{PROJECT_ID}.{GOLD_DATASET}.rail_shapes`
@@ -544,7 +584,8 @@ def load_ridership():
     typical = df.groupby(['line_name', 'weekday', 'month'])['gated_entries'].transform('median')
     df['pct_vs_typical'] = (df['gated_entries'] / typical - 1) * 100
 
-    # Federal holidays are not typical for their weekday; flag them so "% vs typical" comparisons skip them
+    # Federal holidays are not typical for their weekday; flag them so "% vs
+    # typical" comparisons skip them
     holidays = USFederalHolidayCalendar().holidays(df['service_date'].min(), df['service_date'].max())
     df['is_holiday'] = df['service_date'].isin(holidays)
     return df
@@ -596,8 +637,9 @@ coverage_start = _after_gap.iloc[-1] if len(_after_gap) else tracking_start
 alerts_updated = incidents_all['ingested_at'].max()
 ridership_through = ridership_all['service_date'].max()
 
-# Status dot: green on the hourly cadence, amber/red (with a note) when it falls behind.
-# Ridership gets no dot: the MBTA publishes it monthly, weeks after the month ends.
+# Status dot: green on the hourly cadence, amber/red (with a note) when
+# it falls behind. Ridership gets no dot: the MBTA publishes it
+# monthly, weeks after the month ends.
 alerts_freshness = freshness(alerts_updated, now)
 alerts_note = {'fresh': '', 'late': ' · running behind', 'stale': ' · may be out of date'}[alerts_freshness]
 alerts_status = f'Alerts updated {alerts_updated.tz_convert(TIMEZONE).strftime("%b %-d, %-I:%M %p ET")}{alerts_note}'
@@ -700,7 +742,8 @@ with next_col:
 # ══════════════════════════════════════════════════════════════════════════════
 
 # Trailing 12 months — or since continuous alert tracking began, while that's
-# more recent. Every incident's stations are known (its JSON, or LAMP's entities).
+# more recent. Every incident's stations are known (its
+# JSON, or LAMP's entities).
 stations_window_start = max(coverage_start, now - pd.DateOffset(months=12))
 stations_window_label = (
     'Trailing 12 months' if stations_window_start > coverage_start
@@ -730,7 +773,8 @@ def station_markers(hits, planned=False):
                  lon=('station_longitude', 'first'), detail=('detail', lambda x: '<br>'.join(sorted(set(x))))))
 
 
-# Incidents affecting stations right now, and planned ones starting within 30 days
+# Incidents affecting stations right now, and planned
+# ones starting within 30 days
 active_hits = active_at(incident_stations, now)
 planned_hits = incident_stations[incident_stations['incident_start_at'].between(now, now + pd.Timedelta(days=30))]
 
@@ -780,11 +824,11 @@ def station_map(backdrop, shapes, markers, height=560):
                 hovertext=bg['station_name'] + ' · ' + line, hoverinfo='text',
             ))
 
-    # Orienting names, grouped by position (a trace takes only one), except where
-    # an affected station's name replaces one. Drawn before the affected stations:
-    # where labels overlap, the map keeps the last drawn, and an affected
-    # station's name must always win. An invisible marker, because a text-only
-    # trace doesn't draw on this map type.
+    # Orienting names, grouped by position (a trace takes only one), except
+    # where an affected station's name replaces one. Drawn before the affected
+    # stations: where labels overlap, the map keeps the last drawn, and an
+    # affected station's name must always win. An invisible marker, because a
+    # text-only trace doesn't draw on this map type.
     named = backdrop[backdrop['station_name'].isin(
         set(MAP_LABELS) - set(markers.loc[markers['position'] != '', 'station_name']))]
     named = named.drop_duplicates('station_name')
@@ -800,9 +844,10 @@ def station_map(backdrop, shapes, markers, height=560):
     for line in LINES:
         hit = markers[markers['line_name'] == line]
         if len(hit):
-            # A white outline under each affected station, then the station itself:
-            # its neighbors share its color, so color can't mark it. One trace per
-            # name position (a trace takes only one), and none for mid-run stations.
+            # A white outline under each affected station, then the
+            # station itself: its neighbors share its color, so color
+            # can't mark it. One trace per name position (a trace takes
+            # only one), and none for mid-run stations.
             fig.add_trace(go.Scattermap(
                 lat=hit['lat'], lon=hit['lon'], mode='markers',
                 marker=dict(size=12, color=INK, opacity=1), hoverinfo='skip',
@@ -823,7 +868,8 @@ def station_map(backdrop, shapes, markers, height=560):
         hoverlabel=dict(bgcolor='#1c2027', bordercolor=BORDER, font=dict(family=FONT, color=INK, size=12)),
         # Zoom buttons stacked in the corner, in the page's muted ink
         modebar=dict(orientation='v', bgcolor='rgba(19,22,27,0.85)', color=INK_2, activecolor=INK),
-        # Keep the reader's zoom when the line filter or view toggle reruns the page
+        # Keep the reader's zoom when the line filter or
+        # view toggle reruns the page
         uirevision='station_map',
         # The middle of the system, zoomed so the whole network fits the map's
         # height: Braintree (42.21°N) to Oak Grove (42.44°N), Riverside to
@@ -832,7 +878,8 @@ def station_map(backdrop, shapes, markers, height=560):
         # names on the base map, so nothing outshines the stations.
         map=dict(
             style='carto-darkmatter-nolabels', center=dict(lat=42.322, lon=-71.12), zoom=10.2,
-            # A veil over the base map, under the data, so roads recede behind the stations
+            # A veil over the base map, under the data, so
+            # roads recede behind the stations
             layers=[dict(sourcetype='geojson', type='fill', below='traces', color=PAGE, opacity=0.55, source=dict(
                 type='Feature', properties={}, geometry=dict(
                     type='Polygon', coordinates=[[[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]]])))],
@@ -973,7 +1020,8 @@ else:
     with dur_col:
         with st.container(key='card_duration'):
             card_title('Duration by cause', 'Median · first alert to all-clear')
-            # One labeled dot per named cause, in the same order as the cause chart
+            # One labeled dot per named cause, in the
+            # same order as the cause chart
             dur = (history_events[history_events['incident_cause'].isin(named_causes)]
                    .groupby('incident_cause')['incident_duration_minutes'].median()
                    .reindex(named_causes))
@@ -1001,8 +1049,8 @@ else:
     with mix_col:
         with st.container(key='card_mix'):
             card_title('Cause mix by line', "Share of each line's incidents · top causes")
-            # Heatmap of cause × line: each cell is that cause's share of the line's
-            # incidents, so lines of different sizes compare fairly
+            # Heatmap of cause × line: each cell is that cause's share of the
+            # line's incidents, so lines of different sizes compare fairly
             mix = (history[history['incident_cause'].isin(named_causes)]
                    .groupby(['incident_cause', 'line_name'])['incident_id'].nunique().unstack(fill_value=0)
                    .reindex(index=named_causes, columns=selected_lines, fill_value=0))
@@ -1069,7 +1117,8 @@ with delay_col:
         counts = (delays[delays['year'].isin(years)].groupby(['year', 'band'], observed=False).size()
                   .unstack(fill_value=0).reindex(index=years, columns=DELAY_BANDS, fill_value=0))
         fig = go.Figure()
-        # Longest delays at the bottom, against the baseline, so their growth reads directly
+        # Longest delays at the bottom, against the baseline,
+        # so their growth reads directly
         for band, color in reversed(list(zip(DELAY_BANDS, DELAY_COLORS, strict=True))):
             fig.add_trace(go.Bar(
                 x=year_labels, y=counts[band], name=band,
@@ -1116,7 +1165,8 @@ with shuttle_col:
             cliponaxis=False,
         ))
         style(fig, height=300, legend=True)
-        # Legend in line order, as everywhere else (Plotly reverses it for stacks)
+        # Legend in line order, as everywhere else
+        # (Plotly reverses it for stacks)
         fig.update_layout(barmode='stack', barcornerradius=4, legend_traceorder='normal')
         year_axis(fig)
         count_axis(fig, max(totals.max(), 1) * 1.12)
@@ -1163,9 +1213,12 @@ section(
 # weekday. Volumes (the tiles, the monthly chart) count every day.
 ordinary_days = ridership[~ridership['is_holiday']]
 
-# ── Per-line tiles: the latest month vs a year earlier and vs the baseline year ──
+# ── Per-line tiles: the latest month vs a year earlier and the baseline year ──
 def change_vs(current, earlier, label):
-    """▲ 12.6% vs Sep 2025, colored by direction; None if there's nothing to compare with."""
+    """
+    ▲ 12.6% vs Sep 2025, colored by direction; None if
+    there's nothing to compare with.
+    """
     if pd.isna(earlier) or not earlier:
         return None
     change = (current / earlier - 1) * 100
@@ -1179,7 +1232,8 @@ for line in selected_lines:
     current = days[days['month'] == latest_month]['gated_entries'].mean()
     prior_year = days[days['month'] == latest_month - 12]['gated_entries'].mean()
     baseline = days[days['month'] == baseline_month]['gated_entries'].mean()
-    # The month is on the tile itself, so the number never reads as a 12-month figure
+    # The month is on the tile itself, so the number
+    # never reads as a 12-month figure
     tiles.append(dict(label=f'{line} · {latest_month_label}',
                       value=fmt_count(current) if pd.notna(current) else '—',
                       # One comparison per line, so neither wraps mid-way
@@ -1196,14 +1250,15 @@ st.write('')
 monthly = (full_months.groupby(['line_name', 'month'])['gated_entries']
            .agg(daily_avg='mean', total='sum').reset_index().sort_values(['line_name', 'month']))
 # All history adds a trailing 12-month average: twelve consecutive whole
-# months, so every point averages a full year of seasons and the long trend shows
+# months, so every point averages a full year of seasons
+# and the long trend shows
 monthly['trend'] = monthly.groupby('line_name')['daily_avg'].transform(lambda s: s.rolling(12, min_periods=12).mean())
 monthly['month_start'] = monthly['month'].dt.start_time
 
 RECENT_RANGE, ALL_RANGE = '2 years', f'Since {archive_year}'
 # A few events that explain the long shape, each a hairline with a label above
-# the plot: (date, label, anchor, shift in pixels), so neighbors don't collide at
-# phone width
+# the plot: (date, label, anchor, shift in pixels), so neighbors
+# don't collide at phone width
 RIDERSHIP_EVENTS = [('2015-02-01', 'Record snow', 'center', -12), ('2020-03-01', 'COVID', 'right', 0),
                     ('2022-08-19', 'Orange Line shutdown', 'left', 0)]
 
@@ -1224,7 +1279,8 @@ with st.container(key='card_monthly'):
         m = shown[shown['line_name'] == line]
         if m.empty:
             continue
-        # The month itself carries the hover in both views (with the trend in all history)
+        # The month itself carries the hover in both views
+        # (with the trend in all history)
         fig.add_trace(go.Scatter(
             x=m['month_start'], y=m['daily_avg'], name=line, mode='lines', legendgroup=line,
             line=dict(color=LINE_COLORS[line], width=1 if show_all else 2.5), opacity=0.35 if show_all else 1,
@@ -1240,7 +1296,8 @@ with st.container(key='card_monthly'):
                 line=dict(color=LINE_COLORS[line], width=2.5), hoverinfo='skip',
             ))
             if not trend.empty:
-                # Name only: the trend's value isn't the tiles' latest month, so it stays in the hover
+                # Name only: the trend's value isn't the tiles' latest
+                # month, so it stays in the hover
                 ends.append((line, trend['month_start'].iloc[-1], trend['trend'].iloc[-1], line))
         else:
             last = m.iloc[-1]
@@ -1253,7 +1310,8 @@ with st.container(key='card_monthly'):
     fig.update_layout(margin=dict(l=4, r=84 if show_all else 128, t=28 if show_all else 8, b=4),
                       hovermode='x unified')
     # A fixed range: left to autorange, Plotly stretches the axis to fit the end
-    # labels, which squeezes the lines on a phone. Ticks spaced to stay legible there.
+    # labels, which squeezes the lines on a phone. Ticks
+    # spaced to stay legible there.
     first_month, last_month = shown['month_start'].min(), shown['month_start'].max()
     pad = (last_month - first_month) * 0.01
     fig.update_xaxes(range=[first_month - pad, last_month + pad],
@@ -1306,9 +1364,10 @@ with impact_col:
             impact = (impact.assign(effect_order=impact['effect'].map(IMPACT_EFFECTS.index),
                                     line_order=impact['line_name'].map(selected_lines.index))
                       .sort_values(['effect_order', 'line_order']))
-            # One row per bar, plus a heading row (no bar) above each effect's group.
-            # Headings sit flush left in the label column and line names stay
-            # right-aligned against the axis, so lines read as indented under them.
+            # One row per bar, plus a heading row (no bar) above each
+            # effect's group. Headings sit flush left in the label column
+            # and line names stay right-aligned against the axis, so lines
+            # read as indented under them.
             impact['row'] = impact['effect'] + ' · ' + impact['line_name']
             rows, row_labels, headings = [], [], []
             for effect, group in impact.groupby('effect_order', sort=True):
@@ -1335,7 +1394,8 @@ with impact_col:
             pad = max(high - low, 4) * 0.8
             fig.update_xaxes(range=[low - pad, high + pad], ticksuffix='%', zeroline=True, zerolinecolor=AXIS,
                              zerolinewidth=1)
-            # Fixed label column (not automargin) so headings can be pinned to its left edge
+            # Fixed label column (not automargin) so headings
+            # can be pinned to its left edge
             fig.update_layout(margin_l=label_width)
             fig.update_yaxes(categoryorder='array', categoryarray=rows, tickvals=rows, ticktext=row_labels,
                              range=[len(rows) - 0.5, -0.5], gridcolor='rgba(0,0,0,0)', automargin=False,
@@ -1353,8 +1413,9 @@ with impact_col:
 with dow_col:
     with st.container(key='card_dow'):
         card_title('Ridership by day of week', 'Trailing 12 months · average entries per day · holidays left out')
-        # Average per weekday over the 12 months to the latest published day, bars
-        # grouped by line. Holidays left out: Monday holidays would pull Mondays down.
+        # Average per weekday over the 12 months to the latest
+        # published day, bars grouped by line. Holidays left out:
+        # Monday holidays would pull Mondays down.
         recent = ordinary_days[ordinary_days['service_date'] >= ridership_year_start]
         dow = recent.groupby(['weekday', 'line_name'])['gated_entries'].mean().reset_index()
         fig = go.Figure()

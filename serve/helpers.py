@@ -59,7 +59,10 @@ def fmt_day(ts):
 
 
 def freshness(updated_at, now):
-    """"fresh" · "late" · "stale": how far the alerts data has fallen behind its hourly refresh."""
+    """
+    "fresh" · "late" · "stale": how far the alerts data has
+    fallen behind its hourly refresh.
+    """
     age_hours = (now - updated_at).total_seconds() / 3600
     if age_hours <= FRESH_HOURS:
         return 'fresh'
@@ -69,18 +72,27 @@ def freshness(updated_at, now):
 
 
 def esc(text):
-    """HTML-escape a value for st.markdown cards; None or NaN becomes an empty string."""
+    """
+    HTML-escape a value for st.markdown cards; None or
+    NaN becomes an empty string.
+    """
     return html.escape(str(text)) if text is not None and not pd.isna(text) else ''
 
 
 def strip_route_prefix(header):
-    """MBTA headers repeat the route ("Green Line C Branch: ..."); the card already shows it."""
+    """
+    MBTA headers repeat the route ("Green Line C Branch: …"); the card
+    already shows it.
+    """
     head, sep, rest = str(header).partition(': ')
     return rest if sep and 'Line' in head and len(head) < 40 else header
 
 
 def join_routes(route_names):
-    """["Green Line B", "Green Line C"] → "Green Line B · C"; other lines joined with commas."""
+    """
+    ["Green Line B", "Green Line C"] → "Green Line B · C";
+    other lines joined with commas.
+    """
     names = sorted(set(route_names))
     if len(names) > 1 and all(n.startswith('Green Line ') for n in names):
         return 'Green Line ' + ' · '.join(n.removeprefix('Green Line ') for n in names)
@@ -143,14 +155,17 @@ def effect_vs_calm(days, effects, min_days):
 
 
 def active_at(df, now):
-    """Rows whose incident is in effect at `now`: started, and not yet ended (NULL end = ongoing)."""
+    """
+    Rows whose incident is in effect at `now`: started, and not
+    yet ended (NULL end = ongoing).
+    """
     return df[(df['incident_start_at'] <= now)
               & (df['incident_end_at'].isna() | (df['incident_end_at'] >= now))]
 
 
 def decode_polyline(encoded):
     """
-    Google's encoded polyline format → [(lat, lon), ...], at its 5 decimal
+    Google's encoded polyline format → [(lat, lon), …], at its 5 decimal
     places. Each value is a variable-length delta from the point before it.
     """
     points, values, index = [], [0, 0], 0
@@ -181,8 +196,9 @@ def run_end_labels(paths, stations, affected, default='top right', max_km=0.1):
     stops. A long shutdown reads by its ends (Kenmore … Government Center), and
     no name lands on the run's other stations. Returns {station_id: position}.
 
-    paths     the line's shapes, each [(lat, lon), ...] along one branch
-    stations  the line's stations: station_id, station_latitude, station_longitude
+    paths     the line's shapes, each [(lat, lon), …] along one branch
+    stations  the line's stations, with station_id, station_latitude, and
+              station_longitude
     affected  the affected station_ids
 
     Each path orders the stations within max_km of it by their nearest point
@@ -200,7 +216,8 @@ def run_end_labels(paths, stations, affected, default='top right', max_km=0.1):
     lat = stations['station_latitude'].to_numpy(dtype=float)
     lon = stations['station_longitude'].to_numpy(dtype=float)
     ids = stations['station_id'].to_numpy()
-    # Degrees to km, flat at a city's scale (a degree of longitude narrows with latitude)
+    # Degrees to km, flat at a city's scale (a degree of
+    # longitude narrows with latitude)
     km_per_lat = 110.57
     km_per_lon = 111.32 * np.cos(np.radians(lat.mean())) if len(lat) else 0.0
 

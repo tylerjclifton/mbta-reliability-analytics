@@ -13,22 +13,32 @@ datasets.
 dbt's output streams to the job's logs unchanged. On failure, the job also logs
 one structured failure report holding dbt's failure summary — which models,
 tests, or sources failed and why — which the transform's alerting policy emails
-(contract: infra/monitoring.tf).
+(contract: infra/monitoring.tf). Checks at warn severity don't fail the run;
+the ones that fired in a step that passed are logged as one warning report,
+which emails at most once a day.
 """
 
 # Import standard libraries
 import json
 import os
+import pathlib
 import re
 import subprocess
 import sys
 
 TARGET = os.getenv('DBT_TARGET', 'gcp')
 
-# Step name → command
+# Step name → its command, and the results file it writes (a dbt artifact),
+# read for the checks that warned
 STEPS = {
-    'dbt build':            ['dbt', 'build', '--profiles-dir', '.', '--target', TARGET],
-    'dbt source freshness': ['dbt', 'source', 'freshness', '--profiles-dir', '.', '--target', TARGET],
+    'dbt build': (
+        ['dbt', 'build', '--profiles-dir', '.', '--target', TARGET],
+        pathlib.Path('target/run_results.json'),
+    ),
+    'dbt source freshness': (
+        ['dbt', 'source', 'freshness', '--profiles-dir', '.', '--target', TARGET],
+        pathlib.Path('target/sources.json'),
+    ),
 }
 
 # Lines of dbt output kept in a failure report (the email shows them verbatim)
@@ -76,6 +86,42 @@ def failure_details(lines):
     return '\n'.join(details[-MAX_DETAIL_LINES:])
 
 
+def warnings_in(results_file):
+    """
+    One line per check that warned, from a step's results file: a data test
+    (run_results.json) or a source loaded longer ago than its warn_after
+    (sources.json).
+    """
+    lines = []
+    for result in json.loads(results_file.read_text())['results']:
+        if result['status'] != 'warn':
+            continue
+        # unique_id is "<type>.<project>.<name>[.<hash>]", with "<source>.<table>" for a source
+        kind, _, *name = result['unique_id'].split('.')
+        if kind == 'source':
+            count, period = result['criteria']['warn_after']['count'], result['criteria']['warn_after']['period']
+            loaded_at = result['max_loaded_at'][:16].replace('T', ' ')
+            lines.append(f"source {'.'.join(name[:2])}: last loaded {loaded_at} UTC, "
+                         f"warns after {count} {period}{'s' if count != 1 else ''}")
+        else:
+            lines.append(f"{kind} {name[0]}: {result['message']}")
+    return lines
+
+
+def report_warnings(warnings):
+    """
+    Log the checks that warned as one structured entry, per the contract in
+    infra/monitoring.tf; nothing if none did.
+    """
+    if warnings:
+        print(json.dumps({
+            'severity': 'WARNING',
+            'event':    'job_warned',
+            'job':      'transform',
+            'message':  '\n'.join(warnings),
+        }), flush=True)
+
+
 def report_failure(summary, details):
     """
     Log the failure as one structured entry, per the contract in
@@ -92,8 +138,15 @@ def report_failure(summary, details):
 
 
 if __name__ == '__main__':
-    for step, command in STEPS.items():
+    warnings = []
+    for step, (command, results_file) in STEPS.items():
+        # A crashed step writes no results, so clear any left by an earlier run
+        results_file.unlink(missing_ok=True)
         exit_code, output = run(command)
         if exit_code != 0:
+            # A failed step's own warnings are in its failure summary
+            report_warnings(warnings)
             report_failure(f'`{step}` failed (exit code {exit_code})', failure_details(output))
             sys.exit(exit_code)
+        warnings += warnings_in(results_file)
+    report_warnings(warnings)

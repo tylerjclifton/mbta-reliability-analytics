@@ -152,18 +152,19 @@ The transform job (`transform/run.py`) runs `dbt build` then `dbt source freshne
 - **Coverage** — warns if any ridership day has no weather
 - **Incidents** — every incident has at least one alert and a start time
 - **Unit tests** — the alert rules (end times, the 30-minute cap, the 2- and 6-hour grouping windows, what keeps incidents apart) are checked on hand-written alerts with known answers (`transform/models/silver/_silver__unit_tests.yml`), so a change that breaks a rule fails the build instead of quietly shifting the dashboard's numbers. They need BigQuery, so they run in the transform, not in CI's credential-free checks; a broken rule fails the deploy's transform run
-- **Freshness** — fails the run if an ingest job stops writing to bronze (thresholds per source in `transform/models/bronze/_bronze__sources.yml`)
+- **Freshness** — warns, then fails the run, if an ingest job stops writing to bronze (thresholds per source in `transform/models/bronze/_bronze__sources.yml`)
 
-A failing test skips everything downstream of it, so bad data never reaches gold.
+A failing test skips everything downstream of it, so bad data never reaches gold. A check at warn severity flags data worth a look without stopping the run, and is emailed at most once a day ([Alerting](#alerting)).
 
 ---
 
 ## Alerting
 
-Failures email `alert_email` (`infra/variables.tf`) — never successful runs (`infra/monitoring.tf`). The billing budget emails the same account ([Cost](#cost)).
+Failures and warnings email `alert_email` (`infra/variables.tf`); a run that passes cleanly sends nothing (`infra/monitoring.tf`). The billing budget emails the same account ([Cost](#cost)).
 
 - **`<job> failed`** — any job (ingest or transform) whose execution fails. The email carries the job's own error report: the exception and traceback for an ingest job; dbt's failure summary (failed tests, stale sources, or the error) for the transform. Ingest jobs retry once, and only the final attempt reports, so a blip the retry absorbs sends nothing. While a job keeps failing, at most one email every 6 hours.
 - **`transform hasn't succeeded in 3 hours`** — backstop for failures a job can't report itself (timeout, out of memory, never started). An ingest job failing that way surfaces through the transform's freshness check.
+- **`transform warned`** — the transform passed, but a check at warn severity fired: a data test, or a source past its first freshness threshold. The email lists each one. A warning repeats every run until its cause is fixed, so at most one email a day.
 
 The dashboard shows visitors the same thing: the dot beside "Alerts updated" is green while alerts are under 2 hours old, amber with "running behind" at 2–6 hours (hourly runs missed), and red with "may be out of date" beyond that (`serve/helpers.py`, `freshness`).
 
@@ -248,7 +249,7 @@ infra/                  Terraform — all GCP infrastructure
   service-accounts.tf   One service account per workload
   iam.tf                Per-workload access
   deploy.tf             GitHub Actions deploy identity (Workload Identity Federation)
-  monitoring.tf         Failure alert emails
+  monitoring.tf         Failure and warning alert emails
   secrets.tf            MBTA API key secret
   quotas.tf             BigQuery daily query quota, pinned at the default
   apis.tf               Enabled Google APIs
@@ -268,7 +269,7 @@ ingest/                 One shared image for every ingest job
   noaa-weather/         NOAA GHCN-Daily for Boston Logan (daily)
   lamp-alerts/          The MBTA's LAMP alerts archive, whole file (on demand)
 transform/              dbt Core project
-  run.py                Job entrypoint: dbt build + freshness, failure reports
+  run.py                Job entrypoint: dbt build + freshness, failure and warning reports
   models/bronze/        Source declarations + freshness thresholds
   models/silver/        __base cleaned copies + steps + data tests; unit tests for the alert rules
   models/gold/          Dashboard tables (rail_incidents, rail_incident_stations, rail_stations, rail_shapes, rail_ridership) + tests

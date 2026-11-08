@@ -266,7 +266,7 @@ transform/              dbt Core project
 serve/                  Streamlit dashboard (app.py; pure helpers in helpers.py, tested in tests/)
 scripts/
   build-image.sh        Build + push a component's image (used by CI/CD)
-  check-conventions.py  Comment width, banners, ellipses, spelling (used by CI)
+  check-conventions.py  Width, banners, punctuation, ellipses, spelling (used by CI)
 .github/workflows/      CI/CD: lint, tests, dbt parse, terraform validate; deploy on main
 requirements.txt        Local environment: every component + dev tools
 requirements-dev.txt    Dev tool pins (ruff, sqlfluff, pytest), shared with CI

@@ -5,16 +5,14 @@
 # grant no data access by themselves: bigquery.jobUser (run queries and loads)
 # for every data workload, and bigquery.user for dbt (list datasets).
 #
-#                     bronze      silver      gold
-#   ingest-jobs       dataEditor  —           —
-#   dbt-bigquery      dataViewer  dataEditor  dataEditor
+#                     bronze      silver      gold        other
+#   ingest-jobs       dataEditor  —           —           secret: mbta-api-key
+#   dbt-bigquery      dataViewer  dataEditor  dataEditor  bigquery.user
 #   serve-bigquery    —           —           dataViewer
-#   job-scheduler     —           —           —
+#   job-scheduler     —           —           —           run.invoker per ingest job;
+#                                                         run.jobsExecutorWithOverrides
+#                                                         on the transform
 #   github-deployer   terraform apply; broad by necessity (deploy.tf)
-#
-# Beyond the datasets, ingest-jobs reads the mbta-api-key secret, and
-# job-scheduler holds run.invoker on each ingest job and
-# run.jobsExecutorWithOverrides on the transform
 # ══════════════════════════════════════════════════════════════════════════════
 
 # ── Project-level ─────────────────────────────────────────────────────────────

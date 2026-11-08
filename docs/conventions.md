@@ -11,7 +11,7 @@ Formatting that a tool can check is left to the tool. CI runs all four on every 
 | Python | ruff | `pyproject.toml` | 120-character lines, single quotes, import order |
 | dbt SQL | sqlfluff | `transform/.sqlfluff` | 120-character lines, uppercase keywords and functions, single-quoted literals |
 | Terraform | `terraform fmt` | none | Indentation and alignment |
-| Everything | `scripts/check-conventions.py` | the script | Prose within 80 columns, 80-column banners, "…" not three periods, American spelling |
+| Everything | `scripts/check-conventions.py` | the script | Prose within 80 columns (tables and code samples within 120), 80-column banners, "…" not three periods, American spelling |
 
 The rest of this page is for people, and for review: a script can't judge most of it.
 
@@ -53,7 +53,7 @@ These rules cover all prose: comments, docstrings, docs, and commit messages.
 
 ## Comments
 
-- **Width:** comments, docstrings, dbt headers, and YAML descriptions wrap at 80 columns, the width of the section banners. Code may run to 120.
+- **Width:** prose in comments, docstrings, dbt headers, and YAML descriptions wraps at 80 columns, the width of the section banners. A table or code sample inside them can't be rewrapped without losing its shape, so it may run to 120, like code. The check treats a line as one when it's indented past the block's prose or has aligned columns (a gap of three or more spaces).
 - **Periods:** a comment that is one sentence or a fragment has no closing period. A comment of two or more sentences ends every sentence with one, the last included. This covers every `#` and `--` comment, the block that opens a file included, and dbt's inline `{# … #}` comments; each paragraph and each list item counts on its own:
   ```python
   # ArcGIS sets exceededTransferLimit while more pages remain

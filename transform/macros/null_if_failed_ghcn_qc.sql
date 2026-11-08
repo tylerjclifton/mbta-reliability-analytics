@@ -11,8 +11,7 @@
       {{ null_if_failed_ghcn_qc('tmax') }} AS tmax_tenths_c
 
     Compiles to:
-      IF(COALESCE(SPLIT(tmax_attributes, ',')[SAFE_OFFSET(1)], '') = '',
-         tmax, NULL)
+      IF(COALESCE(SPLIT(tmax_attributes, ',')[SAFE_OFFSET(1)], '') = '', tmax, NULL)
   -#}
   IF(COALESCE(SPLIT({{ element }}_attributes, ',')[SAFE_OFFSET(1)], '') = '', {{ element }}, NULL)
 {%- endmacro %}

@@ -13,8 +13,7 @@
 #
 # Report contract (ingest/common/run.py, transform/run.py): a failed run prints
 # one JSON line to stdout, which Cloud Run logs as structured data:
-#   {"severity": "ERROR", "event": "job_failed", "job": "<job>",
-#    "message": "<summary>\n\n<details>"}
+#   {"severity": "ERROR", "event": "job_failed", "job": "<job>", "message": "<summary>\n\n<details>"}
 # Only a task's final attempt reports job_failed; an attempt Cloud Run will
 # retry reports attempt_failed (WARNING), so retried blips send no email. A
 # transform run whose checks warned prints the same shape with "severity":

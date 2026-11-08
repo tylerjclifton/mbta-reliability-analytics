@@ -5,8 +5,9 @@ Run by CI next to ruff, and locally the same way:
   python scripts/check-conventions.py
 
 Checks every tracked text file for:
-  width      comments, docstrings, dbt {# … #} blocks, and YAML descriptions
-             within 80 columns
+  width      prose (comments, docstrings, dbt {# … #} blocks, and YAML
+             descriptions) within 80 columns; a table or code sample within
+             them, which can't be rewrapped, within 120 like code
   banners    section banners exactly 80 columns wide
   ellipsis   "…" in prose (comments, docstrings, markdown), never three periods
   spelling   American spelling (color, canceled)
@@ -22,6 +23,12 @@ import subprocess
 import sys
 
 WIDTH = 80
+
+# A table or code sample in a comment keeps its shape, so it may run to the
+# code limit. A line counts as one when it's indented past its block's prose
+# (`#   {"severity": …}`) or has aligned columns (a gap of three or more spaces).
+CODE_WIDTH = 120
+ALIGNED = re.compile(r'\S {3,}\S')
 
 # Code files whose comments are checked: extensions, plus files with none
 CODE_SUFFIXES = ('.py', '.sql', '.tf', '.yml', '.toml', '.txt', '.sh', '.sqlfluff', '.gitignore', '.dockerignore')
@@ -48,39 +55,63 @@ def tracked_files():
     return [f for f in files if not f.endswith('.lock.hcl')]
 
 
+def text_start(line):
+    """Column where a line's text starts, after any comment marker."""
+    marker = re.match(r'^\s*(?:#|--)?\s*', line)
+    return len(marker.group(0))
+
+
 def prose_lines(path, lines):
     """
-    Line numbers holding prose: comments, docstrings, dbt {# … #} blocks, and
-    YAML descriptions.
+    Prose lines (comments, docstrings, dbt {# … #} blocks, YAML descriptions):
+    {line number: column where its block's ordinary prose starts}.
     """
-    prose = set()
+    prose = {}
+
+    def block(numbers):
+        texts = [lines[n - 1] for n in numbers
+                 if lines[n - 1].strip() and not re.search(r'"""|\{#|#\}', lines[n - 1])]
+        base = min((len(t) - len(t.lstrip()) for t in texts), default=0)
+        prose.update({n: base for n in numbers})
+
     if path.endswith('.py'):
         for node in ast.walk(ast.parse('\n'.join(lines))):
             body = getattr(node, 'body', None)
             if isinstance(node, (ast.Module, ast.FunctionDef, ast.ClassDef)) and body \
                     and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant) \
                     and isinstance(body[0].value.value, str):
-                prose.update(range(body[0].lineno, body[0].end_lineno + 1))
+                block(range(body[0].lineno, body[0].end_lineno + 1))
     if path.endswith('.sql'):
-        inside = False
+        numbers = []
         for n, line in enumerate(lines, 1):
-            inside = inside or '{#' in line
-            if inside:
-                prose.add(n)
-            inside = inside and '#}' not in line
+            if numbers or '{#' in line:
+                numbers.append(n)
+            if numbers and '#}' in line:
+                block(numbers)
+                numbers = []
     if path.endswith('.yml'):
-        folded_at = None
-        for n, line in enumerate(lines, 1):
+        folded_at, numbers = None, []
+        for n, line in enumerate(lines + [''], 1):
             indent = len(line) - len(line.lstrip())
-            if folded_at is not None and (not line.strip() or indent > folded_at):
-                prose.add(n)
+            if folded_at is not None and line.strip() and indent > folded_at:
+                numbers.append(n)
                 continue
+            if numbers:
+                block(numbers)
+                numbers = []
             folded_at = indent if re.search(r'description: [>|]-?\s*$', line) else None
     for n, line in enumerate(lines, 1):
         stripped = line.strip()
-        if stripped.startswith(('#', '--')) and not stripped.startswith('#!'):
-            prose.add(n)
+        if n not in prose and stripped.startswith(('#', '--')) and not stripped.startswith('#!'):
+            marker = 2 if stripped.startswith('--') else 1
+            prose[n] = len(line) - len(line.lstrip()) + marker + 1
     return prose
+
+
+def limit(line, base):
+    """80 for prose; 120 for a table or code line."""
+    start = text_start(line)
+    return CODE_WIDTH if start >= base + 2 or ALIGNED.search(line[start:]) else WIDTH
 
 
 def check(path):
@@ -99,8 +130,8 @@ def check(path):
         if is_code and BANNER.match(line):
             if len(line) != WIDTH:
                 problems.append(f'{where} banner is {len(line)} columns wide, not {WIDTH}')
-        elif n in prose and len(line) > WIDTH:
-            problems.append(f'{where} prose runs to {len(line)} columns (limit {WIDTH})')
+        elif n in prose and len(line) > limit(line, prose[n]):
+            problems.append(f'{where} runs to {len(line)} columns (limit {limit(line, prose[n])})')
         if (n in prose or is_markdown) and '...' in line:
             problems.append(f'{where} "..." in prose; use "…"')
         for match in (BRITISH.finditer(line) if path != SELF else ()):

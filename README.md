@@ -151,7 +151,7 @@ The transform job (`transform/run.py`) runs `dbt build` then `dbt source freshne
 - **Range tests** — temperatures, precipitation, gated entries, and severities are physically plausible
 - **Coverage** — warns if any ridership day has no weather
 - **Incidents** — every incident has at least one alert and a start time
-- **Unit tests** — the alert rules (end times, the 30-minute cap, the 2- and 6-hour grouping windows, what keeps incidents apart) are checked on hand-written alerts with known answers (`transform/models/silver/_silver__unit_tests.yml`), so a change that breaks a rule fails the build instead of quietly shifting the dashboard's numbers. They need BigQuery, so they run in the transform, not in CI's credential-free checks; a broken rule fails the deploy's transform run
+- **Unit tests** — the alert rules (end times, the 30-minute cap, the 2- and 6-hour grouping windows, what keeps incidents apart, durations of alerts announced ahead) are checked on hand-written alerts with known answers (`transform/models/silver/_silver__unit_tests.yml`), so a change that breaks a rule fails the build instead of quietly shifting the dashboard's numbers. They need BigQuery, so they run in the transform, not in CI's credential-free checks; a broken rule fails the deploy's transform run
 - **Freshness** — warns, then fails the run, if an ingest job stops writing to bronze (thresholds per source in `transform/models/bronze/_bronze__sources.yml`)
 
 A failing test skips everything downstream of it, so bad data never reaches gold. A check at warn severity flags data worth a look without stopping the run, and is emailed at most once a day ([Alerting](#alerting)).

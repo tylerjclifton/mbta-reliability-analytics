@@ -89,11 +89,16 @@ WITH
                 IF(LOGICAL_OR(alert_end_at IS NULL), NULL, MAX(alert_end_at)),
                 '{{ var("local_timezone") }}'
             )                                                           AS incident_end_date,
-            -- Ongoing incidents are measured up to now
-            TIMESTAMP_DIFF(
-                IF(LOGICAL_OR(alert_end_at IS NULL), CURRENT_TIMESTAMP(), MAX(alert_end_at)),
-                MIN(alert_start_at),
-                MINUTE
+            -- Ongoing incidents are measured up to now. One announced ahead with
+            -- no posted end has no duration until it starts.
+            IF(
+                LOGICAL_OR(alert_end_at IS NULL) AND MIN(alert_start_at) > CURRENT_TIMESTAMP(),
+                NULL,
+                TIMESTAMP_DIFF(
+                    IF(LOGICAL_OR(alert_end_at IS NULL), CURRENT_TIMESTAMP(), MAX(alert_end_at)),
+                    MIN(alert_start_at),
+                    MINUTE
+                )
             )                                                           AS incident_duration_minutes,
             COUNT(DISTINCT alert_id)                                    AS alert_count,
             LOGICAL_OR(is_in_feed)                                      AS is_in_feed,

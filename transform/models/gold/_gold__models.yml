@@ -43,7 +43,9 @@ models:
       - name: incident_end_at
         description: "{{ doc('incident_end_at') }}"
       - name: incident_duration_minutes
-        description: Minutes from start to end, or to now while ongoing.
+        description: >
+          Minutes from start to end, or to now while ongoing. NULL for an
+          upcoming incident with no posted end.
       - name: alert_count
         description: Number of MBTA alerts posted for this incident.
         data_tests:

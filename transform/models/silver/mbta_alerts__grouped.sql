@@ -99,8 +99,13 @@ SELECT
     alert_end_at,
     DATE(alert_start_at, '{{ var("local_timezone") }}')         AS alert_start_date,
     DATE(alert_end_at, '{{ var("local_timezone") }}')           AS alert_end_date,
-    -- Ongoing alerts are measured up to now
-    TIMESTAMP_DIFF(COALESCE(alert_end_at, CURRENT_TIMESTAMP()), alert_start_at, MINUTE) AS alert_duration_minutes,
+    -- Ongoing alerts are measured up to now. One announced ahead with no posted
+    -- end has no duration until it starts.
+    IF(
+        alert_end_at IS NULL AND alert_start_at > CURRENT_TIMESTAMP(),
+        NULL,
+        TIMESTAMP_DIFF(COALESCE(alert_end_at, CURRENT_TIMESTAMP()), alert_start_at, MINUTE)
+    )                                                           AS alert_duration_minutes,
     location_key                                                AS alert_location_key,
     alert_created_at,
     alert_updated_at,

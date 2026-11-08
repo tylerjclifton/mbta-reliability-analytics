@@ -306,3 +306,28 @@ unit_tests:
         - {alert_id: other_route,       incident_id: other_route,       alert_location_key: harvard}
         - {alert_id: no_location,       incident_id: no_location,       alert_location_key: null}
         - {alert_id: no_location_again, incident_id: no_location_again, alert_location_key: null}
+
+  - name: grouped_duration_of_upcoming_alerts
+    description: >
+      An alert announced ahead (it starts in the future) has no duration until
+      it starts, unless it has a posted end, which gives its planned length.
+    model: mbta_alerts__grouped
+    given:
+      - input: ref('mbta_alerts__resolved')
+        rows:
+          - {alert_id: ended, route_id: Red, alert_cause: DISABLED_TRAIN, alert_effect: DELAY,
+             alert_header: 'Red Line delays at Harvard due to a disabled train',
+             alert_start_at: '2026-01-05 10:00:00', alert_end_at: '2026-01-05 11:30:00'}
+          # Starts in the future with no posted end → no duration yet
+          - {alert_id: upcoming_open_ended, route_id: Red, alert_cause: CONSTRUCTION, alert_effect: STATION_CLOSURE,
+             alert_header: 'Davis will be closed until further notice',
+             alert_start_at: '2099-01-05 10:00:00', alert_end_at: null}
+          # Starts in the future with a posted end → its planned length
+          - {alert_id: upcoming_planned, route_id: Red, alert_cause: MAINTENANCE, alert_effect: SHUTTLE,
+             alert_header: 'Shuttle buses replace Red Line trains between Alewife and Harvard',
+             alert_start_at: '2099-01-05 10:00:00', alert_end_at: '2099-01-07 10:00:00'}
+    expect:
+      rows:
+        - {alert_id: ended,               alert_duration_minutes: 90}
+        - {alert_id: upcoming_open_ended, alert_duration_minutes: null}
+        - {alert_id: upcoming_planned,    alert_duration_minutes: 2880}

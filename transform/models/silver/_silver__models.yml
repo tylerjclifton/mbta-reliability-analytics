@@ -433,7 +433,9 @@ models:
       - name: alert_end_date
         description: Eastern date of alert_end_at; NULL while ongoing.
       - name: alert_duration_minutes
-        description: Minutes from start to end, or to now for ongoing alerts.
+        description: >
+          Minutes from start to end, or to now for ongoing alerts. NULL for an
+          alert that hasn't started yet and has no posted end.
         data_tests:
           # The API occasionally publishes an end before the start
           - accepted_range:

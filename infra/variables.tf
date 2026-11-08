@@ -1,7 +1,7 @@
 # ══════════════════════════════════════════════════════════════════════════════
 # Variables — project, deployment, schedules, alerting, and service agents
 #
-# Everything has a default except image_tag, which CI/CD sets on every deploy
+# Everything has a default except image_tag, which CI/CD sets on every deploy.
 # ══════════════════════════════════════════════════════════════════════════════
 
 # ── Project ───────────────────────────────────────────────────────────────────
@@ -104,14 +104,14 @@ variable "serve_domain" {
 
 variable "alert_email" {
   # The Google account that owns the project and administers its billing, so
-  # failure alerts land with the budget's and Google's own account email
+  # failure alerts land with the budget's and Google's own account email.
   description = "Address that receives pipeline failure alerts (monitoring.tf)"
   type        = string
   default     = "tclifton2017@gmail.com"
 }
 
 # ── Google service agents ─────────────────────────────────────────────────────
-# Project-number-specific; granted by Google, documented in iam.tf
+# Project-number-specific; granted by Google, documented in iam.tf.
 
 variable "default_sa_google_apis" {
   description = "Google APIs Service Agent"

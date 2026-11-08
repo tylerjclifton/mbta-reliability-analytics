@@ -8,35 +8,35 @@
 # running service.
 #
 # Enabled outside Terraform and deliberately left alone: Cloud Build (and
-# Pub/Sub, which it requires) and the Gemini console assistants
+# Pub/Sub, which it requires) and the Gemini console assistants.
 # ══════════════════════════════════════════════════════════════════════════════
 
 locals {
   project_apis = {
-    # Data
+    # Data.
     bigquery         = "bigquery.googleapis.com"        # warehouse (bronze/silver/gold)
     bigquery_storage = "bigquerystorage.googleapis.com" # fast table reads; required by BigQuery
 
-    # Compute + scheduling
+    # Compute + scheduling.
     run             = "run.googleapis.com"            # ingest/transform jobs, dashboard service
     cloud_scheduler = "cloudscheduler.googleapis.com" # cron triggers
     cloud_trace     = "cloudtrace.googleapis.com"     # required by Cloud Scheduler
 
     # Cost guardrails (the budget itself lives on the
-    # billing account, outside Terraform)
+    # billing account, outside Terraform).
     billing_budgets = "billingbudgets.googleapis.com"
     cloud_quotas    = "cloudquotas.googleapis.com" # BigQuery daily query quota (quotas.tf)
 
-    # Images + secrets
+    # Images + secrets.
     artifact_registry = "artifactregistry.googleapis.com" # Docker images
     secret_manager    = "secretmanager.googleapis.com"    # MBTA API key
 
-    # Storage (Terraform state bucket)
+    # Storage (Terraform state bucket).
     storage           = "storage.googleapis.com"
     storage_api       = "storage-api.googleapis.com"
     storage_component = "storage-component.googleapis.com"
 
-    # Identity, logging, and platform plumbing
+    # Identity, logging, and platform plumbing.
     iam                    = "iam.googleapis.com"
     iam_credentials        = "iamcredentials.googleapis.com" # short-lived tokens (Scheduler → Run, GitHub → deployer)
     sts                    = "sts.googleapis.com"            # exchanges GitHub OIDC tokens (deploy.tf)

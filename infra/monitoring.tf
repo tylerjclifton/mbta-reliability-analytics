@@ -3,7 +3,7 @@
 #
 #   <job> failed            one policy per Cloud Run job; emails the job's
 #                           own failure report (error + traceback or dbt
-#                           summary)
+#                           summary).
 #   transform hasn't        backstop for failures a job can't report itself:
 #   succeeded in 3 hours    timeouts, out-of-memory kills, the scheduler not
 #                           starting it. An ingest job failing that way is
@@ -21,7 +21,7 @@
 # ══════════════════════════════════════════════════════════════════════════════
 
 locals {
-  # Every Cloud Run job, by name (ingest-mbta-alerts, …, transform)
+  # Every Cloud Run job, by name (ingest-mbta-alerts, …, transform).
   pipeline_jobs = toset(concat(
     [for job in google_cloud_run_v2_job.ingest : job.name],
     [google_cloud_run_v2_job.transform.name],
@@ -52,7 +52,7 @@ resource "google_monitoring_alert_policy" "job_failed" {
         resource.labels.job_name="${each.key}"
         jsonPayload.event="job_failed"
       EOT
-      # Copied from the log entry into the email (documentation below)
+      # Copied from the log entry into the email (documentation below).
       label_extractors = {
         error     = "EXTRACT(jsonPayload.message)"
         execution = "EXTRACT(labels.\"run.googleapis.com/execution_name\")"
@@ -63,11 +63,11 @@ resource "google_monitoring_alert_policy" "job_failed" {
   alert_strategy {
     # At most one email per job every 6 hours while it keeps failing (the
     # alerts job runs every 15 minutes, so a lasting outage would otherwise
-    # send dozens)
+    # send dozens).
     notification_rate_limit {
       period = "21600s"
     }
-    # Close the alert 30 minutes (the minimum) after the last failure
+    # Close the alert 30 minutes (the minimum) after the last failure.
     auto_close = "1800s"
   }
 
@@ -104,7 +104,7 @@ resource "google_monitoring_alert_policy" "transform_warned" {
         resource.labels.job_name="${google_cloud_run_v2_job.transform.name}"
         jsonPayload.event="job_warned"
       EOT
-      # Copied from the log entry into the email (documentation below)
+      # Copied from the log entry into the email (documentation below).
       label_extractors = {
         warnings  = "EXTRACT(jsonPayload.message)"
         execution = "EXTRACT(labels.\"run.googleapis.com/execution_name\")"
@@ -114,11 +114,11 @@ resource "google_monitoring_alert_policy" "transform_warned" {
 
   alert_strategy {
     # A warning repeats every run until its cause is fixed, and it holds
-    # nothing back, so a daily digest is enough
+    # nothing back, so a daily digest is enough.
     notification_rate_limit {
       period = "86400s"
     }
-    # Close the alert 30 minutes (the minimum) after the last warning
+    # Close the alert 30 minutes (the minimum) after the last warning.
     auto_close = "1800s"
   }
 

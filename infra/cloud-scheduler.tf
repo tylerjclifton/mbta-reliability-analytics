@@ -23,7 +23,7 @@ resource "google_cloud_scheduler_job" "ingest" {
 
   # Retries the call that starts the job, if it fails: a job that never started
   # can't retry itself (max_retries in cloud-run-jobs.tf
-  # only covers failed runs)
+  # only covers failed runs).
   retry_config {
     retry_count = 1
   }
@@ -41,7 +41,7 @@ resource "google_cloud_scheduler_job" "ingest" {
 # ── Transform triggers ────────────────────────────────────────────────────────
 # Hourly runs skip the slow-changing models tagged daily (transform/
 # dbt_project.yml), and one full run a day builds everything, as does any run
-# started another way: CI's post-deploy run or a manual one (decision 0017)
+# started another way: CI's post-deploy run or a manual one (decision 0017).
 
 locals {
   transform_triggers = {
@@ -60,7 +60,7 @@ resource "google_cloud_scheduler_job" "transform" {
   paused           = false
 
   # Retries the call that starts the job, if it fails; the job itself never
-  # retries (transform_max_retries in cloud-run-jobs.tf)
+  # retries (transform_max_retries in cloud-run-jobs.tf).
   retry_config {
     retry_count = 1
   }
@@ -69,7 +69,7 @@ resource "google_cloud_scheduler_job" "transform" {
     http_method = "POST"
     uri         = "${local.run_jobs_api}/${google_cloud_run_v2_job.transform.name}:run"
     # DBT_EXCLUDE is passed to `dbt build --exclude` (transform/run.py), for
-    # this run only
+    # this run only.
     headers = each.value.exclude == null ? {} : { "Content-Type" = "application/json" }
     body = each.value.exclude == null ? null : base64encode(jsonencode({
       overrides = { containerOverrides = [{ env = [{ name = "DBT_EXCLUDE", value = each.value.exclude }] }] }
@@ -81,7 +81,7 @@ resource "google_cloud_scheduler_job" "transform" {
   }
 }
 
-# The hourly trigger predates the full one; keep it rather than recreate it
+# The hourly trigger predates the full one; keep it rather than recreate it.
 moved {
   from = google_cloud_scheduler_job.transform
   to   = google_cloud_scheduler_job.transform["transform"]

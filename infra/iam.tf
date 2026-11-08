@@ -22,7 +22,7 @@ locals {
     ingest_job_user = { member = google_service_account.ingest.member, role = "roles/bigquery.jobUser" }
     dbt_job_user    = { member = google_service_account.dbt_bigquery.member, role = "roles/bigquery.jobUser" }
     # dbt lists and looks up datasets before building; bigquery.user covers that
-    # without granting read or write on any existing dataset
+    # without granting read or write on any existing dataset.
     dbt_user       = { member = google_service_account.dbt_bigquery.member, role = "roles/bigquery.user" }
     serve_job_user = { member = google_service_account.serve_bigquery.member, role = "roles/bigquery.jobUser" }
   }
@@ -58,7 +58,7 @@ resource "google_bigquery_dataset_iam_member" "workload" {
 
 # ── Secret and job-level ──────────────────────────────────────────────────────
 
-# Ingest jobs read the MBTA API key (secrets.tf)
+# Ingest jobs read the MBTA API key (secrets.tf).
 resource "google_secret_manager_secret_iam_member" "ingest_reads_mbta_api_key" {
   secret_id = google_secret_manager_secret.mbta_api_key.secret_id
   role      = "roles/secretmanager.secretAccessor"
@@ -66,7 +66,7 @@ resource "google_secret_manager_secret_iam_member" "ingest_reads_mbta_api_key" {
 }
 
 # The scheduler may start exactly these jobs (run.invoker includes
-# run.jobs.run): the scheduled ingest jobs, not the on-demand ones
+# run.jobs.run): the scheduled ingest jobs, not the on-demand ones.
 resource "google_cloud_run_v2_job_iam_member" "scheduler_runs_ingest" {
   for_each = { for name, job in google_cloud_run_v2_job.ingest : name => job if local.ingest_jobs[name].schedule != null }
 
@@ -77,7 +77,7 @@ resource "google_cloud_run_v2_job_iam_member" "scheduler_runs_ingest" {
 }
 
 # The transform also takes overrides: its hourly trigger passes DBT_EXCLUDE
-# (cloud-scheduler.tf), which run.invoker doesn't allow
+# (cloud-scheduler.tf), which run.invoker doesn't allow.
 resource "google_cloud_run_v2_job_iam_member" "scheduler_runs_transform" {
   name     = google_cloud_run_v2_job.transform.name
   location = google_cloud_run_v2_job.transform.location
@@ -95,7 +95,7 @@ locals {
     artifact_registry = { member = "serviceAccount:${var.default_sa_artifact_registry}", role = "roles/artifactregistry.serviceAgent" }
     cloud_scheduler   = { member = "serviceAccount:${var.default_sa_cloud_scheduler}", role = "roles/cloudscheduler.serviceAgent" }
     # Google APIs service agent: Editor is Google's default for project-level
-    # automation (e.g. creating managed resources); not used by our workloads
+    # automation (e.g. creating managed resources); not used by our workloads.
     google_apis = { member = "serviceAccount:${var.default_sa_google_apis}", role = "roles/editor" }
   }
 }

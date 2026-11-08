@@ -2,7 +2,7 @@
 # Cloud Run service — the dashboard (serve/), public at tylerclifton.com
 #
 # Scales to zero between visits; a cold start on the first request is fine
-# (decision 0007)
+# (decision 0007).
 # ══════════════════════════════════════════════════════════════════════════════
 
 resource "google_cloud_run_v2_service" "serve" {
@@ -37,7 +37,7 @@ resource "google_cloud_run_v2_service" "serve" {
     }
 
     # No always-on instance; at most 2, so a traffic flood slows the site
-    # instead of multiplying the bill (each takes up to 80 connections)
+    # instead of multiplying the bill (each takes up to 80 connections).
     scaling {
       min_instance_count = 0
       max_instance_count = 2
@@ -45,7 +45,7 @@ resource "google_cloud_run_v2_service" "serve" {
   }
 }
 
-# Allow unauthenticated public access (portfolio site)
+# Allow unauthenticated public access (portfolio site).
 resource "google_cloud_run_v2_service_iam_member" "serve_public" {
   project  = var.project_id
   location = var.location
@@ -54,7 +54,7 @@ resource "google_cloud_run_v2_service_iam_member" "serve_public" {
   member   = "allUsers"
 }
 
-# Custom domain mapping — tylerclifton.com (canonical, no www)
+# Custom domain mapping — tylerclifton.com (canonical, no www).
 resource "google_cloud_run_domain_mapping" "serve_domain" {
   location = var.location
   name     = var.serve_domain
@@ -72,7 +72,7 @@ resource "google_cloud_run_domain_mapping" "serve_domain" {
   }
 }
 
-# www.tylerclifton.com also mapped — Cloud Run will redirect to canonical
+# www.tylerclifton.com also mapped — Cloud Run will redirect to canonical.
 resource "google_cloud_run_domain_mapping" "serve_domain_www" {
   location = var.location
   name     = "www.${var.serve_domain}"

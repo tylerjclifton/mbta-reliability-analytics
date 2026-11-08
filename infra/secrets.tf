@@ -7,7 +7,7 @@
 # ══════════════════════════════════════════════════════════════════════════════
 
 # MBTA V3 API key, read by the MBTA API ingest jobs
-# (alerts, routes, shapes, stops)
+# (alerts, routes, shapes, stops).
 resource "google_secret_manager_secret" "mbta_api_key" {
   secret_id = "mbta-api-key"
 

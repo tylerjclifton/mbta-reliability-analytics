@@ -1,11 +1,12 @@
 #!/bin/bash
 # Build and push a component's Docker image to Artifact Registry
 #
-# Usage:  scripts/build-image.sh <ingest|transform|serve> <tag>
+# Usage:
+#   scripts/build-image.sh <ingest|transform|serve> <tag>
 #
 # Normally run by CI/CD (.github/workflows/ci.yml), which builds all three with
 # the commit as the tag and deploys them with
-# `terraform apply -var image_tag=…`
+# `terraform apply -var image_tag=…`.
 
 set -euo pipefail
 
@@ -15,7 +16,7 @@ TAG="${2:?usage: $0 <ingest|transform|serve> <tag>}"
 PROJECT_ID="mbta-reliability-analytics"
 REGION="us-east1"
 
-# The dashboard lives in the frontend repository; jobs in backend
+# The dashboard lives in the frontend repository; jobs in backend.
 case "${COMPONENT}" in
   ingest|transform) REPOSITORY="backend" ;;
   serve)            REPOSITORY="frontend" ;;
@@ -24,7 +25,7 @@ esac
 
 IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/${COMPONENT}:${TAG}"
 
-# Each component builds from its own folder (Dockerfile + requirements.txt)
+# Each component builds from its own folder (Dockerfile + requirements.txt).
 cd "$(dirname "$0")/../${COMPONENT}"
 
 echo "Building ${IMAGE}..."

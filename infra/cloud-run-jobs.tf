@@ -2,7 +2,7 @@
 # Cloud Run jobs — ingest (one per source) and transform (dbt)
 #
 # All ingest jobs run the same image (ingest/Dockerfile); each job runs its own
-# script via container args and appends to its bronze table of the same name
+# script via container args and appends to its bronze table of the same name.
 # ══════════════════════════════════════════════════════════════════════════════
 
 locals {
@@ -86,11 +86,11 @@ resource "google_cloud_run_v2_job" "ingest" {
   deletion_protection = true
 
   # Cloud Run checks secret access when the job is updated, so the ingest
-  # account's grant on the MBTA API key must exist first
+  # account's grant on the MBTA API key must exist first.
   depends_on = [google_secret_manager_secret_iam_member.ingest_reads_mbta_api_key]
 
   template {
-    # One task per execution (parallelism 0 means no limit, moot with one task)
+    # One task per execution (parallelism 0 means no limit, moot with one task).
     task_count  = 1
     parallelism = 0
     template {
@@ -122,7 +122,7 @@ resource "google_cloud_run_v2_job" "ingest" {
           value = google_bigquery_table.bronze[replace(each.key, "-", "_")].table_id
         }
 
-        # Job-specific settings
+        # Job-specific settings.
         dynamic "env" {
           for_each = each.value.env
           content {
@@ -132,7 +132,7 @@ resource "google_cloud_run_v2_job" "ingest" {
         }
 
         # MBTA API key (optional for the API, but
-        # removes the anonymous rate limit)
+        # removes the anonymous rate limit).
         dynamic "env" {
           for_each = each.value.uses_mbta_api_key ? [1] : []
           content {
@@ -166,7 +166,7 @@ resource "google_cloud_run_v2_job" "transform" {
   deletion_protection = true
 
   template {
-    # One task per execution (parallelism 0 means no limit, moot with one task)
+    # One task per execution (parallelism 0 means no limit, moot with one task).
     task_count  = 1
     parallelism = 0
     template {

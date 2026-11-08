@@ -24,7 +24,7 @@ resource "google_artifact_registry_repository" "repo" {
 
   cleanup_policy_dry_run = false
 
-  # Policies are evaluated together: KEEP wins over DELETE
+  # Policies are evaluated together: KEEP wins over DELETE.
   cleanup_policies {
     id     = "keep-5-most-recent"
     action = "KEEP"

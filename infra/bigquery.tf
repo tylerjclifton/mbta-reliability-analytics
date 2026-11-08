@@ -9,12 +9,12 @@
 #           any change Terraform would make by replacing it, follows decision
 #           0013 instead.
 #   silver  dbt models: each source's cleaned copy plus steps built on it
-#           (views, except three incremental alert tables)
-#   gold    dbt tables the dashboard reads, rebuilt every transform run
+#           (views, except three incremental alert tables).
+#   gold    dbt tables the dashboard reads, rebuilt every transform run.
 #
 # Dev sandboxes mirror the layers for local work, so nothing local touches the
 # live datasets: dev_bronze (local ingest runs, ingest/common/load.py), and
-# dev_silver / dev_gold (local dbt builds, which read the real bronze)
+# dev_silver / dev_gold (local dbt builds, which read the real bronze).
 #
 # Naming: tables are `<source>_<entity>`; silver's models built from each are
 # `<source>_<entity>__<step>` (`__base` is the cleaned copy); the dataset says
@@ -24,13 +24,13 @@
 # ══════════════════════════════════════════════════════════════════════════════
 
 locals {
-  # Audit columns appended to every bronze table by ingest/common/load.py
+  # Audit columns appended to every bronze table by ingest/common/load.py.
   bronze_audit_columns = [
     { name = "ingested_at", type = "TIMESTAMP", description = "When the ingest run started (UTC); shared by every row written in that run" },
     { name = "ingested_by", type = "STRING", description = "Cloud Run job that wrote the row" },
   ]
 
-  # How long local test data lives in the dev sandboxes
+  # How long local test data lives in the dev sandboxes.
   dev_retention_ms = 7 * 24 * 60 * 60 * 1000
 
   # One entry per bronze table. Column names follow the source system; renaming
@@ -189,10 +189,10 @@ resource "google_bigquery_dataset" "bronze" {
   description   = "Append-only raw history written by ingest jobs (all sources)"
   location      = var.location
 
-  # Bill storage on compressed bytes: repeated snapshots compress ~100× (0014)
+  # Bill storage on compressed bytes: repeated snapshots compress ~100× (0014).
   storage_billing_model = "PHYSICAL"
 
-  # Bronze is the only copy of data the sources don't keep themselves
+  # Bronze is the only copy of data the sources don't keep themselves.
   lifecycle {
     prevent_destroy = true
   }
@@ -219,7 +219,7 @@ resource "google_bigquery_dataset" "gold" {
 #                        rows expire by partition instead of whole tables.
 #   dev_silver, dev_gold local dbt builds (`--target local`, see
 #                        transform/macros/generate_schema_name.sql); whole
-#                        tables expire, and rebuilding recreates them
+#                        tables expire, and rebuilding recreates them.
 resource "google_bigquery_dataset" "dev" {
   for_each = {
     dev_bronze = "Local ingest runs (ingest/common/load.py's default); rows expire after 7 days"
@@ -245,7 +245,7 @@ resource "google_bigquery_table" "bronze" {
   deletion_protection = true
 
   # Partition by ingest day and cluster by grain key so silver's
-  # "latest version per key" lookups stay cheap as history grows
+  # "latest version per key" lookups stay cheap as history grows.
   clustering = each.value.clustering
   time_partitioning {
     type  = "DAY"

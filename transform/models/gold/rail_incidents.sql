@@ -89,8 +89,8 @@ WITH
                 IF(LOGICAL_OR(alert_end_at IS NULL), NULL, MAX(alert_end_at)),
                 '{{ var("local_timezone") }}'
             )                                                           AS incident_end_date,
-            -- Ongoing incidents are measured up to now. One announced ahead with
-            -- no posted end has no duration until it starts.
+            -- Ongoing incidents are measured up to now. One announced ahead
+            -- with no posted end has no duration until it starts.
             IF(
                 LOGICAL_OR(alert_end_at IS NULL) AND MIN(alert_start_at) > CURRENT_TIMESTAMP(),
                 NULL,

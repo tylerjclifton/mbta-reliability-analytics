@@ -28,7 +28,8 @@ WITH
         WHERE s.stop_type = 'Station'
     )
 
--- 2. One row per station × line (Green Line branches share their trunk stations)
+-- 2. One row per station × line (Green Line branches
+--    share their trunk stations)
 SELECT
     station_id,
     line_name,

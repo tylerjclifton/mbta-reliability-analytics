@@ -2,8 +2,8 @@
   silver.mbta_routes__base — one row per route
 
   Latest snapshot of each rail route, plus the line it belongs to. Alerts are
-  reported per route (Green-B, Green-C, ...) but ridership per line (Green Line),
-  so line_name is the bridge between them.
+  reported per route (Green-B, Green-C, …) but ridership per line (Green
+  Line), so line_name is the bridge between them.
 
   Steps:
     1. latest_versions — latest snapshot per route

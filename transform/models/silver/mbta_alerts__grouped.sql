@@ -23,15 +23,16 @@
 
 WITH
 
-    -- 1. Location named after at/near/between/from: the run of capitalized words
-    --    ("JFK/UMass", "Revere Beach and Beachmont"), lower-cased with
+    -- 1. Location named after at/near/between/from: the run of capitalized
+    --    words ("JFK/UMass", "Revere Beach and Beachmont"), lower-cased with
     --    punctuation stripped so "at JFK/UMass" and "near JFK/UMass" match.
     --    NULL when the header names no location.
     located AS (
         SELECT
             *,
             REGEXP_REPLACE(
-                -- A regex can't be wrapped, so this line is exempt from the length rule
+                -- A regex can't be wrapped, so this line is
+                -- exempt from the length rule
                 LOWER(REGEXP_EXTRACT(alert_header, r"(?:\bat|\bnear|\bbetween|\bfrom) ((?:[A-Z][\w/'-]*)(?: (?:[A-Z][\w/'-]*|and))*)")),  -- noqa: LT05
                 r'[^a-z]', ''
             ) AS location_key,

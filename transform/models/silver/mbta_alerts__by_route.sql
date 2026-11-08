@@ -29,7 +29,8 @@
   Steps:
     1. new_snapshots — snapshots after the latest one already here, split per
                        rail route; the API's epoch placeholder → NULL
-    2. candidates    — those rows, plus the existing row for each alert they touch
+    2. candidates    — those rows, plus the existing row
+                       for each alert they touch
     3. final select  — per alert × route: latest version's fields, earliest
                        first-seen, latest last-seen
 #}
@@ -91,16 +92,17 @@ WITH
                 SAFE_CAST(JSON_VALUE(r.alert_json, '$.attributes.severity') AS INT64)      AS alert_severity,
                 TIMESTAMP(JSON_VALUE(r.alert_json, '$.attributes.created_at'))             AS alert_created_at,
                 TIMESTAMP(JSON_VALUE(r.alert_json, '$.attributes.updated_at'))             AS alert_updated_at,
-                -- Set once the MBTA closes the alert; it stays in the feed a few minutes after
+                -- Set once the MBTA closes the alert; it stays in
+                -- the feed a few minutes after
                 TIMESTAMP(JSON_VALUE(r.alert_json, '$.attributes.closed_timestamp'))       AS alert_closed_at,
                 r.ingested_at
             FROM {{ source('bronze', 'mbta_alerts') }} AS r
-            -- One row per distinct route among the alert's informed entities...
+            -- One row per distinct route among the alert's informed entities…
             CROSS JOIN UNNEST(ARRAY(
                 SELECT DISTINCT JSON_VALUE(entity, '$.route')
                 FROM UNNEST(JSON_QUERY_ARRAY(r.alert_json, '$.attributes.informed_entity')) AS entity
             )) AS entity_route_id
-            -- ...kept only for rail routes: those in the routes table (the
+            -- …kept only for rail routes: those in the routes table (the
             -- project's rail routes, ingest/common/mbta_api.py), as in
             -- mbta_alerts__by_station
             INNER JOIN {{ ref('mbta_routes__base') }} AS rail

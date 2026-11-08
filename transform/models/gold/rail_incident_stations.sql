@@ -9,9 +9,11 @@
   delays are line-wide and have no rows.
 
   Steps:
-    1. alert_stations    — each service alert's stations, tagged with its incident
+    1. alert_stations    — each service alert's stations,
+                           tagged with its incident
     2. incident_stations — collapsed to incident × route × station; both
-                           directions if any alert affects both, or alerts differ
+                           directions if any alert
+                           affects both, or alerts differ
     3. stations          — each station's name and coordinates
     4. final select      — with the incident's details, the station's location,
                            and which way the affected direction runs
@@ -19,7 +21,8 @@
 
 WITH
 
-    -- 1. Stations per service-affecting alert (silver.mbta_alerts__grouped drops the rest)
+    -- 1. Stations per service-affecting alert
+    --    (silver.mbta_alerts__grouped drops the rest)
     alert_stations AS (
         SELECT
             a.incident_id,

@@ -23,7 +23,7 @@
                  run (runs are every 15 minutes), capped at 30 minutes after it
                  was last seen
              NULL while the alert is still in the feed, open, with no posted end
-  Alerts that ended before their start never took effect (cancelled, or
+  Alerts that ended before their start never took effect (canceled, or
   re-posted under a new alert ID) and are dropped, as are LAMP alerts with
   neither a close nor a posted end.
 
@@ -74,7 +74,8 @@ WITH
         INNER JOIN runs AS r
             ON TIMESTAMP_TRUNC(a.last_seen_at, MINUTE) = r.run_at
         WHERE
-            -- Exempt from the length rule: the line is only long once the effect list is rendered
+            -- Exempt from the length rule: the line is only long once
+            -- the effect list is rendered
             a.alert_effect NOT IN {{ non_service_effects }}  -- noqa: LT05
             -- Rows last seen before full-JSON capture are history from the
             -- frozen table, which LAMP replaces

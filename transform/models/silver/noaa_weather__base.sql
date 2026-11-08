@@ -5,7 +5,8 @@
   from NOAA's metric source units to US units.
 
   Steps:
-    1. latest_versions — latest pull per observation date (NOAA revises recent days)
+    1. latest_versions — latest pull per observation
+                         date (NOAA revises recent days)
     2. quality_checked — NULL out any value NOAA's quality control flagged
     3. final select    — convert units: tenths of °C → °F, tenths of mm → in,
                          mm → in
@@ -20,7 +21,8 @@ WITH
         {{ keep_latest_version(['station_id', 'observation_date']) }}
     ),
 
-    -- 2. Keep only values that passed NOAA quality control; source units retained
+    -- 2. Keep only values that passed NOAA quality
+    --    control; source units retained
     quality_checked AS (
         SELECT
             station_id,

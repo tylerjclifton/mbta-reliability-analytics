@@ -12,7 +12,7 @@
 
     Usage:
       {%- set processed_through = last_processed_snapshot() -%}
-      ...
+      …
       {%- if processed_through %}
       WHERE ingested_at > TIMESTAMP '{{ processed_through }}'
       {%- endif %}

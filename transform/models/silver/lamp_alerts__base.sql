@@ -21,7 +21,8 @@
   half-loaded. `dbt build --full-refresh` does the same.
 
   Steps:
-    1. versions     — distinct LAMP rows, renamed (none unless there's a new load)
+    1. versions     — distinct LAMP rows, renamed (none
+                      unless there's a new load)
     2. loads        — the latest load, stamped on every row
     3. latest       — each alert's latest version, flagged if a row names a
                       rail route

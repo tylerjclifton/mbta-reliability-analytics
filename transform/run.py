@@ -53,7 +53,9 @@ TIMESTAMP = re.compile(r'^\d{2}:\d{2}:\d{2}\s*')
 
 
 def run(command):
-    """Run a dbt command, streaming its output; return (exit code, output lines)."""
+    """
+    Run a dbt command, streaming its output; return (exit code, output lines).
+    """
     process = subprocess.Popen(
         command,
         stdout=subprocess.PIPE,
@@ -99,7 +101,8 @@ def warnings_in(results_file):
     for result in json.loads(results_file.read_text())['results']:
         if result['status'] != 'warn':
             continue
-        # unique_id is "<type>.<project>.<name>[.<hash>]", with "<source>.<table>" for a source
+        # unique_id is "<type>.<project>.<name>[.<hash>]", with
+        # "<source>.<table>" for a source
         kind, _, *name = result['unique_id'].split('.')
         if kind == 'source':
             count, period = result['criteria']['warn_after']['count'], result['criteria']['warn_after']['period']

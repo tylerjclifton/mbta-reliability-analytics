@@ -48,8 +48,8 @@ WITH
             d.line_name
     )
 
--- 2. Ridership with incident counts and weather. Weather is LEFT joined so a day
---    without weather still shows ridership (the not_null warning flags it).
+-- 2. Ridership with incident counts and weather. Weather is LEFT joined so a
+--    day without weather still shows ridership (the not_null warning flags it).
 SELECT
     d.service_date,
     d.line_name,

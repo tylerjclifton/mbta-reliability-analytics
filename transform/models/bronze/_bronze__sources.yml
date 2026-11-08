@@ -10,7 +10,7 @@ version: 2
 #
 # Freshness: `dbt source freshness` (run after `dbt build` in the transform
 # job) fails the run when a table hasn't been written for longer than its ingest
-# schedule allows — i.e. when an ingest job has stopped working.
+# schedule allows — i.e. when an ingest job has stopped working
 # ══════════════════════════════════════════════════════════════════════════════
 
 sources:
@@ -85,7 +85,8 @@ sources:
         description: >
           Gated station entries per day and line from MBTA ArcGIS open data:
           the layer's last two years every run, and days before 2024-10-01 from
-          its yearly archive (decision 0015). Grain: service date × line × ingest run.
+          its yearly archive (decision 0015). Grain:
+          service date × line × ingest run.
         config:
           freshness:
             # Weekly job

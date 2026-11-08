@@ -1,8 +1,8 @@
 # ══════════════════════════════════════════════════════════════════════════════
 # dbt project — medallion transforms from bronze to the dashboard's gold tables
 #
-# Run by the transform job (Dockerfile): `dbt build`, then `dbt source freshness`.
-# Connection settings live in profiles.yml.
+# Run by the transform job (Dockerfile): `dbt build`, then
+# `dbt source freshness`. Connection settings live in profiles.yml.
 # ══════════════════════════════════════════════════════════════════════════════
 
 name: 'mbta_reliability_analytics'
@@ -54,7 +54,7 @@ vars:
 #            copy), except mbta_alerts__base, mbta_alerts__by_route, and
 #            lamp_alerts__base: incremental tables, so each run reads only
 #            new bronze rows.
-#            Details in models/silver/_silver__models.yml (decision 0010)
+#            Details in models/silver/_silver__models.yml (decision 0010).
 #   gold   — tables the dashboard reads, rebuilt every run
 #
 # Tag `daily`: built and tested only by the transform's once-a-day full run,

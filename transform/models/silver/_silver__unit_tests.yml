@@ -9,9 +9,10 @@ version: 2
 # that breaks a rule fails the build instead of quietly shifting the
 # dashboard's incident counts and durations.
 #
-#   mbta_alerts__resolved  end time (posted end vs leaving the feed, the 30-minute
-#                          midpoint cap; LAMP's close), start fallback, which
-#                          alerts are dropped, which source an alert comes from
+#   mbta_alerts__resolved  end time (posted end vs leaving the feed, the
+#                          30-minute midpoint cap; LAMP's close), start
+#                          fallback, which alerts are dropped, which source an
+#                          alert comes from
 #   mbta_alerts__grouped   2- and 6-hour follow-up windows (and their edges),
 #                          what keeps alerts apart (route, cause, location)
 #
@@ -19,12 +20,13 @@ version: 2
 # and everything downstream, like a data test. They read no tables (dbt only
 # looks up the inputs' column types), so they cost nothing to run. Only the
 # columns a test lists are set or compared; the rest are NULL / ignored.
-# See: https://docs.getdbt.com/docs/build/unit-tests
+#
+# dbt's unit test docs: https://docs.getdbt.com/docs/build/unit-tests
 # ══════════════════════════════════════════════════════════════════════════════
 
 unit_tests:
 
-  # ── mbta_alerts__resolved ─────────────────────────────────────────────────
+  # ── mbta_alerts__resolved ───────────────────────────────────────────────────
   # Every test uses the same ingest runs: 06:00, then (after an outage) 10:00,
   # 10:15, 10:30 — the latest run, so "still in the feed". Full-JSON capture
   # starts that day at midnight (var alerts_raw_capture_start), and LAMP history
@@ -58,7 +60,8 @@ unit_tests:
           # In the latest run → its posted end, even though that's still ahead
           - {alert_id: in_feed_posted_end, route_id: Red, alert_effect: DELAY,
              posted_start_at: '2026-01-05 09:00:00', posted_end_at: '2026-01-05 12:00:00', last_seen_at: '2026-01-05 10:30:05'}
-          # Last seen 10:00:05, next run 15 minutes later → left 7.5 minutes after
+          # Last seen 10:00:05, next run 15 minutes
+          # later → left 7.5 minutes after
           - {alert_id: left_feed, route_id: Red, alert_effect: DELAY,
              posted_start_at: '2026-01-05 09:00:00', posted_end_at: null, last_seen_at: '2026-01-05 10:00:05'}
           # Posted end (10:05) came before leaving (10:07:35) → the posted end
@@ -67,10 +70,12 @@ unit_tests:
           # Left (10:22:35) well before its posted end (18:00) → leaving
           - {alert_id: left_before_posted_end, route_id: Red, alert_effect: DELAY,
              posted_start_at: '2026-01-05 09:00:00', posted_end_at: '2026-01-05 18:00:00', last_seen_at: '2026-01-05 10:15:05'}
-          # Next run 4 hours later → the midpoint would be 08:00; capped at 06:30
+          # Next run 4 hours later → the midpoint would
+          # be 08:00; capped at 06:30
           - {alert_id: midpoint_capped, route_id: Red, alert_effect: DELAY,
              posted_start_at: '2026-01-05 05:00:00', posted_end_at: null, last_seen_at: '2026-01-05 06:00:05'}
-          # Caught closed in the latest run, still lingering in the feed → the close
+          # Caught closed in the latest run, still
+          # lingering in the feed → the close
           - {alert_id: closed_in_feed, route_id: Red, alert_effect: DELAY, posted_start_at: '2026-01-05 09:00:00',
              posted_end_at: null, alert_closed_at: '2026-01-05 10:25:00', last_seen_at: '2026-01-05 10:30:05'}
           # Caught closed (10:03) before leaving the feed (10:07:35) → the close
@@ -126,7 +131,8 @@ unit_tests:
              posted_start_at: '2026-01-05 09:00:00', last_seen_at: '2026-01-05 10:30:05'}
           - {alert_id: escalator_closure, route_id: Red, alert_effect: ESCALATOR_CLOSURE,
              posted_start_at: '2026-01-05 09:00:00', last_seen_at: '2026-01-05 10:30:05'}
-          # Announced for tomorrow, gone from the feed today → cancelled or re-posted
+          # Announced for tomorrow, gone from the feed
+          # today → canceled or re-posted
           - {alert_id: announced_then_gone, route_id: Red, alert_effect: SHUTTLE,
              posted_start_at: '2026-01-06 09:00:00', last_seen_at: '2026-01-05 10:00:05'}
           # Announced for tomorrow and still in the feed → kept
@@ -185,7 +191,7 @@ unit_tests:
         - {alert_id: never_closed,      is_in_feed: false, alert_end_at: '2025-06-02 23:00:00'}
         - {alert_id: seen_by_snapshots, is_in_feed: true,  alert_end_at: null}
 
-  # ── mbta_alerts__grouped ──────────────────────────────────────────────────
+  # ── mbta_alerts__grouped ────────────────────────────────────────────────────
   # Alerts are Red Line, cause DISABLED_TRAIN, effect DELAY unless a test is
   # about one of those differing. incident_id is the incident's first alert.
 
@@ -240,7 +246,8 @@ unit_tests:
           - {alert_id: short_update, route_id: Red, alert_cause: DISABLED_TRAIN, alert_effect: DELAY,
              alert_header: 'Red Line delays at Harvard due to a disabled train',
              alert_start_at: '2026-01-05 10:30:00', alert_end_at: '2026-01-05 11:00:00'}
-          # 4.5 hours after short_update's end, but 1.5 after long_alert's → same incident
+          # 4.5 hours after short_update's end, but 1.5 after long_alert's →
+          # same incident
           - {alert_id: after_latest_end, route_id: Red, alert_cause: DISABLED_TRAIN, alert_effect: DELAY,
              alert_header: 'Red Line delays at Harvard due to a disabled train',
              alert_start_at: '2026-01-05 15:30:00', alert_end_at: '2026-01-05 16:00:00'}

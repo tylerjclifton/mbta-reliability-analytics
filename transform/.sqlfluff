@@ -9,7 +9,8 @@ templater = jinja
 max_line_length = 120
 # Style the codebase follows on purpose, which the defaults disagree with:
 #   LT01/LT02  aligned columns and indented CTE bodies (layout spacing)
-#   AL09       explicit `x AS x` keeps column lists readable when most are renamed
+#   AL09       explicit `x AS x` keeps column lists readable when most are
+#              renamed
 #   ST06       column order follows meaning (keys, attributes, audit), not
 #              "simple columns first"
 #   RF04       some column names (e.g. `route`, `header`) are BigQuery keywords
@@ -21,9 +22,8 @@ apply_dbt_builtins = True
 load_macros_from_path = macros
 
 [sqlfluff:templater:jinja:context]
-# Values the models read through var(); kept in sync with dbt_project.yml
-local_timezone = America/New_York
-alerts_raw_capture_start = 2026-10-24 14:11:39.835891
+# dbt's var() needs no values here: the dbt builtins stub it to render 'item'
+
 # Empty (falsy), like dbt's parse phase: skips run_query() blocks that need a
 # live warehouse (the incremental silver/mbta_alerts__by_route.sql and
 # silver/mbta_alerts__base.sql)

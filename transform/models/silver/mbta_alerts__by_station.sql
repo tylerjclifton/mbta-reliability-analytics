@@ -30,7 +30,7 @@
 WITH
 
     -- 1. Every stop entry in each alert's latest version. Entries without a
-    --    stop (route-wide) are skipped; a missing direction_id means both
+    --    stop (route-wide) are skipped; a missing direction_id means both.
     entities AS (
         SELECT
             a.alert_id,

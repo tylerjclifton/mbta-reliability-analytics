@@ -37,7 +37,7 @@ Each kind of data has one live source, and history from an archive where the liv
 
 Bronze overlaps a little on purpose, since it's append-only and never trimmed ([0001](docs/decisions/0001-append-only-bronze.md)): LAMP's load and the API both hold late October 2026, and the frozen `mbta_alerts_legacy` table repeats June–October 2026. Silver takes each alert from one source only. Repeated snapshots (every alert each 15 minutes, two years of ridership each week) are how revisions and end times are captured; bronze bills compressed bytes, so they cost next to nothing ([0014](docs/decisions/0014-bronze-physical-storage-billing.md)).
 
-The dbt transform runs hourly at :35.
+The dbt transform runs hourly at :35. The slow-changing models (silver shapes, ridership, and weather, and the gold station, shape, and ridership tables) are built and tested once a day instead, in a full run after the morning ingests ([0017](docs/decisions/0017-slow-changing-models-build-daily.md)).
 
 ---
 
@@ -92,7 +92,7 @@ Each layer is its own BigQuery dataset, with a dev sandbox beside it for local w
 |---|---|---|---|
 | `bronze` | Append-only tables (Terraform-managed, deletion-protected; [0013](docs/decisions/0013-bronze-tables-in-terraform.md)) | Ingest jobs | Raw history. Each run appends a new version of every record it saw; rows are never updated or deleted, so nothing depends on a source keeping its own history ([0001](docs/decisions/0001-append-only-bronze.md)) |
 | `silver` | Views (three incremental tables, below) | dbt | Each source's **cleaned copy** (latest version, renamed and typed, unit conversion, QC filtering), plus steps that each do **one job** (split alerts by route or station, resolve start/end, group into incidents) |
-| `gold` | Tables, rebuilt hourly | dbt | Cross-source joins served to the dashboard |
+| `gold` | Tables, rebuilt hourly (slow-changing ones daily) | dbt | Cross-source joins served to the dashboard |
 
 | Bronze table | Grain | How it grows |
 |---|---|---|
@@ -154,7 +154,7 @@ The transform job (`transform/run.py`) runs `dbt build` then `dbt source freshne
 - **Unit tests** — the alert rules (end times, the 30-minute cap, the 2- and 6-hour grouping windows, what keeps incidents apart, durations of alerts announced ahead) are checked on hand-written alerts with known answers (`transform/models/silver/_silver__unit_tests.yml`), so a change that breaks a rule fails the build instead of quietly shifting the dashboard's numbers. They need BigQuery, so they run in the transform, not in CI's credential-free checks; a broken rule fails the deploy's transform run
 - **Freshness** — warns, then fails the run, if an ingest job stops writing to bronze (thresholds per source in `transform/models/bronze/_bronze__sources.yml`)
 
-A failing test skips everything downstream of it, so bad data never reaches gold. A check at warn severity flags data worth a look without stopping the run, and is emailed at most once a day ([Alerting](#alerting)).
+A failing test skips everything downstream of it, so bad data never reaches gold. A check at warn severity flags data worth a look without stopping the run, and is emailed at most once a day ([Alerting](#alerting)). Hourly runs skip the slow-changing models and their tests, which the daily full run covers ([0017](docs/decisions/0017-slow-changing-models-build-daily.md)).
 
 ---
 
@@ -189,7 +189,7 @@ Each workload runs as its own service account with access granted per dataset (`
 | `ingest-jobs` | Ingest jobs | Write `bronze`; read the `mbta-api-key` secret |
 | `dbt-bigquery` | Transform job | Read `bronze`; write `silver` and `gold` |
 | `serve-bigquery` | Dashboard | Read `gold` |
-| `job-scheduler` | Cloud Scheduler | Start the seven scheduled Cloud Run jobs: six ingest plus the transform (`run.invoker` on each job; not the on-demand `ingest-lamp-alerts`) |
+| `job-scheduler` | Cloud Scheduler | Start the seven scheduled Cloud Run jobs: six ingest plus the transform (`run.invoker` on each ingest job, not the on-demand `ingest-lamp-alerts`; `run.jobsExecutorWithOverrides` on the transform, whose hourly trigger passes an override) |
 | `github-deployer` | CI/CD (GitHub Actions) | Build, push, and `terraform apply` — broad by necessity, usable only from this repo's `main` branch |
 
 The three data workloads also hold `bigquery.jobUser` (permission to run queries), and dbt holds `bigquery.user` (permission to list datasets); neither grants data access on its own. The MBTA API key lives in Secret Manager (`infra/secrets.tf`; Terraform owns the secret, the value is added by hand). Only the APIs the pipeline uses are enabled (`infra/apis.tf`), and Artifact Registry keeps the 5 newest versions of each image.

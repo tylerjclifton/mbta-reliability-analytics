@@ -3,7 +3,9 @@ Transform job entrypoint (Dockerfile CMD)
 
 Runs, in order, stopping at the first failure:
   1. `dbt build` — models + data and unit tests in DAG order; a failing test
-     skips everything downstream of it, so bad data never reaches gold
+     skips everything downstream of it, so bad data never reaches gold.
+     DBT_EXCLUDE, when set, is passed to --exclude: the hourly trigger sets it
+     to skip the models built once a day (decision 0017)
   2. `dbt source freshness` — fails the run if an ingest job has stopped
      writing to bronze (thresholds in models/bronze/_bronze__sources.yml)
 Both use the gcp target (attached service account, no keyfile) unless
@@ -27,12 +29,13 @@ import subprocess
 import sys
 
 TARGET = os.getenv('DBT_TARGET', 'gcp')
+EXCLUDE = ['--exclude', os.environ['DBT_EXCLUDE']] if os.getenv('DBT_EXCLUDE') else []
 
 # Step name → its command, and the results file it writes (a dbt artifact),
 # read for the checks that warned
 STEPS = {
     'dbt build': (
-        ['dbt', 'build', '--profiles-dir', '.', '--target', TARGET],
+        ['dbt', 'build', '--profiles-dir', '.', '--target', TARGET, *EXCLUDE],
         pathlib.Path('target/run_results.json'),
     ),
     'dbt source freshness': (

@@ -81,9 +81,15 @@ variable "routes_ingestion_schedule" {
 }
 
 variable "transform_schedule" {
-  description = "Cron for the dbt transform job. Hourly at :35, just after the :30 alerts snapshot."
+  description = "Cron for the hourly dbt transform runs, which skip the once-a-day models (tag:daily). At :35, just after the :30 alerts snapshot; skips the hour of transform_full_schedule."
   type        = string
-  default     = "35 * * * *"
+  default     = "35 0-6,8-23 * * *"
+}
+
+variable "transform_full_schedule" {
+  description = "Cron for the daily full dbt transform run, which builds everything. 7:35AM ET: the first hourly slot after the morning weather, ridership, stops, and shapes ingests."
+  type        = string
+  default     = "35 7 * * *"
 }
 
 # ── Dashboard ─────────────────────────────────────────────────────────────────

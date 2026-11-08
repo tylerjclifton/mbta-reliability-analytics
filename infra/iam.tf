@@ -9,7 +9,9 @@
 #   ingest-jobs       dataEditor  —           —           secret: mbta-api-key
 #   dbt-bigquery      dataViewer  dataEditor  dataEditor  bigquery.user
 #   serve-bigquery    —           —           dataViewer
-#   job-scheduler     —           —           —           run.invoker per job
+#   job-scheduler     —           —           —           run.invoker per ingest job;
+#                                                         run.jobsExecutorWithOverrides
+#                                                         on the transform
 #   github-deployer   terraform apply; broad by necessity (deploy.tf)
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -74,10 +76,12 @@ resource "google_cloud_run_v2_job_iam_member" "scheduler_runs_ingest" {
   member   = google_service_account.job_scheduler.member
 }
 
+# The transform also takes overrides: its hourly trigger passes DBT_EXCLUDE
+# (cloud-scheduler.tf), which run.invoker doesn't allow
 resource "google_cloud_run_v2_job_iam_member" "scheduler_runs_transform" {
   name     = google_cloud_run_v2_job.transform.name
   location = google_cloud_run_v2_job.transform.location
-  role     = "roles/run.invoker"
+  role     = "roles/run.jobsExecutorWithOverrides"
   member   = google_service_account.job_scheduler.member
 }
 

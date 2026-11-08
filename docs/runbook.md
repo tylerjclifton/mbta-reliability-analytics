@@ -10,6 +10,8 @@ How to do the occasional operational tasks. Every command assumes `gcloud` is si
 gcloud run jobs execute <job> --region us-east1 --wait   # ingest-mbta-alerts, ingest-mbta-stops, transform, …
 ```
 
+A transform run started this way builds everything, including the slow-changing models the hourly runs skip ([0017](decisions/0017-slow-changing-models-build-daily.md)). Run one after a weather, ridership, stops, or shapes backfill to show it on the dashboard before the next daily run.
+
 An ingest job run this way appends to production bronze, which is permanent ([0001](decisions/0001-append-only-bronze.md)). To try out an ingest change, run the script locally instead: it writes to `dev_bronze` ([0012](decisions/0012-local-ingest-writes-dev-bronze.md)).
 
 ```bash

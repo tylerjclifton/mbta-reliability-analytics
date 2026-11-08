@@ -56,11 +56,22 @@ vars:
 #            new bronze rows.
 #            Details in models/silver/_silver__models.yml (decision 0010)
 #   gold   — tables the dashboard reads, rebuilt every run
+#
+# Tag `daily`: built and tested only by the transform's once-a-day full run,
+# not the hourly ones (decision 0017). Only for slow-changing data that no
+# hourly model reads, so routes and stops, which the alert models join, stay
+# hourly.
 models:
   mbta_reliability_analytics:
     silver:
       +schema: silver
       +materialized: view
+      mbta_shapes__base:    {+tags: daily}
+      mbta_ridership__base: {+tags: daily}
+      noaa_weather__base:   {+tags: daily}
     gold:
       +schema: gold
       +materialized: table
+      rail_stations:  {+tags: daily}
+      rail_shapes:    {+tags: daily}
+      rail_ridership: {+tags: daily}

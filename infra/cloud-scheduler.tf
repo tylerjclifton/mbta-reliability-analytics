@@ -37,11 +37,23 @@ resource "google_cloud_scheduler_job" "ingest" {
   }
 }
 
-# ── Transform trigger ─────────────────────────────────────────────────────────
+# ── Transform triggers ────────────────────────────────────────────────────────
+# Hourly runs skip the slow-changing models tagged daily (transform/
+# dbt_project.yml), and one full run a day builds everything, as does any run
+# started another way: CI's post-deploy run or a manual one (decision 0017).
+
+locals {
+  transform_triggers = {
+    "transform"      = { schedule = var.transform_schedule, exclude = "tag:daily" }
+    "transform-full" = { schedule = var.transform_full_schedule, exclude = null }
+  }
+}
 
 resource "google_cloud_scheduler_job" "transform" {
-  name             = "transform"
-  schedule         = var.transform_schedule
+  for_each = local.transform_triggers
+
+  name             = each.key
+  schedule         = each.value.schedule
   time_zone        = var.scheduler_time_zone
   attempt_deadline = "600s" # 10 minutes
   paused           = false
@@ -55,9 +67,21 @@ resource "google_cloud_scheduler_job" "transform" {
   http_target {
     http_method = "POST"
     uri         = "${local.run_jobs_api}/${google_cloud_run_v2_job.transform.name}:run"
+    # DBT_EXCLUDE is passed to `dbt build --exclude` (transform/run.py), for
+    # this run only
+    headers = each.value.exclude == null ? {} : { "Content-Type" = "application/json" }
+    body = each.value.exclude == null ? null : base64encode(jsonencode({
+      overrides = { containerOverrides = [{ env = [{ name = "DBT_EXCLUDE", value = each.value.exclude }] }] }
+    }))
     oauth_token {
       service_account_email = google_service_account.job_scheduler.email
       scope                 = "https://www.googleapis.com/auth/cloud-platform"
     }
   }
+}
+
+# The hourly trigger predates the full one; keep it rather than recreate it
+moved {
+  from = google_cloud_scheduler_job.transform
+  to   = google_cloud_scheduler_job.transform["transform"]
 }

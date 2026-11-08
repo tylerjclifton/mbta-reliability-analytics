@@ -1,4 +1,5 @@
-# Pinned so the deployed image matches what was previewed locally
+# Dashboard dependencies — pinned so deploys match the local preview
+
 streamlit==1.66.1
 google-cloud-bigquery==3.46.2
 google-auth==2.62.0

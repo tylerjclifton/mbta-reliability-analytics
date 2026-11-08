@@ -1,8 +1,10 @@
 """
-Pure helpers for the dashboard — formatting, data freshness, incident shaping
-(which are active, one row per incident, hours covered per year), the
-ridership-vs-calm-days comparison, chart label spacing, decoding the map's line
-shapes, and choosing which affected stations the map names.
+Dashboard helpers — pure functions, tested apart from the Streamlit app
+
+Formatting, data freshness, incident shaping (which are active, one row per
+incident, hours covered per year), the ridership-vs-calm-days comparison, chart
+label spacing, decoding the map's line shapes, and choosing which affected
+stations the map names.
 
 Kept out of app.py (which starts Streamlit when imported) so they can be unit
 tested; see serve/tests/test_helpers.py.
@@ -15,7 +17,7 @@ import html
 import numpy as np
 import pandas as pd
 
-# MBTA service dates and alert times are shown in Eastern time
+# MBTA service dates and alert times are shown in Eastern time.
 TIMEZONE = 'America/New_York'
 
 # How old the alerts data can get before the header's status dot changes.
@@ -26,7 +28,7 @@ STALE_HOURS = 6  # older: the pipeline has been down for a while
 
 
 def fmt_duration(minutes):
-    """45 min · 2.7 hr · 1 day · 12 days"""
+    """A duration in minutes, in words: 45 min · 2.7 hr · 1 day · 12 days."""
     if pd.isna(minutes) or minutes < 0:
         return '—'
     if minutes < 60:
@@ -38,7 +40,7 @@ def fmt_duration(minutes):
 
 
 def fmt_count(n):
-    """1,284 · 118K · 3.2M"""
+    """A count, with K or M from 10,000 up: 1,284 · 118K · 3.2M."""
     if n >= 1_000_000:
         return f'{n / 1_000_000:.1f}M'
     if n >= 10_000:
@@ -47,14 +49,14 @@ def fmt_count(n):
 
 
 def fmt_pct(x, decimals=1):
-    """Signed percent with a true minus sign: +2.1% · −6.4% · 0.0%"""
+    """A signed percent with a true minus sign: +2.1% · −6.4% · 0.0%."""
     if round(x, decimals) == 0:
         return f'{0:.{decimals}f}%'
     return f'{x:+.{decimals}f}%'.replace('-', '−')
 
 
 def fmt_day(ts):
-    """Oct 19"""
+    """A date as Eastern month and day: Oct 19."""
     return ts.tz_convert(TIMEZONE).strftime('%b %-d')
 
 
@@ -184,7 +186,7 @@ def decode_polyline(encoded):
     return points
 
 
-# Map text positions by compass direction: east first, then counterclockwise
+# Map text positions by compass direction: east first, then counterclockwise.
 COMPASS_TEXT_POSITIONS = ['middle right', 'top right', 'top center', 'top left',
                           'middle left', 'bottom left', 'bottom center', 'bottom right']
 
@@ -217,7 +219,7 @@ def run_end_labels(paths, stations, affected, default='top right', max_km=0.1):
     lon = stations['station_longitude'].to_numpy(dtype=float)
     ids = stations['station_id'].to_numpy()
     # Degrees to km, flat at a city's scale (a degree of
-    # longitude narrows with latitude)
+    # longitude narrows with latitude).
     km_per_lat = 110.57
     km_per_lon = 111.32 * np.cos(np.radians(lat.mean())) if len(lat) else 0.0
 
@@ -269,7 +271,7 @@ def spread_labels(positions, min_gap):
     for k in range(1, len(placed)):
         placed[k] = max(placed[k], placed[k - 1] + min_gap)
     # Push the whole stack back down by half its overshoot, so labels spread
-    # both ways around their marks rather than only upward
+    # both ways around their marks rather than only upward.
     overshoot = sum(p - positions[i] for p, i in zip(placed, order, strict=True)) / max(len(placed), 1)
     placed = [p - overshoot / 2 for p in placed]
     result = [0.0] * len(positions)

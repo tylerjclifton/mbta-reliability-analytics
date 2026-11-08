@@ -1,4 +1,6 @@
-# Dark theme; colors match the design tokens at the top of app.py
+# Streamlit config — the dashboard's theme and toolbar
+
+# Dark theme; colors match the design tokens at the top of app.py.
 [theme]
 base = "dark"
 backgroundColor = "#0b0d10"
@@ -6,6 +8,6 @@ secondaryBackgroundColor = "#13161b"
 textColor = "#f0efec"
 primaryColor = "#9085e9"
 
-# Hide Streamlit's developer toolbar (Deploy button, menu) on the public site
+# Hide Streamlit's developer toolbar (Deploy button, menu) on the public site.
 [client]
 toolbarMode = "minimal"

@@ -1,7 +1,9 @@
 """
-Tests for serve/helpers.py — dashboard formatting, data freshness, incident
-shaping, the ridership-vs-calm-days comparison, hours covered per year, chart
-label spacing, decoding the map's line shapes, and naming affected stations.
+Tests for serve/helpers.py
+
+Covers dashboard formatting, data freshness, incident shaping, the
+ridership-vs-calm-days comparison, hours covered per year, chart label spacing,
+decoding the map's line shapes, and naming affected stations.
 """
 
 # Import third party libraries
@@ -117,7 +119,7 @@ def ridership_days(rows):
 
 def test_pct_vs_calm_ignores_disrupted_days_in_the_baseline():
     # Calm Mondays at 100; the shutdown Mondays at 50
-    # must not drag the baseline down
+    # must not drag the baseline down.
     df = ridership_days([('Red Line', 0, 100, None)] * 2 + [('Red Line', 0, 50, 'Shuttle')] * 5)
 
     assert pct_vs_calm(df, min_calm_days=2).tolist() == [0, 0, -50, -50, -50, -50, -50]
@@ -223,7 +225,7 @@ def stations_at(**coords):
                          for s, (lat, lon) in coords.items()])
 
 
-# Five stations ~0.8 km apart on an east–west line, and its path
+# Five stations ~0.8 km apart on an east–west line, and its path.
 WEST_EAST = stations_at(A=(42.35, -71.10), B=(42.35, -71.09), C=(42.35, -71.08), D=(42.35, -71.07), E=(42.35, -71.06))
 WEST_EAST_PATH = [(42.35, -71.10 + i / 1000) for i in range(41)]
 
@@ -243,7 +245,7 @@ def test_run_end_labels_names_a_lone_station_at_the_default():
 
 def test_run_end_labels_names_a_junction_facing_down_the_branch_the_run_skips():
     # A trunk A–B–C, then one branch east to D and one north to N; the run
-    # continues east, so C faces north, where the run stops
+    # continues east, so C faces north, where the run stops.
     stations = stations_at(A=(42.35, -71.10), B=(42.35, -71.09), C=(42.35, -71.08),
                            D=(42.35, -71.07), N=(42.36, -71.08))
     east = [(42.35, -71.10 + i / 1000) for i in range(31)]
@@ -254,7 +256,7 @@ def test_run_end_labels_names_a_junction_facing_down_the_branch_the_run_skips():
 
 def test_run_end_labels_ignores_a_branch_ending_mid_run():
     # Like the B and C branches at Government Center: one path stops at C, the
-    # other carries the run on to D, so C isn't an end
+    # other carries the run on to D, so C isn't an end.
     short = [(42.35, -71.10 + i / 1000) for i in range(21)]
     labels = run_end_labels([WEST_EAST_PATH, short], WEST_EAST, {'B', 'C', 'D'})
     assert labels == {'B': 'middle left', 'D': 'middle right'}

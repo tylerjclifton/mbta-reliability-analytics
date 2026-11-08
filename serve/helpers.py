@@ -1,8 +1,8 @@
 """
 Pure helpers for the dashboard — formatting, data freshness, incident shaping
 (which are active, one row per incident, hours covered per year), the
-ridership-vs-calm-days comparison, chart label spacing, and decoding the map's
-line shapes.
+ridership-vs-calm-days comparison, chart label spacing, decoding the map's line
+shapes, and choosing which affected stations the map names.
 
 Kept out of app.py (which starts Streamlit when imported) so they can be unit
 tested; see serve/tests/test_helpers.py.
@@ -12,6 +12,7 @@ tested; see serve/tests/test_helpers.py.
 import html
 
 # Import third party libraries
+import numpy as np
 import pandas as pd
 
 # MBTA service dates and alert times are shown in Eastern time
@@ -166,6 +167,78 @@ def decode_polyline(encoded):
             values[axis] += ~(chunk >> 1) if chunk & 1 else chunk >> 1
         points.append((values[0] / 1e5, values[1] / 1e5))
     return points
+
+
+# Map text positions by compass direction: east first, then counterclockwise
+COMPASS_TEXT_POSITIONS = ['middle right', 'top right', 'top center', 'top left',
+                          'middle left', 'bottom left', 'bottom center', 'bottom right']
+
+
+def run_end_labels(paths, stations, affected, default='top right', max_km=0.1):
+    """
+    Which of a line's affected stations to name, and where: only the ends of
+    each run of consecutive affected stations, each name facing the way its run
+    stops. A long shutdown reads by its ends (Kenmore … Government Center), and
+    no name lands on the run's other stations. Returns {station_id: position}.
+
+    paths     the line's shapes, each [(lat, lon), ...] along one branch
+    stations  the line's stations: station_id, station_latitude, station_longitude
+    affected  the affected station_ids
+
+    Each path orders the stations within max_km of it by their nearest point
+    (measured 2026-11-07: every station is within 75 m of its own line's path,
+    and the nearest station of another branch 120 m off). A station ends a run
+    where, on some path, the next station isn't affected, and its name faces
+    that station; at a junction, that's down the branch the run doesn't take.
+    A path's last station ends a run only if no other path runs through it
+    (the B and C branches stop at Government Center; the run may not), and its
+    name faces away from the run. A station beside a path it isn't on, such as
+    Savin Hill beside the Braintree branch, counts as on it; at worst that names
+    one more station. A station affected on its own, or on no path, is named
+    at `default`.
+    """
+    lat = stations['station_latitude'].to_numpy(dtype=float)
+    lon = stations['station_longitude'].to_numpy(dtype=float)
+    ids = stations['station_id'].to_numpy()
+    # Degrees to km, flat at a city's scale (a degree of longitude narrows with latitude)
+    km_per_lat = 110.57
+    km_per_lon = 111.32 * np.cos(np.radians(lat.mean())) if len(lat) else 0.0
+
+    def facing(toward, away):
+        angle = np.arctan2((lat[toward] - lat[away]) * km_per_lat, (lon[toward] - lon[away]) * km_per_lon)
+        return COMPASS_TEXT_POSITIONS[round(angle / (np.pi / 4)) % 8]
+
+    stops, path_ends, mid_run = {}, {}, set()
+    for path in paths:
+        points = np.asarray(path, dtype=float).reshape(-1, 2)
+        if not len(points) or not len(lat):
+            continue
+        distances = np.hypot((lat[:, None] - points[:, 0]) * km_per_lat,
+                             (lon[:, None] - points[:, 1]) * km_per_lon)
+        nearest = distances.argmin(axis=1)
+        on_path = np.flatnonzero(distances[np.arange(len(lat)), nearest] <= max_km)
+        order = on_path[np.argsort(nearest[on_path], kind='stable')]
+        hit = [ids[i] in affected for i in order]
+        for k, i in enumerate(order):
+            if not hit[k]:
+                continue
+            neighbors = [n for n in (k - 1, k + 1) if 0 <= n < len(order)]
+            run = [order[n] for n in neighbors if hit[n]]
+            stop = [order[n] for n in neighbors if not hit[n]]
+            if len(run) == 2:
+                mid_run.add(ids[i])
+            elif run and stop:
+                stops.setdefault(ids[i], facing(stop[0], i))
+            elif run:
+                path_ends.setdefault(ids[i], facing(i, run[0]))
+
+    positions = {station_id: default for station_id in affected}
+    for station_id in mid_run - set(stops):
+        del positions[station_id]
+    positions.update({station_id: position for station_id, position in path_ends.items()
+                      if station_id not in mid_run})
+    positions.update(stops)
+    return positions
 
 
 def spread_labels(positions, min_gap):

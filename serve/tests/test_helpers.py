@@ -1,7 +1,7 @@
 """
 Tests for serve/helpers.py — dashboard formatting, data freshness, incident
 shaping, the ridership-vs-calm-days comparison, hours covered per year, chart
-label spacing, and decoding the map's line shapes.
+label spacing, decoding the map's line shapes, and naming affected stations.
 """
 
 # Import third party libraries
@@ -21,6 +21,7 @@ from helpers import (
     join_routes,
     one_row_per_incident,
     pct_vs_calm,
+    run_end_labels,
     spread_labels,
     strip_route_prefix,
 )
@@ -213,3 +214,51 @@ def test_spread_labels_keeps_order_and_minimum_gap():
 
 def test_spread_labels_leaves_well_spaced_labels_alone():
     assert spread_labels([10, 30, 50], min_gap=7) == [10, 30, 50]
+
+
+def stations_at(**coords):
+    """gold.rail_stations rows for one line, from station_id=(lat, lon)."""
+    return pd.DataFrame([{'station_id': s, 'station_latitude': lat, 'station_longitude': lon}
+                         for s, (lat, lon) in coords.items()])
+
+
+# Five stations ~0.8 km apart on an east–west line, and its path
+WEST_EAST = stations_at(A=(42.35, -71.10), B=(42.35, -71.09), C=(42.35, -71.08), D=(42.35, -71.07), E=(42.35, -71.06))
+WEST_EAST_PATH = [(42.35, -71.10 + i / 1000) for i in range(41)]
+
+
+def test_run_end_labels_names_only_the_ends_facing_where_the_run_stops():
+    labels = run_end_labels([WEST_EAST_PATH], WEST_EAST, {'B', 'C', 'D'})
+    assert labels == {'B': 'middle left', 'D': 'middle right'}
+
+
+def test_run_end_labels_faces_a_run_at_the_end_of_the_line_away_from_it():
+    assert run_end_labels([WEST_EAST_PATH], WEST_EAST, {'D', 'E'}) == {'D': 'middle left', 'E': 'middle right'}
+
+
+def test_run_end_labels_names_a_lone_station_at_the_default():
+    assert run_end_labels([WEST_EAST_PATH], WEST_EAST, {'B', 'D'}) == {'B': 'top right', 'D': 'top right'}
+
+
+def test_run_end_labels_names_a_junction_facing_down_the_branch_the_run_skips():
+    # A trunk A–B–C, then one branch east to D and one north to N; the run
+    # continues east, so C faces north, where the run stops
+    stations = stations_at(A=(42.35, -71.10), B=(42.35, -71.09), C=(42.35, -71.08),
+                           D=(42.35, -71.07), N=(42.36, -71.08))
+    east = [(42.35, -71.10 + i / 1000) for i in range(31)]
+    north = [(42.35, -71.10 + i / 1000) for i in range(21)] + [(42.35 + i / 1000, -71.08) for i in range(1, 11)]
+    labels = run_end_labels([east, north], stations, {'B', 'C', 'D'})
+    assert labels == {'B': 'middle left', 'C': 'top center', 'D': 'middle right'}
+
+
+def test_run_end_labels_ignores_a_branch_ending_mid_run():
+    # Like the B and C branches at Government Center: one path stops at C, the
+    # other carries the run on to D, so C isn't an end
+    short = [(42.35, -71.10 + i / 1000) for i in range(21)]
+    labels = run_end_labels([WEST_EAST_PATH, short], WEST_EAST, {'B', 'C', 'D'})
+    assert labels == {'B': 'middle left', 'D': 'middle right'}
+
+
+def test_run_end_labels_names_a_station_on_no_path_at_the_default():
+    stations = stations_at(A=(42.35, -71.10), Z=(42.40, -71.10))
+    assert run_end_labels([WEST_EAST_PATH], stations, {'Z'}) == {'Z': 'top right'}

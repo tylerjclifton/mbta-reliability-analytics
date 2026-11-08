@@ -77,6 +77,7 @@ from helpers import (
     hours_by_year,
     one_row_per_incident,
     pct_vs_calm,
+    run_end_labels,
     spread_labels,
     strip_route_prefix,
 )
@@ -739,10 +740,20 @@ def station_map(backdrop, shapes, markers, height=560):
     The network as a transit map: every station a dot in its line's color, the
     line itself a faint path behind them, and the base map dimmed with no place
     names. The map names the system instead (MAP_LABELS). Affected stations are
-    larger and outlined in white, and named where the labels fit; the rest show
-    their details on hover. Map labels use Open Sans: they're drawn from the map's
-    font server, which doesn't have the page's font.
+    larger and outlined in white, each run of them named at its ends
+    (run_end_labels), and every one shows its details on hover. Map labels use
+    Open Sans: they're drawn from the map's font server, which doesn't have the
+    page's font.
     """
+    # Where each affected station's name goes: '' for none, mid-run
+    named_at = {}
+    for line, hit in markers.groupby('line_name'):
+        ends = run_end_labels(shapes.loc[shapes['line_name'] == line, 'points'],
+                              backdrop[backdrop['line_name'] == line], set(hit['station_id']))
+        named_at.update({(line, station_id): position for station_id, position in ends.items()})
+    markers = markers.assign(position=[named_at.get(key, '') for key in
+                                       zip(markers['line_name'], markers['station_id'], strict=True)])
+
     fig = go.Figure()
     for line in LINES:
         paths = shapes[shapes['line_name'] == line]['points']
@@ -769,11 +780,13 @@ def station_map(backdrop, shapes, markers, height=560):
                 hovertext=bg['station_name'] + ' · ' + line, hoverinfo='text',
             ))
 
-    # Orienting names, grouped by position (a trace takes only one). Drawn before
-    # the affected stations: where labels overlap, the map keeps the last drawn,
-    # and an affected station's name must always win. An invisible marker,
-    # because a text-only trace doesn't draw on this map type.
-    named = backdrop[backdrop['station_name'].isin(set(MAP_LABELS) - set(markers['station_name']))]
+    # Orienting names, grouped by position (a trace takes only one), except where
+    # an affected station's name replaces one. Drawn before the affected stations:
+    # where labels overlap, the map keeps the last drawn, and an affected
+    # station's name must always win. An invisible marker, because a text-only
+    # trace doesn't draw on this map type.
+    named = backdrop[backdrop['station_name'].isin(
+        set(MAP_LABELS) - set(markers.loc[markers['position'] != '', 'station_name']))]
     named = named.drop_duplicates('station_name')
     named = named.assign(position=named['station_name'].map(MAP_LABELS))
     for position, group in named.groupby('position'):
@@ -787,19 +800,21 @@ def station_map(backdrop, shapes, markers, height=560):
     for line in LINES:
         hit = markers[markers['line_name'] == line]
         if len(hit):
-            # A white outline under each affected station, then the station itself
-            # with its name: its neighbors share its color, so color can't mark it
+            # A white outline under each affected station, then the station itself:
+            # its neighbors share its color, so color can't mark it. One trace per
+            # name position (a trace takes only one), and none for mid-run stations.
             fig.add_trace(go.Scattermap(
                 lat=hit['lat'], lon=hit['lon'], mode='markers',
                 marker=dict(size=12, color=INK, opacity=1), hoverinfo='skip',
             ))
-            fig.add_trace(go.Scattermap(
-                lat=hit['lat'], lon=hit['lon'], mode='markers+text',
-                marker=dict(size=9, color=LINE_COLORS[line], opacity=1),
-                text=hit['station_name'], textposition='top right',
-                textfont=dict(color=INK, size=11, family='Open Sans Bold'),
-                hovertext='<b>' + hit['station_name'] + '</b><br>' + hit['detail'], hoverinfo='text',
-            ))
+            for position, group in hit.groupby('position'):
+                fig.add_trace(go.Scattermap(
+                    lat=group['lat'], lon=group['lon'], mode='markers+text' if position else 'markers',
+                    marker=dict(size=9, color=LINE_COLORS[line], opacity=1),
+                    text=group['station_name'], textposition=position or None,
+                    textfont=dict(color=INK, size=11, family='Open Sans Bold'),
+                    hovertext='<b>' + group['station_name'] + '</b><br>' + group['detail'], hoverinfo='text',
+                ))
     fig.update_layout(
         height=height,
         margin=dict(l=0, r=0, t=0, b=0),

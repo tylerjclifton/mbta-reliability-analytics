@@ -30,6 +30,7 @@ Everything below is what no tool checks.
 | Python | `snake_case` functions and variables; `UPPER_CASE` module constants | `append_to_bronze`, `BATCH_ROWS` |
 | Tests | `test_<subject>_<what it does>`, as a phrase | `test_fetch_reports_a_network_error` |
 | Terraform | `snake_case` resource names; `kebab-case` names in GCP | `google_service_account.job_scheduler` → `job-scheduler` |
+| Environment variables | `UPPER_SNAKE_CASE`, one name per setting in every component; the GCP project is `GCP_PROJECT_ID` everywhere, and BigQuery targets start `BQ_` | `GCP_PROJECT_ID`, `BQ_DATASET_ID`, `LOOKBACK_DAYS` |
 
 ## Writing
 
@@ -51,15 +52,16 @@ These rules cover all prose: comments, docstrings, docs, and commit messages.
 
 ## Comments
 
-- **Width:** wrap comments at 80 columns, the width of the section banners. Code may run to 120.
-- **Periods:** a comment that is one sentence or a fragment has no closing period. A comment of two or more sentences ends every sentence with one, the last included:
+- **Width:** comments, docstrings, dbt headers, and YAML descriptions wrap at 80 columns, the width of the section banners. Code may run to 120.
+- **Periods:** a comment that is one sentence or a fragment has no closing period. A comment of two or more sentences ends every sentence with one, the last included. This covers every `#` and `--` comment, the block that opens a file included, and dbt's inline `{# … #}` comments; each paragraph and each list item counts on its own:
   ```python
   # ArcGIS sets exceededTransferLimit while more pages remain
 
   # ArcGIS sets exceededTransferLimit while more pages remain. An empty
   # page ends it too, so a stuck flag can't loop until the job times out.
   ```
-- **Prose elsewhere:** docstrings and YAML descriptions are prose, so their sentences end with periods. A docstring that only shows sample output (`"""45 min · 2.7 hr · 1 day · 12 days"""`) has no period.
+- **Prose elsewhere:** docstrings, dbt model and macro headers, and YAML descriptions are prose, so their sentences end with periods. Their title lines, labeled fields (`Source:`), and list items don't. A docstring that only shows sample output (`"""45 min · 2.7 hr · 1 day · 12 days"""`) has no period.
+- **Ending on code or a link:** a command at the end of a sentence goes in backticks before the period. A URL goes on its own line, with no period after it.
 - **Section banners,** 80 columns wide:
   ```text
   # ══════════════════════════════════════════════════════════════════════════════
@@ -98,6 +100,8 @@ Writes to:  bronze.mbta_shapes (append) — one row per shape × route per run
 ```
 A job that can backfill adds a `Backfill:` field.
 
+Each step logs what it produced, in one form: `Fetched 412 alerts`, `Fetched Red: 22 stations, 140 child stops`, `Shaped 730 rows, 2024-11-01 to 2026-10-31`, `Appended 730 rows to <table>`. A failure goes through `fail()` and names the source and what was wrong: `The MBTA API returned no stops for any rail route`.
+
 **Tests** open with "Tests for …" and the module under test.
 
 ### dbt models
@@ -118,10 +122,10 @@ WITH
 
     -- 1. Latest snapshot per stop × route
     latest_versions AS (
-        ...
+        …
     )
 ```
-Columns run keys first, then attributes, then audit columns, with `AS` aligned.
+Columns run keys first, then attributes, then audit columns, with `AS` aligned. Jinja strings take single quotes too, except inside a SQL string literal, where double quotes keep the quoting readable: `'{{ var("local_timezone") }}'`.
 
 **Macros and generic tests** carry a `{#- … -#}` comment inside the definition: what it does, a usage example, and, for a macro, what it compiles to.
 
@@ -153,7 +157,7 @@ Every doc has one job, and a fact lives in only one of them:
 | `docs/conventions.md` | This page |
 | `CLAUDE.md` | Guardrails and pointers for AI coding sessions. It summarizes the docs and is never the only place a rule lives |
 
-The dashboard's display rules (time windows, statistics, wording, number formats) are in the header of `serve/app.py`, next to the code that follows them. Its colors and fonts are the design tokens near the top of the same file.
+The dashboard's display rules (time windows, statistics, wording, number formats, chart style) are in the header of `serve/app.py`, next to the code that follows them. Its colors and fonts are the design tokens near the top of the same file.
 
 Markdown style:
 - **Openings:** each doc opens with its title and one short paragraph: what it's for and when to read it.

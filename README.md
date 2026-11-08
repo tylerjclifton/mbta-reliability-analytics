@@ -307,6 +307,8 @@ cd infra && USER_PROJECT_OVERRIDE=true GOOGLE_BILLING_PROJECT=mbta-reliability-a
 
 Local runs never touch the live datasets. A local ingest run writes to `dev_bronze` (the same tables as bronze; rows expire after 7 days), never production bronze ([0012](docs/decisions/0012-local-ingest-writes-dev-bronze.md)); to write real bronze, run the Cloud Run job ([runbook](docs/runbook.md#run-a-job-now)). A local dbt build reads the real bronze and writes to `dev_silver` / `dev_gold`.
 
+Before pushing a dashboard change, preview it at desktop and phone width (about 390 px), in every toggle state: a layout can hold at one width and break at the other.
+
 To ship a change, push to `main` (below). Occasional tasks (backfills, rebuilds, renames, rollbacks) are in the [runbook](docs/runbook.md).
 
 ### Continuous deployment

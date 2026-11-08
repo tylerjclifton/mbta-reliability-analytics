@@ -6,7 +6,7 @@ A full-stack data engineering project tracking MBTA rail reliability, ridership,
 
 **Live dashboard:** [tylerclifton.com](https://tylerclifton.com)
 
-**Docs:** [setup on a new machine](docs/setup.md) · [runbook](docs/runbook.md) · [decision records](docs/decisions/README.md) · [roadmap](docs/roadmap.md)
+**Docs:** [setup on a new machine](docs/setup.md) · [runbook](docs/runbook.md) · [decision records](docs/decisions/README.md) · [roadmap](docs/roadmap.md) · [conventions](docs/conventions.md)
 
 ---
 
@@ -172,24 +172,11 @@ The dashboard shows visitors the same thing: the dot beside "Alerts updated" is 
 
 ## Conventions
 
-| Thing | Convention | Example |
-|---|---|---|
-| Datasets | Medallion layer | `bronze`, `silver`, `gold` |
-| Bronze tables | `<source>_<entity>`; `_legacy` marks a frozen table kept as history | `mbta_alerts`, `mbta_alerts_legacy` |
-| Silver models | `<bronze table>__<step>`; `__base` is the cleaned copy | `mbta_alerts__base`, `mbta_alerts__by_route` |
-| Gold tables | `<domain>_<entity>` | `rail_ridership` |
-| Ingest jobs | `ingest/<source>-<entity>/main.py` → `bronze.<source>_<entity>` | `ingest/noaa-weather` → `bronze.noaa_weather` |
-| Bronze columns | Source system's names, plus audit columns | `route_or_line`, `tmax` |
-| Silver / gold columns | `snake_case`; keys `<entity>_id`; `_at` = TIMESTAMP (UTC); `_date` = DATE (Eastern); measures carry their unit; booleans `is_` | `alert_start_at`, `precipitation_in`, `is_in_feed` |
-| Audit columns | On every bronze table, carried into silver and gold where a row has one source version (alert models track `first_seen_at` / `last_seen_at` instead) | `ingested_at`, `ingested_by` |
-| dbt models | Header comment (purpose, grain, numbered steps); CTEs named after the step | `latest_versions`, `quality_checked` |
-| Ingest scripts | Docstring (source, cadence, each run, writes to; backfill if it has one); Fetch → Shape → Load sections | |
-| Python style | ruff (`pyproject.toml`): single-quoted strings; import groups sorted, each under an `# Import …` label | `# Import standard libraries` |
-
-**Comments and docs:**
-- **Comments are concise and say what the code does and why**, wherever that isn't obvious at a glance. Every model, script, and config file opens with a header: its purpose, grain (for models), and steps.
-- **Logic and changing facts live in one place.** Thresholds, formulas, and figures sit next to the code that sets them; elsewhere, describe them rather than copying the number. A short repeated explanation is fine where it saves opening another file, and a pointer always comes with a one-line summary.
-- **Docs change with the code**, in the same commit: README, dbt model headers and yml, `docs/`. A new decision gets a record in `docs/decisions/`.
+Naming, file headers, comments, docs, and commit messages follow [docs/conventions.md](docs/conventions.md). In short:
+- **Names say the layer and source:** `bronze.<source>_<entity>`, `silver.<bronze table>__<step>`, `gold.<domain>_<entity>`.
+- **Every file opens with a header:** what it is, and for a model its grain and steps.
+- **Each fact lives in one place**; everything else points to it, and docs change in the same commit as the code.
+- **Tools settle the formatting:** ruff, sqlfluff, and `terraform fmt`, all run by CI.
 
 ---
 
@@ -282,7 +269,7 @@ requirements.txt        Local environment: every component + dev tools
 requirements-dev.txt    Dev tool pins (ruff, sqlfluff, pytest), shared with CI
 pyproject.toml          pytest + ruff config
 CLAUDE.md               Rules and pointers for AI coding sessions
-docs/                   Setup, runbook, decision records, roadmap
+docs/                   Setup, runbook, decision records, roadmap, conventions
 ```
 
 ---

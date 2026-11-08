@@ -36,7 +36,7 @@ mbta_reliability_analytics:
     gcp:
       type: bigquery
       method: oauth
-      project: "{{ env_var('DBT_PROJECT_ID', 'mbta-reliability-analytics') }}"
+      project: "{{ env_var('GCP_PROJECT_ID', 'mbta-reliability-analytics') }}"
       dataset: silver  # required default; every model sets its own dataset
       location: us-east1
       threads: 4

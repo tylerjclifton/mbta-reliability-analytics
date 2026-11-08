@@ -27,7 +27,7 @@ def append_to_bronze(df):
     Append a DataFrame to this job's bronze table, adding the audit columns. An
     empty DataFrame writes nothing (see common/run.py on sources with no rows).
 
-    The target comes from BQ_PROJECT_ID / BQ_DATASET_ID / BQ_TABLE_ID, which
+    The target comes from GCP_PROJECT_ID / BQ_DATASET_ID / BQ_TABLE_ID, which
     the Cloud Run jobs set (infra/cloud-run-jobs.tf). Without them, as in a
     local run, it's this job's table in dev_bronze.
     """
@@ -36,7 +36,7 @@ def append_to_bronze(df):
         return
 
     # Resolve the target table
-    project_id = os.getenv('BQ_PROJECT_ID', 'mbta-reliability-analytics')
+    project_id = os.getenv('GCP_PROJECT_ID', 'mbta-reliability-analytics')
     dataset_id = os.getenv('BQ_DATASET_ID', 'dev_bronze')
     table_id   = os.getenv('BQ_TABLE_ID', JOB_NAME.replace('-', '_'))
     table_ref  = f'{project_id}.{dataset_id}.{table_id}'

@@ -108,7 +108,7 @@ resource "google_cloud_run_v2_job" "ingest" {
           value = tostring(local.ingest_max_retries)
         }
         env {
-          name  = "BQ_PROJECT_ID"
+          name  = "GCP_PROJECT_ID"
           value = var.project_id
         }
         # Production bronze. Set explicitly because a run without it (a local
@@ -180,7 +180,7 @@ resource "google_cloud_run_v2_job" "transform" {
           value = tostring(local.transform_max_retries)
         }
         env {
-          name  = "DBT_PROJECT_ID"
+          name  = "GCP_PROJECT_ID"
           value = var.project_id
         }
         resources {

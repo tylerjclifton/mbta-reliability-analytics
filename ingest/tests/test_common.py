@@ -113,7 +113,7 @@ def fake_bigquery(monkeypatch):
     """Swap BigQuery for FakeClient with a fixed target table; returns the recorded loads."""
     FakeClient.loads = []
     monkeypatch.setattr(load.bigquery, 'Client', FakeClient)
-    monkeypatch.setenv('BQ_PROJECT_ID', 'proj')
+    monkeypatch.setenv('GCP_PROJECT_ID', 'proj')
     monkeypatch.setenv('BQ_DATASET_ID', 'bronze')
     monkeypatch.setenv('BQ_TABLE_ID', 'mbta_stops')
     return FakeClient.loads

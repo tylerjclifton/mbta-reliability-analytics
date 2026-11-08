@@ -4,15 +4,16 @@ How code, comments, docs, and commits are written here, so every part of the rep
 
 ## Tools
 
-Formatting that a tool can check is left to the tool. CI runs all three on every push; the commands to run them locally are in the README's [Development & deployment](../README.md#development--deployment).
+Formatting that a tool can check is left to the tool. CI runs all four on every push; the commands to run them locally are in the README's [Development & deployment](../README.md#development--deployment).
 
 | Files | Tool | Config | What it settles |
 |---|---|---|---|
 | Python | ruff | `pyproject.toml` | 120-character lines, single quotes, import order |
 | dbt SQL | sqlfluff | `transform/.sqlfluff` | 120-character lines, uppercase keywords and functions, single-quoted literals |
 | Terraform | `terraform fmt` | none | Indentation and alignment |
+| Everything | `scripts/check-conventions.py` | the script | Prose within 80 columns, 80-column banners, "…" not three periods, American spelling |
 
-Everything below is what no tool checks.
+The rest of this page is for people, and for review: a script can't judge most of it.
 
 ## Naming
 

@@ -176,7 +176,7 @@ Naming, file headers, comments, docs, and commit messages follow [docs/conventio
 - **Names say the layer and source:** `bronze.<source>_<entity>`, `silver.<bronze table>__<step>`, `gold.<domain>_<entity>`.
 - **Every file opens with a header:** what it is, and for a model its grain and steps.
 - **Each fact lives in one place**; everything else points to it, and docs change in the same commit as the code.
-- **Tools settle the formatting:** ruff, sqlfluff, and `terraform fmt`, all run by CI.
+- **Tools settle the formatting:** ruff, sqlfluff, `terraform fmt`, and a conventions check, all run by CI.
 
 ---
 
@@ -263,7 +263,9 @@ transform/              dbt Core project
   macros/               keep_latest_version, last_processed_snapshot, null_if_epoch, null_if_failed_ghcn_qc
   tests/generic/        unique_combination, accepted_range
 serve/                  Streamlit dashboard (app.py; pure helpers in helpers.py, tested in tests/)
-scripts/build-image.sh  Build + push a component's image (used by CI/CD)
+scripts/
+  build-image.sh        Build + push a component's image (used by CI/CD)
+  check-conventions.py  Comment width, banners, ellipses, spelling (used by CI)
 .github/workflows/      CI/CD: lint, tests, dbt parse, terraform validate; deploy on main
 requirements.txt        Local environment: every component + dev tools
 requirements-dev.txt    Dev tool pins (ruff, sqlfluff, pytest), shared with CI
@@ -276,14 +278,15 @@ docs/                   Setup, runbook, decision records, roadmap, conventions
 
 ## Development & deployment
 
-CI (`.github/workflows/ci.yml`) runs on every push and pull request without cloud credentials: ruff + pytest for the Python, `dbt parse` + sqlfluff for the SQL, and `terraform fmt` + `validate` for the infrastructure.
+CI (`.github/workflows/ci.yml`) runs on every push and pull request without cloud credentials: ruff + pytest for the Python, `dbt parse` + sqlfluff for the SQL, `terraform fmt` + `validate` for the infrastructure, and a check of the [conventions](docs/conventions.md) a script can judge.
 
 ```bash
 # Local environment (Python 3.13, as in the images; all components + dev tools)
 pip install -r requirements.txt
 
 # The same checks CI runs
-ruff check ingest serve transform && pytest                            # Python
+ruff check ingest serve transform scripts && pytest                    # Python
+python scripts/check-conventions.py                                    # Conventions
 (cd transform && dbt parse --profiles-dir . && sqlfluff lint models)   # SQL
 (cd infra && terraform fmt -check -recursive && terraform validate)    # Terraform
 

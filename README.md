@@ -301,7 +301,7 @@ cd transform && dbt build --profiles-dir . --target local
 # Preview the dashboard against dev_gold in the production image
 docker build -t serve:dev serve && docker run --rm -p 8601:8080 \
   -v ~/.config/gcloud:/root/.config/gcloud:ro -e GOOGLE_CLOUD_PROJECT=mbta-reliability-analytics \
-  -e GOLD_DATASET=dev_gold serve:dev          # → http://localhost:8601
+  -e BQ_DATASET_ID=dev_gold serve:dev         # → http://localhost:8601
 
 # Preview an infrastructure change against the deployed tag (the variables give
 # local credentials a quota project; docs/setup.md)

@@ -482,7 +482,7 @@ def band_bars(df, baseline, y_range, height=260):
 
 PROJECT_ID = os.getenv('GCP_PROJECT_ID', 'mbta-reliability-analytics')
 # Dataset to read; point at dev_gold to preview a local dbt build
-GOLD_DATASET = os.getenv('GOLD_DATASET', 'gold')
+GOLD_DATASET = os.getenv('BQ_DATASET_ID', 'gold')
 # Fail any single query that would bill more than 1 GiB (~$0.006), the
 # dashboard's cost guardrail (infra/quotas.tf says why it isn't a
 # project-wide daily cap). Each gold table was ~0.2 MiB in 2026-10, so

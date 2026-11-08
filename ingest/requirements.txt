@@ -5,3 +5,5 @@ pandas==3.1.0
 pyarrow==26.0.0
 requests==2.34.2
 db-dtypes==1.9.0
+# Not imported directly: google-cloud-bigquery uses it to type a DataFrame's columns on load
+pandas-gbq==0.35.3

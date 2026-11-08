@@ -17,7 +17,7 @@ Ingests data from seven sources, six on an automated schedule, transforms it thr
 | Source | Data | Schedule | Each run pulls |
 |---|---|---|---|
 | MBTA Alerts API | Service alerts (delays, suspensions, closures) | Every 15 minutes | Whole live feed, every mode (snapshot); the dashboard uses rail |
-| MBTA Routes API | Route metadata (names, types, colors) | Yearly — Jan 1 | Full route list (snapshot) |
+| MBTA Routes API | Route metadata (names, types, colors) | Yearly — Jan 1 | The rail routes (snapshot) |
 | MBTA Stops API | Stations and their platforms, with coordinates | Weekly — Mondays 6:30AM ET | Every rail station and the stops inside it (snapshot) |
 | MBTA Shapes API | The path each rail line follows, for the map | Weekly — Mondays 6:45AM ET | Every shape of each rail route (snapshot) |
 | NOAA GHCN-Daily | Daily temperature, precipitation, snowfall at Boston Logan | Daily — 6AM ET | Last 10 days (NOAA revises recent days) |
@@ -182,7 +182,7 @@ The dashboard shows visitors the same thing: the dot beside "Alerts updated" is 
 | Silver / gold columns | `snake_case`; keys `<entity>_id`; `_at` = TIMESTAMP (UTC); `_date` = DATE (Eastern); measures carry their unit; booleans `is_` | `alert_start_at`, `precipitation_in`, `is_in_feed` |
 | Audit columns | On every bronze table, carried into silver and gold where a row has one source version (alert models track `first_seen_at` / `last_seen_at` instead) | `ingested_at`, `ingested_by` |
 | dbt models | Header comment (purpose, grain, numbered steps); CTEs named after the step | `latest_versions`, `quality_checked` |
-| Ingest scripts | Docstring (source, cadence, each run, writes to); Fetch → Shape → Load sections | |
+| Ingest scripts | Docstring (source, cadence, each run, writes to; backfill if it has one); Fetch → Shape → Load sections | |
 | Python style | ruff (`pyproject.toml`): single-quoted strings; import groups sorted, each under an `# Import …` label | `# Import standard libraries` |
 
 **Comments and docs:**
@@ -259,7 +259,7 @@ ingest/                 One shared image for every ingest job
   common/fetch.py       fetch(): HTTP GET that fails the job cleanly (step 1)
   common/load.py        append_to_bronze(): load into bronze (step 3)
   common/mbta_api.py    MBTA API settings: base URL, rail routes, API key
-  tests/                Job tests against canned API responses
+  tests/                Each job against canned API responses, plus the shared helpers
   mbta-alerts/          MBTA service alert snapshots (every 15 minutes)
   mbta-routes/          MBTA route metadata snapshots (yearly)
   mbta-stops/           MBTA station and platform snapshots (weekly)

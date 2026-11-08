@@ -1,17 +1,17 @@
 """
 Ingest: NOAA daily weather at Boston Logan
 
-Source:     NOAA GHCN-Daily station file for USW00014739 (NCEI). One CSV holds
-            the station's full daily history (1936 onward), refreshed daily,
-            typically 2–3 days behind the current date.
+Source:     NOAA GHCN-Daily station file for USW00014739 (NCEI): one CSV of the
+            station's full daily history (1936 onward), refreshed daily and
+            typically 2–3 days behind
 Cadence:    Daily
-Each run:   Re-pulls the last LOOKBACK_DAYS days (default 10) — NOAA revises
-            recent days as they pass quality control. Set LOOKBACK_DAYS higher
-            at execution time to backfill.
+Each run:   Re-pulls the last LOOKBACK_DAYS days (default 10), since NOAA
+            revises recent days as they pass quality control
 Writes to:  bronze.noaa_weather (append) — one row per observation date per run
+Backfill:   LOOKBACK_DAYS set higher at execution time (docs/runbook.md)
 
-Values are kept in GHCN source units with their quality flags; unit conversion
-and QC filtering happen in silver.
+Values stay in GHCN source units with their quality flags; silver converts
+units and drops values that failed quality control.
 """
 
 # Import standard libraries
@@ -41,8 +41,8 @@ start_date = datetime.date.today() - datetime.timedelta(days=LOOKBACK_DAYS)
 
 # ── Fetch ─────────────────────────────────────────────────────────────────────
 
-logging.info(f'Fetching GHCN-Daily for {STATION_ID} from {start_date}')
 csv_text = fetch(GHCN_URL, timeout=120).text
+logging.info(f'Fetched the GHCN-Daily file for {STATION_ID}')
 
 # ── Shape ─────────────────────────────────────────────────────────────────────
 
@@ -62,7 +62,7 @@ for element in ELEMENTS:
     df[f'{element.lower()}_attributes'] = raw[f'{element}_ATTRIBUTES']
 
 if not df.empty:
-    logging.info(f"Pulled {df['observation_date'].min()} to {df['observation_date'].max()}")
+    logging.info(f"Shaped {len(df)} rows, {df['observation_date'].min()} to {df['observation_date'].max()}")
 
 # ── Load ──────────────────────────────────────────────────────────────────────
 

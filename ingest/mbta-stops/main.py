@@ -28,49 +28,53 @@ import pandas as pd
 # Import shared ingest helpers
 from common.fetch import fetch
 from common.load import append_to_bronze
-from common.mbta_api import API_URL, RAIL_ROUTES, api_params
+from common.mbta_api import API_URL, RAIL_ROUTES, api_headers
+from common.run import fail
 
+# ── Fetch ─────────────────────────────────────────────────────────────────────
 
-def stop_row(route_id, stop):
-    """One bronze row: every attribute of a stop, plus its route and parent station."""
-    attributes = stop.get('attributes', {})
-    parent = ((stop.get('relationships') or {}).get('parent_station') or {}).get('data') or {}
-    return {
-        'route_id':            route_id,
-        'stop_id':             stop.get('id'),
-        'stop_name':           attributes.get('name'),
-        'location_type':       attributes.get('location_type'),
-        'parent_station_id':   parent.get('id'),
-        'platform_name':       attributes.get('platform_name'),
-        'platform_code':       attributes.get('platform_code'),
-        'description':         attributes.get('description'),
-        'latitude':            attributes.get('latitude'),
-        'longitude':           attributes.get('longitude'),
-        'municipality':        attributes.get('municipality'),
-        'address':             attributes.get('address'),
-        'on_street':           attributes.get('on_street'),
-        'at_street':           attributes.get('at_street'),
-        'vehicle_type':        attributes.get('vehicle_type'),
-        'wheelchair_boarding': attributes.get('wheelchair_boarding'),
-    }
-
-
-# ── Fetch + Shape ─────────────────────────────────────────────────────────────
-
-# One request per rail route (common/mbta_api.py)
-rows = []
+# One request per rail route (common/mbta_api.py). filter[route] returns the
+# route's stations; include=child_stops adds everything inside them, as JSON:API
+# "included" resources (a key the API leaves out when there are none).
+stops_by_route = {}
 for route_id in RAIL_ROUTES:
-    # filter[route] returns the route's stations; include=child_stops adds
-    # everything inside them (as JSON:API "included" resources)
-    params = api_params({'filter[route]': route_id, 'include': 'child_stops'})
-    body = fetch(f'{API_URL}/stops', params=params, timeout=30).json()
+    params = {'filter[route]': route_id, 'include': 'child_stops'}
+    body = fetch(f'{API_URL}/stops', params=params, headers=api_headers(), timeout=30).json()
 
-    stations = body.get('data', [])
-    children = body.get('included', [])
-    rows += [stop_row(route_id, stop) for stop in stations + children]
-    logging.info(f'{route_id}: {len(stations)} stations, {len(children)} child stops')
+    stations, children = body['data'], body.get('included', [])
+    stops_by_route[route_id] = stations + children
+    logging.info(f'Fetched {route_id}: {len(stations)} stations, {len(children)} child stops')
+
+# ── Shape ─────────────────────────────────────────────────────────────────────
+
+rows = []
+for route_id, stops in stops_by_route.items():
+    for stop in stops:
+        attributes = stop.get('attributes', {})
+        parent = ((stop.get('relationships') or {}).get('parent_station') or {}).get('data') or {}
+        rows.append({
+            'route_id':            route_id,
+            'stop_id':             stop.get('id'),
+            'stop_name':           attributes.get('name'),
+            'location_type':       attributes.get('location_type'),
+            'parent_station_id':   parent.get('id'),
+            'platform_name':       attributes.get('platform_name'),
+            'platform_code':       attributes.get('platform_code'),
+            'description':         attributes.get('description'),
+            'latitude':            attributes.get('latitude'),
+            'longitude':           attributes.get('longitude'),
+            'municipality':        attributes.get('municipality'),
+            'address':             attributes.get('address'),
+            'on_street':           attributes.get('on_street'),
+            'at_street':           attributes.get('at_street'),
+            'vehicle_type':        attributes.get('vehicle_type'),
+            'wheelchair_boarding': attributes.get('wheelchair_boarding'),
+        })
 
 df = pd.DataFrame(rows)
+if df.empty:
+    fail('The MBTA API returned no stops for any rail route')
+
 # Nullable integers: a missing enum stays NULL instead of turning the column to float
 for column in ['location_type', 'vehicle_type', 'wheelchair_boarding']:
     df[column] = df[column].astype('Int64')

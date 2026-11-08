@@ -21,6 +21,8 @@ def fetch(url, params=None, headers=None, timeout=60):
         fail(f'Request to {url} failed: {error}')
 
     if response.status_code != 200:
-        fail(f'Request to {url} returned HTTP {response.status_code}')
+        # The start of the body usually says why (a rate limit, a bad filter)
+        reason = ' '.join(response.text.split())[:200]
+        fail(f"Request to {url} returned HTTP {response.status_code}: {reason or 'no body'}")
 
     return response

@@ -16,24 +16,23 @@ import logging
 import os
 
 # Import third party libraries
-import pandas as pd
 from google.cloud import bigquery
 
 # Import shared ingest helpers
 from common.run import JOB_NAME, RUN_STARTED_AT, fail
 
 
-def append_to_bronze(df: pd.DataFrame):
+def append_to_bronze(df):
     """
-    Append a DataFrame to this job's bronze table, adding the audit columns.
+    Append a DataFrame to this job's bronze table, adding the audit columns. An
+    empty DataFrame writes nothing (see common/run.py on sources with no rows).
 
     The target comes from BQ_PROJECT_ID / BQ_DATASET_ID / BQ_TABLE_ID, which
     the Cloud Run jobs set (infra/cloud-run-jobs.tf). Without them, as in a
-    local run, it's this job's table in dev_bronze (same schema as bronze,
-    rows expire after 7 days; infra/bigquery.tf).
+    local run, it's this job's table in dev_bronze.
     """
     if df.empty:
-        logging.info('No rows to write')
+        logging.info('No rows to append')
         return
 
     # Resolve the target table
@@ -45,8 +44,7 @@ def append_to_bronze(df: pd.DataFrame):
     # Stamp the audit columns shared by every bronze table
     df = df.assign(ingested_at=RUN_STARTED_AT, ingested_by=f'ingest-{JOB_NAME}')
 
-    # Load against the table's own schema, so a missing or misnamed column
-    # fails the load, and append
+    # Load against the table's own schema (see above) and append
     client = bigquery.Client(project=project_id)
     try:
         job_config = bigquery.LoadJobConfig(

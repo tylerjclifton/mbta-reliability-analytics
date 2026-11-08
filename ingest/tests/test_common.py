@@ -15,6 +15,82 @@ import pytest
 # Import the shared ingest helpers under test
 from common import fetch, load, mbta_api, run
 
+# ── Failure reports (the alerting contract in infra/monitoring.tf) ────────────
+
+def last_report(capsys):
+    """The structured failure report a job printed to stdout."""
+    return json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+
+
+def test_fail_on_final_attempt_reports_job_failed(monkeypatch, capsys):
+    monkeypatch.setenv('CLOUD_RUN_TASK_ATTEMPT', '1')
+    monkeypatch.setenv('MAX_RETRIES', '1')
+
+    with pytest.raises(SystemExit):
+        run.fail('Request to https://example.test returned HTTP 503')
+
+    report = last_report(capsys)
+    assert report['severity'] == 'ERROR'
+    assert report['event'] == 'job_failed'
+    assert report['job'].startswith('ingest-')
+    assert report['message'] == 'Request to https://example.test returned HTTP 503'
+
+
+def test_fail_before_a_retry_only_warns(monkeypatch, capsys):
+    """Cloud Run will retry, so this attempt must not trigger an alert email."""
+    monkeypatch.setenv('CLOUD_RUN_TASK_ATTEMPT', '0')
+    monkeypatch.setenv('MAX_RETRIES', '1')
+
+    with pytest.raises(SystemExit):
+        run.fail('Request to https://example.test returned HTTP 503')
+
+    report = last_report(capsys)
+    assert report['severity'] == 'WARNING'
+    assert report['event'] == 'attempt_failed'
+
+
+def test_uncaught_exception_reports_traceback(monkeypatch, capsys):
+    monkeypatch.setattr(run.sys, '__excepthook__', lambda *args: None)
+    try:
+        {}['data']
+    except KeyError as error:
+        sys.excepthook(type(error), error, error.__traceback__)
+
+    report = last_report(capsys)
+    assert report['event'] == 'job_failed'
+    assert report['message'].startswith("KeyError: 'data'")
+    assert 'Traceback (most recent call last)' in report['message']
+
+
+# ── Fetch (common/fetch.py) ───────────────────────────────────────────────────
+
+def test_fetch_reports_an_http_error_with_its_reason(monkeypatch, capsys):
+    body = '{"errors": [{"status": "429",\n "detail": "Rate limit exceeded"}]}'
+    monkeypatch.setattr(fetch.requests, 'get', lambda *a, **k: SimpleNamespace(status_code=429, text=body))
+
+    with pytest.raises(SystemExit) as exit_info:
+        fetch.fetch('https://example.test')
+
+    assert exit_info.value.code == 1
+    assert last_report(capsys)['message'] == (
+        'Request to https://example.test returned HTTP 429: '
+        '{"errors": [{"status": "429", "detail": "Rate limit exceeded"}]}'
+    )
+
+
+def test_fetch_reports_a_network_error(monkeypatch, capsys):
+    def refuse_connection(*args, **kwargs):
+        raise fetch.requests.exceptions.ConnectionError('connection refused')
+
+    monkeypatch.setattr(fetch.requests, 'get', refuse_connection)
+
+    with pytest.raises(SystemExit):
+        fetch.fetch('https://example.test')
+
+    assert 'connection refused' in last_report(capsys)['message']
+
+
+# ── Load (common/load.py) ─────────────────────────────────────────────────────
 
 class FakeClient:
     """Records the BigQuery load instead of running it."""
@@ -76,73 +152,42 @@ def test_append_skips_empty_frames(fake_bigquery):
     assert fake_bigquery == []
 
 
-def test_fetch_exits_on_http_error(monkeypatch):
-    monkeypatch.setattr(fetch.requests, 'get', lambda *a, **k: SimpleNamespace(status_code=503))
+def test_append_reports_a_failed_load(fake_bigquery, monkeypatch, capsys):
+    def reject(self, df, table_ref, job_config):
+        raise ValueError('bq_schema contains fields not present in dataframe')
 
-    with pytest.raises(SystemExit) as exit_info:
-        fetch.fetch('https://example.test')
-
-    assert exit_info.value.code == 1
-
-
-# ── Failure reports (the alerting contract in infra/monitoring.tf) ────────────
-
-def last_report(capsys):
-    """The structured failure report a job printed to stdout."""
-    return json.loads(capsys.readouterr().out.strip().splitlines()[-1])
-
-
-def test_fail_on_final_attempt_reports_job_failed(monkeypatch, capsys):
-    monkeypatch.setenv('CLOUD_RUN_TASK_ATTEMPT', '1')
-    monkeypatch.setenv('MAX_RETRIES', '1')
+    monkeypatch.setattr(FakeClient, 'load_table_from_dataframe', reject)
 
     with pytest.raises(SystemExit):
-        run.fail('Request to https://example.test returned HTTP 503')
+        load.append_to_bronze(pd.DataFrame({'alert_id': ['1']}))
 
-    report = last_report(capsys)
-    assert report['severity'] == 'ERROR'
-    assert report['event'] == 'job_failed'
-    assert report['job'].startswith('ingest-')
-    assert report['message'] == 'Request to https://example.test returned HTTP 503'
-
-
-def test_fail_before_a_retry_only_warns(monkeypatch, capsys):
-    # Cloud Run will retry, so this attempt must not trigger an alert email
-    monkeypatch.setenv('CLOUD_RUN_TASK_ATTEMPT', '0')
-    monkeypatch.setenv('MAX_RETRIES', '1')
-
-    with pytest.raises(SystemExit):
-        run.fail('Request to https://example.test returned HTTP 503')
-
-    report = last_report(capsys)
-    assert report['severity'] == 'WARNING'
-    assert report['event'] == 'attempt_failed'
-
-
-def test_uncaught_exception_reports_traceback(monkeypatch, capsys):
-    monkeypatch.setattr(run.sys, '__excepthook__', lambda *args: None)
-    try:
-        {}['data']
-    except KeyError as error:
-        sys.excepthook(type(error), error, error.__traceback__)
-
-    report = last_report(capsys)
-    assert report['event'] == 'job_failed'
-    assert report['message'].startswith("KeyError: 'data'")
-    assert 'Traceback (most recent call last)' in report['message']
+    assert last_report(capsys)['message'] == (
+        'BigQuery load into proj.bronze.mbta_stops failed: bq_schema contains fields not present in dataframe'
+    )
 
 
 # ── MBTA API settings (common/mbta_api.py) ────────────────────────────────────
 
-def test_api_params_adds_the_key_when_set(monkeypatch):
+def test_api_headers_carry_the_key_when_set(monkeypatch):
     monkeypatch.setenv('MBTA_API_KEY', 'test-key')
 
-    assert mbta_api.api_params({'filter[id]': 'Red'}) == {'filter[id]': 'Red', 'api_key': 'test-key'}
+    assert mbta_api.api_headers() == {'x-api-key': 'test-key'}
 
 
-def test_api_params_without_a_key_leaves_params_alone(monkeypatch):
+def test_api_headers_without_a_key_are_empty(monkeypatch):
     monkeypatch.delenv('MBTA_API_KEY', raising=False)
-    params = {'filter[id]': 'Red'}
 
-    assert mbta_api.api_params(params) == {'filter[id]': 'Red'}
-    assert mbta_api.api_params(params) is not params  # a copy, never the caller's dict
+    assert mbta_api.api_headers() == {}
+
+
+def test_api_key_stays_out_of_failure_reports(monkeypatch, capsys):
+    """A real connection error (nothing listens on this port) quotes the URL; the report is emailed."""
+    monkeypatch.setenv('MBTA_API_KEY', 'test-key')
+
+    with pytest.raises(SystemExit):
+        fetch.fetch('http://127.0.0.1:9/alerts', params={'filter[activity]': 'ALL'},
+                    headers=mbta_api.api_headers(), timeout=1)
+
+    report = last_report(capsys)
+    assert 'filter%5Bactivity%5D=ALL' in report['message']  # the query string is quoted...
+    assert 'test-key' not in report['message']              # ...and the key isn't in it

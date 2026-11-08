@@ -21,9 +21,10 @@ resource "google_cloud_scheduler_job" "ingest" {
   attempt_deadline = "180s"
   paused           = false
 
-  # Retries are handled by the job itself (max_retries), not the trigger
+  # Retries the call that starts the job, if it fails: a job that never started
+  # can't retry itself (max_retries in cloud-run-jobs.tf only covers failed runs)
   retry_config {
-    retry_count = 0
+    retry_count = 1
   }
 
   http_target {

@@ -1,17 +1,16 @@
 """
 Ingest: MBTA rail ridership (gated station entries)
 
-Source:     MBTA Gated Station Entries, ArcGIS open data feature service. It
-            holds only the last two years; older days drop off it, and bronze
-            keeps them from earlier runs
-Cadence:    Weekly — the MBTA publishes in irregular batches, often several
-            months at once, weeks to months after the fact (e.g. July–
-            September 2026 all appeared on 2026-10-20)
-Each run:   Pulls everything the layer holds, not a recent window, so any
-            numbers the MBTA revises after the fact are captured
+Source:     MBTA Gated Station Entries, an ArcGIS open data feature service
+            holding only the last two years; older days drop off it, and
+            bronze keeps them from earlier runs
+Cadence:    Weekly (the MBTA publishes in irregular batches, often several
+            months at once and weeks to months late; July–September 2026 all
+            appeared on 2026-10-20)
+Each run:   Pulls everything the layer holds, not a recent window, so numbers
+            the MBTA revises after the fact are captured
 Writes to:  bronze.mbta_ridership (append) — one row per service date × line
             per run
-
 Backfill:   FROM_ARCHIVE=true, set at execution time, loads the days before
             the layer's window from the MBTA's yearly archive of the same data
             instead (docs/runbook.md, decision 0015)
@@ -42,12 +41,13 @@ ARCHIVE_URL = 'https://www.arcgis.com/sharing/rest/content/items/7859894afb5641c
 
 # The archive fills only days before this, the first day bronze holds from the
 # layer. From it on, the layer's numbers stand: the archive's 2024 file
-# undercounts October and December 2024 (decision 0015)
+# undercounts October and December 2024 (decision 0015).
 ARCHIVE_BEFORE = datetime.date(2024, 10, 1)
 
 FROM_ARCHIVE = os.getenv('FROM_ARCHIVE', '').lower() == 'true'
 
-# Target lines — Silver Line and Mattapan excluded intentionally
+# Rail lines as the layer names them; the Silver Line and Mattapan are out of
+# scope
 TARGET_LINES = ['Red Line', 'Orange Line', 'Blue Line', 'Green Line']
 
 # ArcGIS maxRecordCount for this service
@@ -57,6 +57,7 @@ PAGE_SIZE = 2000
 
 if FROM_ARCHIVE:
     archive = zipfile.ZipFile(io.BytesIO(fetch(ARCHIVE_URL, timeout=300).content))
+    logging.info(f'Fetched the archive: {len(archive.namelist())} files')
 else:
     # The layer is at stop × time-period grain (millions of rows), so ArcGIS
     # sums entries per day and line server-side — a few thousand rows in total.
@@ -81,13 +82,15 @@ else:
 
         # ArcGIS reports query errors in the body with HTTP 200
         if 'error' in data:
-            fail(f"ArcGIS API error: {data['error']}")
+            fail(f"ArcGIS returned an error: {data['error']}")
 
-        features.extend(data.get('features', []))
-        logging.info(f'Fetched {len(features)} records so far...')
+        page = data.get('features', [])
+        features.extend(page)
+        logging.info(f'Fetched {len(features)} rows so far')
 
-        # ArcGIS sets exceededTransferLimit while more pages remain
-        if not data.get('exceededTransferLimit', False):
+        # ArcGIS sets exceededTransferLimit while more pages remain. An empty
+        # page ends it too, so a stuck flag can't loop until the job times out.
+        if not page or not data.get('exceededTransferLimit', False):
             break
 
 # ── Shape ─────────────────────────────────────────────────────────────────────
@@ -105,15 +108,13 @@ if FROM_ARCHIVE:
         daily.append(year.groupby(['service_date', 'route_or_line'], as_index=False)['gated_entries'].sum())
 
     df = pd.concat(daily, ignore_index=True) if daily else pd.DataFrame()
-    if df.empty:
-        fail(f'The archive held no days before {ARCHIVE_BEFORE}')
 else:
     rows = []
     for feature in features:
         attributes = feature.get('attributes', {})
 
         # service_date is epoch milliseconds (midnight ET expressed in UTC), so
-        # the UTC calendar date is the service date
+        # the UTC calendar date is the service date; a row without one is skipped
         service_date_ms = attributes.get('service_date')
         if not isinstance(service_date_ms, (int, float)):
             continue
@@ -126,8 +127,11 @@ else:
 
     df = pd.DataFrame(rows)
 
-if not df.empty:
-    logging.info(f"Pulled {df['service_date'].min()} to {df['service_date'].max()}")
+if df.empty:
+    fail(f'The archive held no rail days before {ARCHIVE_BEFORE}' if FROM_ARCHIVE
+         else 'The ArcGIS layer returned no rail days')
+
+logging.info(f"Shaped {len(df)} rows, {df['service_date'].min()} to {df['service_date'].max()}")
 
 # ── Load ──────────────────────────────────────────────────────────────────────
 

@@ -1,5 +1,6 @@
 # One image for every ingest job. Each Cloud Run job selects its script via
 # container args (e.g. `mbta-alerts/main.py`), set in infra/cloud-run-jobs.tf.
+# Built from ingest/ (scripts/build-image.sh ingest <tag>).
 FROM python:3.13-slim
 
 # Set the working directory inside the container

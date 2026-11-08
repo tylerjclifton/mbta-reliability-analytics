@@ -11,10 +11,14 @@ MBTA API jobs also use common/mbta_api.py (base URL, rail routes, API key).
 Conventions:
   - A job lives in ingest/<job>/main.py and writes to bronze.<job> with "-"
     replaced by "_" (e.g. ingest/mbta-alerts → bronze.mbta_alerts).
-  - A job that fails — through fail() or an uncaught exception — logs one
+  - A job that fails, through fail() or an uncaught exception, logs one
     structured failure report (report_failure()), which the job's alerting
     policy emails (infra/monitoring.tf). fetch.py and load.py import this
     module, so every job reports its failures without doing anything itself.
+  - A source that should always hold rows (routes, shapes, stops, ridership,
+    LAMP) fails the job when it returns none. One that can legitimately be empty
+    (the alerts feed, weather's re-pull window) writes nothing, and the
+    transform's freshness check catches a lasting gap.
 """
 
 # Import standard libraries
@@ -66,7 +70,6 @@ def _report_uncaught_exception(exc_type, exc_value, exc_traceback):
     sys.__excepthook__(exc_type, exc_value, exc_traceback)
 
 
-# Every job imports this module (through fetch.py and load.py), so this covers
-# unexpected errors in any job (a changed API response, a shaping bug) as well
-# as the fail() paths
+# Report any exception a job doesn't handle (a changed API response, a shaping
+# bug); fail() reports its own
 sys.excepthook = _report_uncaught_exception

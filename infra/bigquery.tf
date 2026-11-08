@@ -60,7 +60,7 @@ locals {
       clustering  = ["alert_id"]
       columns = [
         { name = "alert_id", type = "STRING", description = "MBTA alert ID" },
-        { name = "alert_json", type = "STRING", description = "The alert's JSON:API object exactly as returned (id, attributes, relationships), compact JSON" },
+        { name = "alert_json", type = "STRING", description = "The alert's JSON:API object exactly as returned (id, type, attributes, links), compact JSON" },
       ]
     }
 

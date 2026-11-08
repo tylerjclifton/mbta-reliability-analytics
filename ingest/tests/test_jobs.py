@@ -1,9 +1,9 @@
 """
-Ingest job tests: each script's shaping logic against canned API responses.
+Ingest job tests: each script, run against canned responses.
 
-What each test pins down is the contract with bronze — one row per expected
-grain, correct types, and the source's quirks (epoch timestamps, padded CSV
-values, paginated responses) handled.
+Each test pins down part of a job's contract: what it requests, what reaches
+bronze (one row per grain, the right types, the source's quirks handled), and
+when it fails rather than load.
 """
 
 # Import standard libraries
@@ -20,21 +20,39 @@ import pytest
 
 # ── lamp-alerts ───────────────────────────────────────────────────────────────
 
+def lamp_file(table):
+    """An Arrow table as the bytes of a LAMP parquet file."""
+    buffer = io.BytesIO()
+    pq.write_table(table, buffer)
+    return buffer.getvalue()
+
+
 def test_lamp_alerts_renames_columns_and_keeps_integers_nullable(run_job):
-    lamp = pa.table({
+    df = run_job('lamp-alerts', [lamp_file(pa.table({
         'id': pa.array([1040505, 1040505], pa.int64()),
         'header_text.translation.text': ['Shuttle buses replace trains', 'Shuttle buses replace trains'],
         'closed_datetime': pa.array([datetime.datetime(2026, 10, 22, 12, 0), None], pa.timestamp('us')),
         'informed_entity.route_type': pa.array([2, None], pa.int8()),
-    })
-    buffer = io.BytesIO()
-    pq.write_table(lamp, buffer)
-
-    df = run_job('lamp-alerts', [buffer.getvalue()])
+    }))])
 
     assert list(df.columns) == ['id', 'header_text', 'closed_datetime', 'informed_entity_route_type']
     assert df['informed_entity_route_type'].dtype == 'Int64'
     assert df['informed_entity_route_type'].isna().tolist() == [False, True]
+
+
+def test_lamp_alerts_loads_every_batch(run_job):
+    one_row_over_a_batch = pa.table({'id': pa.array(range(100_001), pa.int64())})
+
+    run_job('lamp-alerts', [lamp_file(one_row_over_a_batch)])
+
+    assert [len(df) for df in run_job.loads] == [100_000, 1]
+
+
+def test_lamp_alerts_empty_file_fails_the_job(run_job):
+    with pytest.raises(SystemExit) as exit_info:
+        run_job('lamp-alerts', [lamp_file(pa.table({'id': pa.array([], pa.int64())}))])
+
+    assert exit_info.value.code == 1
 
 
 # ── mbta-alerts ───────────────────────────────────────────────────────────────
@@ -86,7 +104,8 @@ def test_alerts_request_the_whole_feed(run_job, monkeypatch):
 
     assert run_job.requests == [{
         'url': 'https://api-v3.mbta.com/alerts',
-        'params': {'filter[activity]': 'ALL', 'api_key': 'test-key'},
+        'params': {'filter[activity]': 'ALL'},
+        'headers': {'x-api-key': 'test-key'},
     }]
     assert raw['alert_id'].tolist() == ['1']  # a bus-only alert is kept, too
 
@@ -115,11 +134,19 @@ def test_routes_request_the_rail_routes_and_shape_one_row_each(run_job, monkeypa
     assert run_job.requests == [{
         'url': 'https://api-v3.mbta.com/routes',
         'params': {'filter[id]': 'Red,Blue,Orange,Green-B,Green-C,Green-D,Green-E'},
+        'headers': {},
     }]
     assert rows.to_dict('records') == [{
         'route_id': 'Red', 'long_name': 'Red Line', 'route_type': 1, 'color': 'DA291C',
         'description': 'Rapid Transit', 'direction_destinations': "['Ashmont/Braintree', 'Alewife']",
     }]
+
+
+def test_routes_empty_response_fails_the_job(run_job):
+    with pytest.raises(SystemExit) as exit_info:
+        run_job('mbta-routes', [{'data': []}])
+
+    assert exit_info.value.code == 1
 
 
 # ── mbta-shapes ───────────────────────────────────────────────────────────────
@@ -130,12 +157,18 @@ def shapes_body(*shape_ids):
 
 
 def test_shapes_request_each_rail_route_and_shape_one_row_per_shape(run_job, monkeypatch):
-    monkeypatch.delenv('MBTA_API_KEY', raising=False)
+    monkeypatch.setenv('MBTA_API_KEY', 'test-key')
     # The API doesn't name the route, so each row takes the route requested
     df = run_job('mbta-shapes', [shapes_body('canonical-931_0009', '931_0010')] + [shapes_body('x')] * 6)
 
     assert [request['params']['filter[route]'] for request in run_job.requests] == [
-        'Red', 'Blue', 'Orange', 'Green-B', 'Green-C', 'Green-D', 'Green-E']
+        'Red', 'Blue', 'Orange', 'Green-B', 'Green-C', 'Green-D', 'Green-E',
+    ]
+    assert run_job.requests[0] == {
+        'url': 'https://api-v3.mbta.com/shapes',
+        'params': {'filter[route]': 'Red'},
+        'headers': {'x-api-key': 'test-key'},
+    }
     assert df.iloc[:2].to_dict('records') == [
         {'route_id': 'Red', 'shape_id': 'canonical-931_0009', 'polyline': 'encoded-canonical-931_0009'},
         {'route_id': 'Red', 'shape_id': '931_0010', 'polyline': 'encoded-931_0010'},
@@ -144,11 +177,12 @@ def test_shapes_request_each_rail_route_and_shape_one_row_per_shape(run_job, mon
 
 
 def test_shapes_route_with_none_fails_before_anything_loads(run_job):
-    # Silver reads only the latest run, so a partial snapshot would erase a line
+    """Silver reads only the latest run, so a partial snapshot would erase a line."""
     with pytest.raises(SystemExit) as exit_info:
         run_job('mbta-shapes', [shapes_body('x'), {'data': []}])
 
     assert exit_info.value.code == 1
+    assert run_job.loads == []
 
 
 # ── mbta-stops ────────────────────────────────────────────────────────────────
@@ -164,7 +198,8 @@ def stop(stop_id, name, location_type, parent=None, platform=None):
 
 
 def stops_body(stations, children):
-    return {'data': stations, 'included': children}
+    """A /stops response; the API leaves out "included" when there are no children."""
+    return {'data': stations, 'included': children} if children else {'data': stations}
 
 
 def test_stops_keep_stations_and_children_per_route(run_job):
@@ -181,11 +216,33 @@ def test_stops_keep_stations_and_children_per_route(run_job):
     assert df['platform_name'].iloc[1] == 'Boston College'
 
 
+def test_stops_request_each_rail_route_with_its_children(run_job, monkeypatch):
+    monkeypatch.setenv('MBTA_API_KEY', 'test-key')
+
+    run_job('mbta-stops', [stops_body([stop('place-x', 'X', 1)], [])] * 7)
+
+    assert [request['params']['filter[route]'] for request in run_job.requests] == [
+        'Red', 'Blue', 'Orange', 'Green-B', 'Green-C', 'Green-D', 'Green-E',
+    ]
+    assert run_job.requests[0] == {
+        'url': 'https://api-v3.mbta.com/stops',
+        'params': {'filter[route]': 'Red', 'include': 'child_stops'},
+        'headers': {'x-api-key': 'test-key'},
+    }
+
+
 def test_stops_missing_enum_stays_null(run_job):
     df = run_job('mbta-stops', [stops_body([stop('place-x', 'X', 1)], [])] * 7)
 
     assert str(df['vehicle_type'].dtype) == 'Int64'
     assert df['vehicle_type'].isna().all()
+
+
+def test_stops_empty_response_fails_the_job(run_job):
+    with pytest.raises(SystemExit) as exit_info:
+        run_job('mbta-stops', [stops_body([], [])] * 7)
+
+    assert exit_info.value.code == 1
 
 
 # ── mbta-ridership ────────────────────────────────────────────────────────────
@@ -210,6 +267,18 @@ def test_ridership_follows_pagination(run_job):
     ])
 
     assert sorted(df['route_or_line']) == ['Blue Line', 'Red Line']
+    assert [request['params']['resultOffset'] for request in run_job.requests] == [0, 1]
+
+
+def test_ridership_stops_paging_at_an_empty_page(run_job):
+    """A page that adds nothing ends the loop, even if ArcGIS still says more remain."""
+    df = run_job('mbta-ridership', [
+        arcgis_page([(SEP_30_MS, 'Red Line', 136013.4)], more=True),
+        arcgis_page([], more=True),
+    ])
+
+    assert len(run_job.requests) == 2
+    assert df['route_or_line'].tolist() == ['Red Line']
 
 
 def test_ridership_epoch_ms_becomes_service_date(run_job):
@@ -222,6 +291,13 @@ def test_ridership_epoch_ms_becomes_service_date(run_job):
 def test_ridership_api_error_fails_the_job(run_job):
     with pytest.raises(SystemExit) as exit_info:
         run_job('mbta-ridership', [{'error': {'code': 400, 'message': 'bad query'}}])
+
+    assert exit_info.value.code == 1
+
+
+def test_ridership_empty_layer_fails_the_job(run_job):
+    with pytest.raises(SystemExit) as exit_info:
+        run_job('mbta-ridership', [arcgis_page([], more=False)])
 
     assert exit_info.value.code == 1
 
@@ -292,6 +368,16 @@ def test_weather_keeps_only_the_lookback_window(run_job, monkeypatch):
     ])])
 
     assert df['observation_date'].tolist() == [recent]
+
+
+def test_weather_empty_window_writes_nothing(run_job, monkeypatch):
+    """NOAA running far behind isn't this job's failure; the freshness check catches a lasting gap."""
+    monkeypatch.setenv('LOOKBACK_DAYS', '10')
+    old = datetime.date.today() - datetime.timedelta(days=30)
+
+    df = run_job('noaa-weather', [ghcn_csv([(old, 100, 50, 0, ',,1,2400', 0)])])
+
+    assert df.empty
 
 
 def test_weather_values_stay_in_source_units(run_job, monkeypatch):

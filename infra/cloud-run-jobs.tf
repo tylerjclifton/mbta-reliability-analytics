@@ -59,7 +59,7 @@ locals {
       schedule          = var.ridership_ingestion_schedule
       uses_mbta_api_key = false
       memory            = "1Gi"
-      timeout           = "900s" # Full-history ArcGIS pull, several paginated requests
+      timeout           = "900s" # The layer's two years, paged; or the yearly archive
       env               = {}
     }
     "noaa-weather" = {

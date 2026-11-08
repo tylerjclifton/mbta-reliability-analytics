@@ -1,13 +1,13 @@
 """
-Shared settings for the MBTA V3 API jobs (alerts, routes, stops).
+Shared settings for the MBTA V3 API jobs (alerts, routes, shapes, stops).
 
-  - API_URL      the API's base URL
-  - RAIL_ROUTES  the routes this project covers. The routes and stops jobs
-                 snapshot exactly these; silver takes the list from the routes
-                 table those snapshots build (silver.mbta_routes__base), so this
-                 is the one place it's written down. The alerts job captures
-                 the whole feed and silver narrows it (decision 0011).
-  - api_params() request params plus the API key
+  - API_URL       the API's base URL
+  - RAIL_ROUTES   the routes this project covers. The routes, shapes, and stops
+                  jobs snapshot exactly these; silver takes the list from the
+                  routes table those snapshots build (silver.mbta_routes__base),
+                  so this is the one place it's written down. The alerts job
+                  captures the whole feed and silver narrows it (decision 0011).
+  - api_headers() request headers carrying the API key
 """
 
 # Import standard libraries
@@ -20,12 +20,14 @@ API_URL = 'https://api-v3.mbta.com'
 RAIL_ROUTES = ['Red', 'Blue', 'Orange', 'Green-B', 'Green-C', 'Green-D', 'Green-E']
 
 
-def api_params(params):
+def api_headers():
     """
-    `params` plus the MBTA API key from MBTA_API_KEY, when it's set.
+    Request headers with the MBTA API key from MBTA_API_KEY, when it's set.
 
     The key is optional, but removes the anonymous rate limit (Secret Manager
-    provides it to the jobs that call the API; see infra/cloud-run-jobs.tf).
+    provides it to the jobs that call the API; see infra/cloud-run-jobs.tf). It
+    goes in a header because a connection error quotes the request's URL, query
+    string included, and that text reaches the failure report and its email.
     """
     key = os.getenv('MBTA_API_KEY')
-    return {**params, 'api_key': key} if key else dict(params)
+    return {'x-api-key': key} if key else {}

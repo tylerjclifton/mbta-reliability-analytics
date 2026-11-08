@@ -174,7 +174,8 @@ The dashboard shows visitors the same thing: the dot beside "Alerts updated" is 
 
 Naming, file headers, comments, docs, and commit messages follow [docs/conventions.md](docs/conventions.md). In short:
 - **Names say the layer and source:** `bronze.<source>_<entity>`, `silver.<bronze table>__<step>`, `gold.<domain>_<entity>`.
-- **Every file opens with a header:** what it is, and for a model its grain and steps.
+- **Every file opens with a one-line title**, and a model's header also gives its grain and steps.
+- **Explanations end with a period; titles and labels don't.**
 - **Each fact lives in one place**; everything else points to it, and docs change in the same commit as the code.
 - **Tools settle the formatting:** ruff, sqlfluff, `terraform fmt`, and a conventions check, all run by CI.
 

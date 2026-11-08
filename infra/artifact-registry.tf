@@ -1,5 +1,5 @@
 # ══════════════════════════════════════════════════════════════════════════════
-# Artifact Registry — Docker images for the jobs (backend) and dashboard (frontend)
+# Artifact Registry — images for the jobs (backend) and dashboard (frontend)
 #
 # Cleanup: keep the 5 most recent versions of each image and delete anything
 # older than 30 days beyond those. Deployed images are always among the most

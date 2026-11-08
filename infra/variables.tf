@@ -1,7 +1,7 @@
 # ══════════════════════════════════════════════════════════════════════════════
-# Variables — project, deployment, schedules, alerting, and Google service agents
+# Variables — project, deployment, schedules, alerting, and service agents
 #
-# Everything has a default except image_tag, which CI/CD sets on every deploy.
+# Everything has a default except image_tag, which CI/CD sets on every deploy
 # ══════════════════════════════════════════════════════════════════════════════
 
 # ── Project ───────────────────────────────────────────────────────────────────

@@ -5,14 +5,16 @@
 # grant no data access by themselves: bigquery.jobUser (run queries and loads)
 # for every data workload, and bigquery.user for dbt (list datasets).
 #
-#                     bronze      silver      gold        other
-#   ingest-jobs       dataEditor  —           —           secret: mbta-api-key
-#   dbt-bigquery      dataViewer  dataEditor  dataEditor  bigquery.user
+#                     bronze      silver      gold
+#   ingest-jobs       dataEditor  —           —
+#   dbt-bigquery      dataViewer  dataEditor  dataEditor
 #   serve-bigquery    —           —           dataViewer
-#   job-scheduler     —           —           —           run.invoker per ingest job;
-#                                                         run.jobsExecutorWithOverrides
-#                                                         on the transform
+#   job-scheduler     —           —           —
 #   github-deployer   terraform apply; broad by necessity (deploy.tf)
+#
+# Beyond the datasets, ingest-jobs reads the mbta-api-key secret, and
+# job-scheduler holds run.invoker on each ingest job and
+# run.jobsExecutorWithOverrides on the transform
 # ══════════════════════════════════════════════════════════════════════════════
 
 # ── Project-level ─────────────────────────────────────────────────────────────
@@ -65,8 +67,8 @@ resource "google_secret_manager_secret_iam_member" "ingest_reads_mbta_api_key" {
   member    = google_service_account.ingest.member
 }
 
-# The scheduler may start exactly these jobs (run.invoker includes run.jobs.run):
-# the scheduled ingest jobs, not the on-demand ones
+# The scheduler may start exactly these jobs (run.invoker includes
+# run.jobs.run): the scheduled ingest jobs, not the on-demand ones
 resource "google_cloud_run_v2_job_iam_member" "scheduler_runs_ingest" {
   for_each = { for name, job in google_cloud_run_v2_job.ingest : name => job if local.ingest_jobs[name].schedule != null }
 

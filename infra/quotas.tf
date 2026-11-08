@@ -6,7 +6,7 @@
 # instead (maximum_bytes_billed in transform/profiles.yml and serve/app.py).
 #
 # This resource stays because a quota preference can't be deleted once
-# created; keeping it in Terraform at the default keeps code and GCP matching.
+# created; keeping it in Terraform at the default keeps code and GCP matching
 # ══════════════════════════════════════════════════════════════════════════════
 
 resource "google_cloud_quotas_quota_preference" "bigquery_query_usage_per_day" {

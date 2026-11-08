@@ -1,8 +1,8 @@
 # ══════════════════════════════════════════════════════════════════════════════
-# Cloud Run service — the Streamlit dashboard (serve/), public at tylerclifton.com
+# Cloud Run service — the dashboard (serve/), public at tylerclifton.com
 #
 # Scales to zero between visits; a cold start on the first request is fine
-# (decision 0007).
+# (decision 0007)
 # ══════════════════════════════════════════════════════════════════════════════
 
 resource "google_cloud_run_v2_service" "serve" {

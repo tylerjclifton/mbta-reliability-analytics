@@ -1,10 +1,11 @@
 #!/bin/bash
-# Build and push a component's Docker image to Artifact Registry.
+# Build and push a component's Docker image to Artifact Registry
 #
 # Usage:  scripts/build-image.sh <ingest|transform|serve> <tag>
 #
 # Normally run by CI/CD (.github/workflows/ci.yml), which builds all three with
-# the commit as the tag and deploys them with `terraform apply -var image_tag=…`.
+# the commit as the tag and deploys them with
+# `terraform apply -var image_tag=…`
 
 set -euo pipefail
 

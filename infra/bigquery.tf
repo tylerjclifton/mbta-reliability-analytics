@@ -9,12 +9,12 @@
 #           any change Terraform would make by replacing it, follows decision
 #           0013 instead.
 #   silver  dbt models: each source's cleaned copy plus steps built on it
-#           (views, except three incremental alert tables).
-#   gold    dbt tables the dashboard reads, rebuilt every transform run.
+#           (views, except three incremental alert tables)
+#   gold    dbt tables the dashboard reads, rebuilt every transform run
 #
 # Dev sandboxes mirror the layers for local work, so nothing local touches the
 # live datasets: dev_bronze (local ingest runs, ingest/common/load.py), and
-# dev_silver / dev_gold (local dbt builds, which read the real bronze).
+# dev_silver / dev_gold (local dbt builds, which read the real bronze)
 #
 # Naming: tables are `<source>_<entity>`; silver's models built from each are
 # `<source>_<entity>__<step>` (`__base` is the cleaned copy); the dataset says
@@ -219,7 +219,7 @@ resource "google_bigquery_dataset" "gold" {
 #                        rows expire by partition instead of whole tables.
 #   dev_silver, dev_gold local dbt builds (`--target local`, see
 #                        transform/macros/generate_schema_name.sql); whole
-#                        tables expire, and rebuilding recreates them.
+#                        tables expire, and rebuilding recreates them
 resource "google_bigquery_dataset" "dev" {
   for_each = {
     dev_bronze = "Local ingest runs (ingest/common/load.py's default); rows expire after 7 days"

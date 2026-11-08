@@ -22,7 +22,8 @@ resource "google_cloud_scheduler_job" "ingest" {
   paused           = false
 
   # Retries the call that starts the job, if it fails: a job that never started
-  # can't retry itself (max_retries in cloud-run-jobs.tf only covers failed runs)
+  # can't retry itself (max_retries in cloud-run-jobs.tf
+  # only covers failed runs)
   retry_config {
     retry_count = 1
   }
@@ -40,7 +41,7 @@ resource "google_cloud_scheduler_job" "ingest" {
 # ── Transform triggers ────────────────────────────────────────────────────────
 # Hourly runs skip the slow-changing models tagged daily (transform/
 # dbt_project.yml), and one full run a day builds everything, as does any run
-# started another way: CI's post-deploy run or a manual one (decision 0017).
+# started another way: CI's post-deploy run or a manual one (decision 0017)
 
 locals {
   transform_triggers = {

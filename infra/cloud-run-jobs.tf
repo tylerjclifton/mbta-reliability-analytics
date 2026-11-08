@@ -2,7 +2,7 @@
 # Cloud Run jobs — ingest (one per source) and transform (dbt)
 #
 # All ingest jobs run the same image (ingest/Dockerfile); each job runs its own
-# script via container args and appends to its bronze table of the same name.
+# script via container args and appends to its bronze table of the same name
 # ══════════════════════════════════════════════════════════════════════════════
 
 locals {
@@ -69,7 +69,7 @@ locals {
       timeout           = "600s"
       # Re-pulls LOOKBACK_DAYS days each run (NOAA revises recent days); the
       # default, 10, is set once in ingest/noaa-weather/main.py. Override it at
-      # execution time to backfill: --update-env-vars LOOKBACK_DAYS=800
+      # execution time to backfill: `--update-env-vars LOOKBACK_DAYS=800`.
       env = {}
     }
   }
@@ -112,7 +112,7 @@ resource "google_cloud_run_v2_job" "ingest" {
           value = var.project_id
         }
         # Production bronze. Set explicitly because a run without it (a local
-        # one) writes to dev_bronze instead (decision 0012)
+        # one) writes to dev_bronze instead (decision 0012).
         env {
           name  = "BQ_DATASET_ID"
           value = google_bigquery_dataset.bronze.dataset_id
@@ -131,7 +131,8 @@ resource "google_cloud_run_v2_job" "ingest" {
           }
         }
 
-        # MBTA API key (optional for the API, but removes the anonymous rate limit)
+        # MBTA API key (optional for the API, but
+        # removes the anonymous rate limit)
         dynamic "env" {
           for_each = each.value.uses_mbta_api_key ? [1] : []
           content {

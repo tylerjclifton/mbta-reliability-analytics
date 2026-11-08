@@ -7,8 +7,8 @@
 # here stops Terraform managing it but never switches the API off underneath a
 # running service.
 #
-# Enabled outside Terraform and deliberately left alone: Cloud Build (and Pub/Sub,
-# which it requires) and the Gemini console assistants.
+# Enabled outside Terraform and deliberately left alone: Cloud Build (and
+# Pub/Sub, which it requires) and the Gemini console assistants
 # ══════════════════════════════════════════════════════════════════════════════
 
 locals {
@@ -22,7 +22,8 @@ locals {
     cloud_scheduler = "cloudscheduler.googleapis.com" # cron triggers
     cloud_trace     = "cloudtrace.googleapis.com"     # required by Cloud Scheduler
 
-    # Cost guardrails (the budget itself lives on the billing account, outside Terraform)
+    # Cost guardrails (the budget itself lives on the
+    # billing account, outside Terraform)
     billing_budgets = "billingbudgets.googleapis.com"
     cloud_quotas    = "cloudquotas.googleapis.com" # BigQuery daily query quota (quotas.tf)
 

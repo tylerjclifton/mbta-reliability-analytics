@@ -19,21 +19,21 @@
 
 WITH
 
-    -- 1. Latest snapshot per stop × route
+    -- 1. Latest snapshot per stop × route.
     latest_versions AS (
         SELECT *
         FROM {{ source('bronze', 'mbta_stops') }}
         {{ keep_latest_version(['stop_id', 'route_id']) }}
     )
 
--- 2. Project conventions: stop_* attributes; a station is its own station
+-- 2. Project conventions: stop_* attributes; a station is its own station.
 SELECT
     stop_id,
     route_id,
     COALESCE(parent_station_id, stop_id) AS station_id,
-    -- Platforms and other child stops carry their station's name
+    -- Platforms and other child stops carry their station's name.
     stop_name                            AS station_name,
-    -- GTFS location types
+    -- GTFS location types.
     CASE location_type
         WHEN 0 THEN 'Platform'
         WHEN 1 THEN 'Station'
@@ -46,7 +46,7 @@ SELECT
     latitude                             AS stop_latitude,
     longitude                            AS stop_longitude,
     municipality                         AS stop_municipality,
-    -- GTFS wheelchair_boarding: 0 = no information
+    -- GTFS wheelchair_boarding: 0 = no information.
     CASE wheelchair_boarding
         WHEN 1 THEN TRUE
         WHEN 2 THEN FALSE

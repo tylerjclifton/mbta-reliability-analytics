@@ -3,7 +3,7 @@
     The newest bronze load an incremental table has already processed
     (MAX(<column>) in the table being built), as a timestamp string
     ('YYYY-MM-DD HH:MM:SS.ffffff'), or none on a first build or
-    --full-refresh. Shared by silver.mbta_alerts__base and
+    --full-refresh. Shared by silver.mbta_alerts__base and.
     silver.mbta_alerts__by_route (column last_seen_at), and
     silver.lamp_alerts__base (column ingested_at).
 

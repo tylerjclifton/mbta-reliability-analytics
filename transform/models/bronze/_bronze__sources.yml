@@ -10,7 +10,7 @@ version: 2
 #
 # Freshness: `dbt source freshness` (run after `dbt build` in the transform
 # job) fails the run when a table hasn't been written for longer than its ingest
-# schedule allows — i.e. when an ingest job has stopped working
+# schedule allows — i.e. when an ingest job has stopped working.
 # ══════════════════════════════════════════════════════════════════════════════
 
 sources:
@@ -27,7 +27,7 @@ sources:
           since the alerts cutover; never delete (decision 0002). No model reads
           it: LAMP supplies those months instead (decision 0016).
           Grain: alert × route × ingest run.
-        # No freshness check: nothing writes it anymore
+        # No freshness check: nothing writes it anymore.
 
       - name: lamp_alerts
         description: >
@@ -35,7 +35,7 @@ sources:
           flattened by LAMP. Silver takes rail alerts from before full-JSON
           capture from it (decision 0016). Grain: alert × version × informed
           entity × active period × ingest run.
-        # No freshness check: loaded on demand, not on a schedule
+        # No freshness check: loaded on demand, not on a schedule.
 
       - name: mbta_alerts
         description: >
@@ -46,7 +46,7 @@ sources:
           Grain: alert × ingest run.
         config:
           freshness:
-            # Every 15 minutes; the slack covers a failed run or two
+            # Every 15 minutes; the slack covers a failed run or two.
             warn_after: {count: 1, period: hour}
             error_after: {count: 3, period: hour}
 
@@ -57,7 +57,7 @@ sources:
           Grain: shape × route × ingest run.
         config:
           freshness:
-            # Weekly job
+            # Weekly job.
             warn_after: {count: 8, period: day}
             error_after: {count: 15, period: day}
 
@@ -68,7 +68,7 @@ sources:
           Grain: stop × route × ingest run.
         config:
           freshness:
-            # Weekly job
+            # Weekly job.
             warn_after: {count: 8, period: day}
             error_after: {count: 15, period: day}
 
@@ -78,7 +78,7 @@ sources:
           Grain: route × ingest run.
         config:
           freshness:
-            # Yearly job
+            # Yearly job.
             error_after: {count: 400, period: day}
 
       - name: mbta_ridership
@@ -89,7 +89,7 @@ sources:
           service date × line × ingest run.
         config:
           freshness:
-            # Weekly job
+            # Weekly job.
             warn_after: {count: 8, period: day}
             error_after: {count: 15, period: day}
 
@@ -99,6 +99,6 @@ sources:
           tenths of mm, mm) with QC flags. Grain: observation date × ingest run.
         config:
           freshness:
-            # Daily job
+            # Daily job.
             warn_after: {count: 2, period: day}
             error_after: {count: 4, period: day}

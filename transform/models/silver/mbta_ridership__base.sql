@@ -12,14 +12,14 @@
 
 WITH
 
-    -- 1. Latest pull per service date × line
+    -- 1. Latest pull per service date × line.
     latest_versions AS (
         SELECT *
         FROM {{ source('bronze', 'mbta_ridership') }}
         {{ keep_latest_version(['service_date', 'route_or_line']) }}
     )
 
--- 2. Project conventions: line_name matches silver.mbta_routes__base
+-- 2. Project conventions: line_name matches silver.mbta_routes__base.
 SELECT
     service_date,
     route_or_line                                               AS line_name,

@@ -95,7 +95,7 @@ models:
       - name: station_name
         description: "{{ doc('station_name') }}"
         data_tests:
-          # NULL only for a stop the stops reference doesn't know yet
+          # NULL only for a stop the stops reference doesn't know yet.
           - not_null:
               config:
                 severity: warn

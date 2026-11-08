@@ -1,8 +1,10 @@
 version: 2
 
 # ══════════════════════════════════════════════════════════════════════════════
-# Silver — every model is <bronze table>__<step>, so each source's models
-# sort together and the name says what the model is
+# Silver — each source's cleaned copy, and the steps built on it
+#
+# Every model is <bronze table>__<step>, so each source's models sort together
+# and the name says what the model is.
 #
 #   __base           the cleaned copy (mbta_alerts__base, mbta_stops__base, …):
 #                    the latest version of each record, renamed and typed, no
@@ -11,8 +13,9 @@ version: 2
 #                    (mbta_alerts__by_route, mbta_alerts__resolved,
 #                    mbta_alerts__grouped), built from __base models or
 #                    earlier steps. Views, except mbta_alerts__by_route.
-#   The two exceptions are incremental tables: they sit on every 15-minute
-#   alert snapshot, too much to re-read each run (see their headers)
+#
+# The two exceptions are incremental tables: they sit on every 15-minute alert
+# snapshot, too much to re-read each run (see their headers).
 #
 # Tests run in `dbt build` before gold is rebuilt; an error-severity failure
 # skips everything downstream, so bad data never reaches the dashboard.
@@ -20,7 +23,7 @@ version: 2
 #   accepted_values / relationships         → keys join cleanly across sources
 #   accepted_range                          → values are physically plausible
 # The alert rules also have unit tests on made-up rows
-# (_silver__unit_tests.yml)
+# (_silver__unit_tests.yml).
 # ══════════════════════════════════════════════════════════════════════════════
 
 models:
@@ -96,7 +99,7 @@ models:
           - not_null
           - accepted_values:
               arguments:
-                # Anchor reused by mbta_ridership__base.line_name below
+                # Anchor reused by mbta_ridership__base.line_name below.
                 values: &rail_lines ['Red Line', 'Orange Line', 'Blue Line', 'Green Line']
       - name: route_description
         description: MBTA route description (e.g. "Rapid Transit").
@@ -180,7 +183,7 @@ models:
       - name: stop_latitude
         description: WGS84 latitude.
         data_tests:
-          # Greater Boston; a value outside means a bad coordinate
+          # Greater Boston; a value outside means a bad coordinate.
           - accepted_range:
               arguments:
                 min_value: 42.0
@@ -440,7 +443,7 @@ models:
           Minutes from start to end, or to now for ongoing alerts. NULL for an
           alert that hasn't started yet and has no posted end.
         data_tests:
-          # The API occasionally publishes an end before the start
+          # The API occasionally publishes an end before the start.
           - accepted_range:
               arguments:
                 min_value: 0
@@ -490,7 +493,7 @@ models:
         data_tests:
           - not_null
           # A stop the stops reference doesn't know keeps its own ID; flag it,
-          # since the next weekly stops run usually fills it in
+          # since the next weekly stops run usually fills it in.
           - relationships:
               arguments:
                 to: ref('mbta_stops__base')

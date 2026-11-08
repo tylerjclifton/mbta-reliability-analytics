@@ -41,10 +41,10 @@
     )
 }}
 
-{#- The newest load already processed (none on a first build) -#}
+{#- The newest load already processed (none on a first build). -#}
 {%- set processed_through = last_processed_snapshot('ingested_at') -%}
 
-{#- Whether bronze holds a load this table hasn't processed. Counting rows in
+{#- Whether bronze holds a load this table hasn't processed. Counting rows in.
     the partitions after it reads next to nothing. -#}
 {%- set has_new_load = true -%}
 {%- if processed_through and execute -%}
@@ -55,12 +55,12 @@
     {%- set has_new_load = new_rows.columns[0].values()[0] > 0 -%}
 {%- endif -%}
 
-{#- With no new load, read only the partitions after the last one: none -#}
+{#- With no new load, read only the partitions after the last one: none. -#}
 {%- set no_new_rows = "WHERE ingested_at > TIMESTAMP '" ~ processed_through ~ "'" if not has_new_load else '' %}
 
 WITH
 
-    -- 1. Every distinct row across loads, renamed
+    -- 1. Every distinct row across loads, renamed.
     versions AS (
         SELECT DISTINCT
             CAST(id AS STRING)                               AS alert_id,
@@ -83,7 +83,7 @@ WITH
         {{ no_new_rows }}
     ),
 
-    -- 2. The latest load (silver's incremental marker) and its job
+    -- 2. The latest load (silver's incremental marker) and its job.
     loads AS (
         SELECT
             MAX(ingested_at)        AS ingested_at,
@@ -93,7 +93,7 @@ WITH
     ),
 
     -- 3. Each alert's latest version, and whether each row names a rail route
-    --    (those in the routes table, as in silver.mbta_alerts__by_route)
+    --    (those in the routes table, as in silver.mbta_alerts__by_route).
     latest AS (
         SELECT
             v.*,
@@ -104,7 +104,7 @@ WITH
         QUALIFY v.last_modified_timestamp = MAX(v.last_modified_timestamp) OVER (PARTITION BY v.alert_id)
     ),
 
-    -- 4. Each version repeats an entity once per active period; keep one
+    -- 4. Each version repeats an entity once per active period; keep one.
     entities AS (
         SELECT
             alert_id,

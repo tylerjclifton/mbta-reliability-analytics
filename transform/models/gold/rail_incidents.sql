@@ -23,7 +23,7 @@
 
 WITH
 
-    -- 1. Alerts with route metadata
+    -- 1. Alerts with route metadata.
     incident_alerts AS (
         SELECT
             a.*,
@@ -36,7 +36,7 @@ WITH
     ),
 
     -- 2. Stations named across each incident's alerts, and whether any of
-    --    their stop lists is known (in the JSON or in LAMP)
+    --    their stop lists is known (in the JSON or in LAMP).
     captured_alerts AS (
         SELECT alert_id FROM {{ ref('mbta_alerts__base') }}
         UNION DISTINCT
@@ -72,7 +72,7 @@ WITH
             ANY_VALUE(route_name)                                       AS route_name,
             ANY_VALUE(line_name)                                        AS line_name,
             ANY_VALUE(route_type)                                       AS route_type,
-            -- Identical across the incident's alerts by construction
+            -- Identical across the incident's alerts by construction.
             ANY_VALUE(alert_cause)                                      AS incident_cause,
             ANY_VALUE(alert_effect)                                     AS incident_effect,
             ARRAY_AGG(
@@ -109,7 +109,7 @@ WITH
             route_id
     )
 
--- 4. Station count: NULL when no alert's stop list is known, else the count
+-- 4. Station count: NULL when no alert's stop list is known, else the count.
 SELECT
     i.* EXCEPT (ingested_at),
     IF(st.has_stop_data, st.station_count, NULL) AS stations_affected,

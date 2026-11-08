@@ -11,7 +11,7 @@
     1. final select — canonical shapes with their route's line
 #}
 
--- 1. Canonical shapes only: one official path per pattern and direction
+-- 1. Canonical shapes only: one official path per pattern and direction.
 SELECT
     s.shape_id,
     s.route_id,

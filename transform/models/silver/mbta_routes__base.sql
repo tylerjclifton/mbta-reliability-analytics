@@ -13,22 +13,22 @@
 
 WITH
 
-    -- 1. Latest snapshot per route
+    -- 1. Latest snapshot per route.
     latest_versions AS (
         SELECT *
         FROM {{ source('bronze', 'mbta_routes') }}
         {{ keep_latest_version(['route_id']) }}
     )
 
--- 2. Project conventions: route_* attributes
+-- 2. Project conventions: route_* attributes.
 SELECT
     route_id,
     long_name                                                   AS route_name,
     -- "Green Line B" → "Green Line"; falls back to the full name if the
-    -- pattern ever stops matching (the accepted_values test will flag it)
+    -- pattern ever stops matching (the accepted_values test will flag it).
     COALESCE(REGEXP_EXTRACT(long_name, r'^\w+ Line'), long_name) AS line_name,
     description                                                 AS route_description,
-    -- GTFS route types used by MBTA rail
+    -- GTFS route types used by MBTA rail.
     CASE route_type
         WHEN 0 THEN 'Light Rail'
         WHEN 1 THEN 'Heavy Rail'

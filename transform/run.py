@@ -32,7 +32,7 @@ TARGET = os.getenv('DBT_TARGET', 'gcp')
 EXCLUDE = ['--exclude', os.environ['DBT_EXCLUDE']] if os.getenv('DBT_EXCLUDE') else []
 
 # Step name → its command, and the results file it writes (a dbt artifact),
-# read for the checks that warned
+# read for the checks that warned.
 STEPS = {
     'dbt build': (
         ['dbt', 'build', '--profiles-dir', '.', '--target', TARGET, *EXCLUDE],
@@ -44,11 +44,11 @@ STEPS = {
     ),
 }
 
-# Lines of dbt output kept in a failure report (the email shows them verbatim)
+# Lines of dbt output kept in a failure report (the email shows them verbatim).
 MAX_DETAIL_LINES = 40
 
 # dbt prefixes most lines with a timestamp, e.g. "01:36:39  " (some lines are
-# only a timestamp)
+# only a timestamp).
 TIMESTAMP = re.compile(r'^\d{2}:\d{2}:\d{2}\s*')
 
 
@@ -102,7 +102,7 @@ def warnings_in(results_file):
         if result['status'] != 'warn':
             continue
         # unique_id is "<type>.<project>.<name>[.<hash>]", with
-        # "<source>.<table>" for a source
+        # "<source>.<table>" for a source.
         kind, _, *name = result['unique_id'].split('.')
         if kind == 'source':
             count, period = result['criteria']['warn_after']['count'], result['criteria']['warn_after']['period']
@@ -146,11 +146,11 @@ def report_failure(summary, details):
 if __name__ == '__main__':
     warnings = []
     for step, (command, results_file) in STEPS.items():
-        # A crashed step writes no results, so clear any left by an earlier run
+        # A crashed step writes no results, so clear any left by an earlier run.
         results_file.unlink(missing_ok=True)
         exit_code, output = run(command)
         if exit_code != 0:
-            # A failed step's own warnings are in its failure summary
+            # A failed step's own warnings are in its failure summary.
             report_warnings(warnings)
             report_failure(f'`{step}` failed (exit code {exit_code})', failure_details(output))
             sys.exit(exit_code)

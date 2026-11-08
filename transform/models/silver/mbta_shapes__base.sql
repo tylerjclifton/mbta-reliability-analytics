@@ -15,7 +15,7 @@
                       canonical shapes flagged
 #}
 
--- 1. The latest run's rows
+-- 1. The latest run's rows.
 SELECT
     shape_id,
     route_id,

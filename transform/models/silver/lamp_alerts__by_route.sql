@@ -11,7 +11,7 @@
 #}
 
 -- 1. One row per distinct route among the alert's entities, kept only for
---    rail routes (those in the routes table)
+--    rail routes (those in the routes table).
 SELECT
     a.alert_id,
     rail.route_id,

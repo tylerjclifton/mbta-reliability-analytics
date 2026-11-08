@@ -45,14 +45,14 @@
     )
 }}
 
-{#- Alert fields carried through (everything except the seen span) -#}
+{#- Alert fields carried through (everything except the seen span). -#}
 {%- set alert_columns = [
     'alert_id', 'route_id', 'posted_start_at', 'posted_end_at', 'alert_duration_certainty',
     'alert_header', 'alert_description', 'alert_cause', 'alert_effect', 'alert_severity',
     'alert_created_at', 'alert_updated_at', 'alert_closed_at',
 ] -%}
 
-{#- The newest snapshot already processed (none on a first build), compiled
+{#- The newest snapshot already processed (none on a first build), compiled.
     in as a literal so bronze's partitions are pruned -#}
 {%- set processed_through = last_processed_snapshot() %}
 
@@ -61,7 +61,7 @@ WITH
     -- 1. Snapshots not yet processed, renamed. The API uses the epoch
     --    (1970-01-01) for "not set"; treat it as NULL.
     new_snapshots AS (
-        -- Full JSON, one row per rail route it names
+        -- Full JSON, one row per rail route it names.
         SELECT
             alert_id,
             route_id,
@@ -81,7 +81,7 @@ WITH
             SELECT
                 r.alert_id,
                 rail.route_id,
-                -- Only the first active period, as the shaped table kept
+                -- Only the first active period, as the shaped table kept.
                 TIMESTAMP(JSON_VALUE(r.alert_json, '$.attributes.active_period[0].start')) AS posted_start_at,
                 TIMESTAMP(JSON_VALUE(r.alert_json, '$.attributes.active_period[0].end'))   AS posted_end_at,
                 JSON_VALUE(r.alert_json, '$.attributes.duration_certainty')                AS alert_duration_certainty,
@@ -93,7 +93,7 @@ WITH
                 TIMESTAMP(JSON_VALUE(r.alert_json, '$.attributes.created_at'))             AS alert_created_at,
                 TIMESTAMP(JSON_VALUE(r.alert_json, '$.attributes.updated_at'))             AS alert_updated_at,
                 -- Set once the MBTA closes the alert; it stays in
-                -- the feed a few minutes after
+                -- the feed a few minutes after.
                 TIMESTAMP(JSON_VALUE(r.alert_json, '$.attributes.closed_timestamp'))       AS alert_closed_at,
                 r.ingested_at
             FROM {{ source('bronze', 'mbta_alerts') }} AS r
@@ -104,7 +104,7 @@ WITH
             )) AS entity_route_id
             -- …kept only for rail routes: those in the routes table (the
             -- project's rail routes, ingest/common/mbta_api.py), as in
-            -- mbta_alerts__by_station
+            -- mbta_alerts__by_station.
             INNER JOIN {{ ref('mbta_routes__base') }} AS rail
                 ON entity_route_id = rail.route_id
             {%- if processed_through %}
@@ -114,7 +114,7 @@ WITH
     ),
 
     -- 2. New snapshots, plus each touched alert's existing row (so first-seen
-    --    survives the merge, which replaces the whole row)
+    --    survives the merge, which replaces the whole row).
     candidates AS (
         SELECT
             {{ alert_columns | join(',\n            ') }},
@@ -139,7 +139,7 @@ WITH
         {%- endif %}
     )
 
--- 3. Latest version per alert × route, with the full seen span
+-- 3. Latest version per alert × route, with the full seen span.
 SELECT
     {{ alert_columns | join(',\n    ') }},
     MIN(first_seen_at) OVER alert AS first_seen_at,

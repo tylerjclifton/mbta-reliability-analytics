@@ -44,7 +44,7 @@ WITH
 
         UNION ALL
 
-        -- LAMP alerts the JSON doesn't have
+        -- LAMP alerts the JSON doesn't have.
         SELECT
             a.alert_id,
             entity.route_id,
@@ -58,7 +58,7 @@ WITH
             AND a.alert_id NOT IN (SELECT captured.alert_id FROM {{ ref('mbta_alerts__base') }} AS captured)
     ),
 
-    -- 2. Station per stop ID, whichever route it was listed under
+    -- 2. Station per stop ID, whichever route it was listed under.
     stop_station AS (
         SELECT DISTINCT
             stop_id,
@@ -75,7 +75,7 @@ SELECT
     e.route_id,
     COALESCE(s.station_id, e.stop_id)                                AS station_id,
     LOGICAL_OR(e.direction_id IS NULL) OR COUNT(DISTINCT e.direction_id) > 1 AS affects_both_directions,
-    -- The one direction affected; NULL when both are
+    -- The one direction affected; NULL when both are.
     IF(
         LOGICAL_OR(e.direction_id IS NULL) OR COUNT(DISTINCT e.direction_id) > 1,
         NULL,
@@ -86,7 +86,7 @@ INNER JOIN {{ ref('mbta_routes__base') }} AS r
     ON e.route_id = r.route_id
 LEFT JOIN stop_station AS s
     ON e.stop_id = s.stop_id
--- LAMP stops that no longer exist (see header)
+-- LAMP stops that no longer exist (see header).
 WHERE NOT (e.is_from_lamp AND s.station_id IS NULL)
 GROUP BY
     e.alert_id,

@@ -65,7 +65,7 @@ WITH
             r.run_at = r.latest_run_at AS is_in_feed,
             -- It left the feed between its last run and the next; take the
             -- midpoint, capped at 30 minutes so a gap in the runs (a pipeline
-            -- outage) can't push it hours too late
+            -- outage) can't push it hours too late.
             TIMESTAMP_ADD(
                 a.last_seen_at,
                 INTERVAL LEAST(DIV(TIMESTAMP_DIFF(r.next_run_at, r.run_at, SECOND), 2), 30 * 60) SECOND
@@ -75,10 +75,10 @@ WITH
             ON TIMESTAMP_TRUNC(a.last_seen_at, MINUTE) = r.run_at
         WHERE
             -- Exempt from the length rule: the line is only long once
-            -- the effect list is rendered
+            -- the effect list is rendered.
             a.alert_effect NOT IN {{ non_service_effects }}  -- noqa: LT05
             -- Rows last seen before full-JSON capture are history from the
-            -- frozen table, which LAMP replaces
+            -- frozen table, which LAMP replaces.
             AND a.last_seen_at >= {{ capture_start }}
     ),
 
@@ -103,7 +103,7 @@ WITH
             )
     )
 
--- 4. Resolve start and end
+-- 4. Resolve start and end.
 SELECT
     alert_id,
     route_id,
@@ -122,23 +122,23 @@ SELECT
     is_in_feed,
     left_feed_at,
     alert_closed_at,
-    -- No posted start → fall back to when the alert was created
+    -- No posted start → fall back to when the alert was created.
     COALESCE(posted_start_at, alert_created_at) AS alert_start_at,
     CASE
-        -- Caught closed → whichever came first: the posted end or the close
+        -- Caught closed → whichever came first: the posted end or the close.
         WHEN posted_end_at < alert_closed_at THEN posted_end_at
         WHEN alert_closed_at IS NOT NULL THEN alert_closed_at
-        -- Still in the feed → ends at its posted end (NULL = ongoing)
+        -- Still in the feed → ends at its posted end (NULL = ongoing).
         WHEN is_in_feed THEN posted_end_at
-        -- Left the feed → whichever came first: the posted end or leaving
+        -- Left the feed → whichever came first: the posted end or leaving.
         WHEN posted_end_at < left_feed_at THEN posted_end_at
         ELSE left_feed_at
     END                                         AS alert_end_at,
-    -- The latest version is the one from the alert's last-seen run
+    -- The latest version is the one from the alert's last-seen run.
     last_seen_at                                AS ingested_at,
     'ingest-mbta-alerts'                        AS ingested_by
 FROM cleaned
--- Left the feed or closed before starting → never took effect
+-- Left the feed or closed before starting → never took effect.
 WHERE
     (is_in_feed OR left_feed_at > COALESCE(posted_start_at, alert_created_at))
     AND (alert_closed_at IS NULL OR alert_closed_at > COALESCE(posted_start_at, alert_created_at))
@@ -170,5 +170,5 @@ SELECT
 FROM lamp
 WHERE
     lamp_end_at < {{ capture_start }}
-    -- Ended before starting → never took effect
+    -- Ended before starting → never took effect.
     AND lamp_end_at > COALESCE(posted_start_at, alert_created_at)

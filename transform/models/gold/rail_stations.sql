@@ -12,7 +12,7 @@
 
 WITH
 
-    -- 1. Stations (not their platforms) with each route's line
+    -- 1. Stations (not their platforms) with each route's line.
     station_routes AS (
         SELECT
             s.station_id,
@@ -29,7 +29,7 @@ WITH
     )
 
 -- 2. One row per station × line (Green Line branches
---    share their trunk stations)
+--    share their trunk stations).
 SELECT
     station_id,
     line_name,

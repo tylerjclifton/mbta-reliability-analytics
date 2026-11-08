@@ -32,7 +32,7 @@ WITH
             *,
             REGEXP_REPLACE(
                 -- A regex can't be wrapped, so this line is
-                -- exempt from the length rule
+                -- exempt from the length rule.
                 LOWER(REGEXP_EXTRACT(alert_header, r"(?:\bat|\bnear|\bbetween|\bfrom) ((?:[A-Z][\w/'-]*)(?: (?:[A-Z][\w/'-]*|and))*)")),  -- noqa: LT05
                 r'[^a-z]', ''
             ) AS location_key,
@@ -42,7 +42,7 @@ WITH
 
     -- 2. Within each route × cause × effect × location group (alerts with no
     --    location never group), an alert starts a new incident unless it
-    --    begins within the follow-up window of the latest end seen so far
+    --    begins within the follow-up window of the latest end seen so far.
     incident_breaks AS (
         SELECT
             *,
@@ -54,7 +54,7 @@ WITH
         FROM (
             SELECT
                 *,
-                -- Latest end among the group's earlier alerts (ongoing = now)
+                -- Latest end among the group's earlier alerts (ongoing = now).
                 MAX(COALESCE(alert_end_at, CURRENT_TIMESTAMP())) OVER (
                     PARTITION BY route_id, alert_cause, alert_effect, COALESCE(location_key, alert_id)
                     ORDER BY alert_start_at, alert_id
@@ -65,7 +65,7 @@ WITH
     ),
 
     -- 3. A running count of new-incident flags numbers the incidents in each
-    --    group; the incident's first alert ID becomes its incident_id
+    --    group; the incident's first alert ID becomes its incident_id.
     incidents AS (
         SELECT
             *,
@@ -85,7 +85,7 @@ WITH
     )
 
 -- 4. Project conventions: `_at` timestamps (UTC), `_date` dates (Eastern),
---    human-readable enums
+--    human-readable enums.
 SELECT
     alert_id,
     route_id,

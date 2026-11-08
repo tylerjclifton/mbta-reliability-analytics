@@ -22,7 +22,7 @@
 WITH
 
     -- 1. Stations per service-affecting alert
-    --    (silver.mbta_alerts__grouped drops the rest)
+    --    (silver.mbta_alerts__grouped drops the rest).
     alert_stations AS (
         SELECT
             a.incident_id,
@@ -37,7 +37,7 @@ WITH
                 AND a.route_id = s.route_id
     ),
 
-    -- 2. One row per incident × route × station
+    -- 2. One row per incident × route × station.
     incident_stations AS (
         SELECT
             incident_id,
@@ -56,7 +56,7 @@ WITH
             station_id
     ),
 
-    -- 3. Station name and coordinates (the station's own row, any route)
+    -- 3. Station name and coordinates (the station's own row, any route).
     stations AS (
         SELECT
             station_id,
@@ -70,7 +70,7 @@ WITH
 
 -- 4. Incident details, station location, and the affected direction's terminal
 --    (route_destinations is "['Ashmont/Braintree', 'Alewife']", indexed by
---    direction_id)
+--    direction_id).
 SELECT
     st.incident_id,
     st.route_id,

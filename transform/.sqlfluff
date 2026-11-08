@@ -1,6 +1,8 @@
-# SQL lint for the dbt models. Uses the jinja templater with dbt builtins (ref,
-# source, var, config, is_incremental) so it runs without a warehouse
-# connection — in CI and locally alike:
+# sqlfluff config — SQL lint for the dbt models
+#
+# Uses the jinja templater with dbt builtins (ref, source, var, config,
+# is_incremental), so it runs without a warehouse connection, in CI and
+# locally alike:
 #   cd transform && sqlfluff lint models
 
 [sqlfluff]
@@ -22,17 +24,17 @@ apply_dbt_builtins = True
 load_macros_from_path = macros
 
 [sqlfluff:templater:jinja:context]
-# dbt's var() needs no values here: the dbt builtins stub it to render 'item'
+# dbt's var() needs no values here: the dbt builtins stub it to render 'item'.
 
 # Empty (falsy), like dbt's parse phase: skips run_query() blocks that need a
 # live warehouse (the incremental silver/mbta_alerts__by_route.sql and
-# silver/mbta_alerts__base.sql)
+# silver/mbta_alerts__base.sql).
 execute =
 
 [sqlfluff:rules:convention.quoted_literals]
 # Single quotes for string literals; double quotes only where the string itself
 # contains a single quote (e.g. the location regex in
-# silver/mbta_alerts__grouped.sql)
+# silver/mbta_alerts__grouped.sql).
 preferred_quoted_literal_style = single_quotes
 
 [sqlfluff:rules:capitalisation.keywords]

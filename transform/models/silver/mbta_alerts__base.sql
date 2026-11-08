@@ -33,13 +33,13 @@
     )
 }}
 
-{#- The newest snapshot already processed (none on a first build), compiled
+{#- The newest snapshot already processed (none on a first build), compiled.
     in as a literal so bronze's partitions are pruned -#}
 {%- set processed_through = last_processed_snapshot() %}
 
 WITH
 
-    -- 1. Snapshots not yet processed (all of bronze on the first run)
+    -- 1. Snapshots not yet processed (all of bronze on the first run).
     new_snapshots AS (
         SELECT *
         FROM {{ source('bronze', 'mbta_alerts') }}
@@ -49,7 +49,7 @@ WITH
     ),
 
     -- 2. New snapshots, plus each touched alert's existing row (so first-seen
-    --    survives the merge, which replaces the whole row)
+    --    survives the merge, which replaces the whole row).
     candidates AS (
         SELECT
             alert_id,
@@ -71,7 +71,7 @@ WITH
         {%- endif %}
     )
 
--- 3. Latest version per alert, with the full seen span
+-- 3. Latest version per alert, with the full seen span.
 SELECT
     alert_id,
     alert_json,

@@ -54,31 +54,32 @@ unit_tests:
         rows: &no_lamp []
       - input: ref('mbta_alerts__by_route')
         rows:
-          # In the latest run, no posted end → ongoing
+          # In the latest run, no posted end → ongoing.
           - {alert_id: in_feed_ongoing, route_id: Red, alert_effect: DELAY,
              posted_start_at: '2026-01-05 09:00:00', posted_end_at: null, last_seen_at: '2026-01-05 10:30:05'}
-          # In the latest run → its posted end, even though that's still ahead
+          # In the latest run → its posted end, even though that's still ahead.
           - {alert_id: in_feed_posted_end, route_id: Red, alert_effect: DELAY,
              posted_start_at: '2026-01-05 09:00:00', posted_end_at: '2026-01-05 12:00:00', last_seen_at: '2026-01-05 10:30:05'}
           # Last seen 10:00:05, next run 15 minutes
-          # later → left 7.5 minutes after
+          # later → left 7.5 minutes after.
           - {alert_id: left_feed, route_id: Red, alert_effect: DELAY,
              posted_start_at: '2026-01-05 09:00:00', posted_end_at: null, last_seen_at: '2026-01-05 10:00:05'}
-          # Posted end (10:05) came before leaving (10:07:35) → the posted end
+          # Posted end (10:05) came before leaving (10:07:35) → the posted end.
           - {alert_id: posted_end_first, route_id: Red, alert_effect: DELAY,
              posted_start_at: '2026-01-05 09:00:00', posted_end_at: '2026-01-05 10:05:00', last_seen_at: '2026-01-05 10:00:05'}
-          # Left (10:22:35) well before its posted end (18:00) → leaving
+          # Left (10:22:35) well before its posted end (18:00) → leaving.
           - {alert_id: left_before_posted_end, route_id: Red, alert_effect: DELAY,
              posted_start_at: '2026-01-05 09:00:00', posted_end_at: '2026-01-05 18:00:00', last_seen_at: '2026-01-05 10:15:05'}
           # Next run 4 hours later → the midpoint would
-          # be 08:00; capped at 06:30
+          # be 08:00; capped at 06:30.
           - {alert_id: midpoint_capped, route_id: Red, alert_effect: DELAY,
              posted_start_at: '2026-01-05 05:00:00', posted_end_at: null, last_seen_at: '2026-01-05 06:00:05'}
           # Caught closed in the latest run, still
-          # lingering in the feed → the close
+          # lingering in the feed → the close.
           - {alert_id: closed_in_feed, route_id: Red, alert_effect: DELAY, posted_start_at: '2026-01-05 09:00:00',
              posted_end_at: null, alert_closed_at: '2026-01-05 10:25:00', last_seen_at: '2026-01-05 10:30:05'}
-          # Caught closed (10:03) before leaving the feed (10:07:35) → the close
+          # Caught closed (10:03) before leaving the feed (10:07:35) →
+          # the close.
           - {alert_id: closed_then_left, route_id: Red, alert_effect: DELAY, posted_start_at: '2026-01-05 09:00:00',
              posted_end_at: '2026-01-05 12:00:00', alert_closed_at: '2026-01-05 10:03:00',
              last_seen_at: '2026-01-05 10:00:05'}
@@ -132,10 +133,10 @@ unit_tests:
           - {alert_id: escalator_closure, route_id: Red, alert_effect: ESCALATOR_CLOSURE,
              posted_start_at: '2026-01-05 09:00:00', last_seen_at: '2026-01-05 10:30:05'}
           # Announced for tomorrow, gone from the feed
-          # today → canceled or re-posted
+          # today → canceled or re-posted.
           - {alert_id: announced_then_gone, route_id: Red, alert_effect: SHUTTLE,
              posted_start_at: '2026-01-06 09:00:00', last_seen_at: '2026-01-05 10:00:05'}
-          # Announced for tomorrow and still in the feed → kept
+          # Announced for tomorrow and still in the feed → kept.
           - {alert_id: announced_in_feed, route_id: Red, alert_effect: SHUTTLE,
              posted_start_at: '2026-01-06 09:00:00', last_seen_at: '2026-01-05 10:30:05'}
     expect:
@@ -157,27 +158,27 @@ unit_tests:
         rows: *runs
       - input: ref('mbta_alerts__by_route')
         rows:
-          # Also in LAMP: the snapshots' copy wins
+          # Also in LAMP: the snapshots' copy wins.
           - {alert_id: seen_by_snapshots, route_id: Red, alert_effect: DELAY,
              posted_start_at: '2026-01-05 09:00:00', last_seen_at: '2026-01-05 10:30:05'}
       - input: ref('lamp_alerts__by_route')
         rows:
           - {alert_id: closed, route_id: Red, alert_effect: DELAY, alert_created_at: '2025-06-01 08:00:00',
              posted_start_at: '2025-06-01 08:00:00', posted_end_at: '2025-06-01 10:00:00', alert_closed_at: '2025-06-01 08:40:00'}
-          # Posted end (09:00) before the close (09:30) → the posted end
+          # Posted end (09:00) before the close (09:30) → the posted end.
           - {alert_id: posted_end_first, route_id: Red, alert_effect: DELAY, alert_created_at: '2025-06-01 08:00:00',
              posted_start_at: '2025-06-01 08:00:00', posted_end_at: '2025-06-01 09:00:00', alert_closed_at: '2025-06-01 09:30:00'}
-          # Never closed → the posted end
+          # Never closed → the posted end.
           - {alert_id: never_closed, route_id: Red, alert_effect: SHUTTLE, alert_created_at: '2025-06-01 08:00:00',
              posted_start_at: '2025-06-02 05:00:00', posted_end_at: '2025-06-02 23:00:00'}
           - {alert_id: seen_by_snapshots, route_id: Red, alert_effect: DELAY, alert_created_at: '2026-01-05 09:00:00',
              posted_start_at: '2026-01-05 09:00:00', alert_closed_at: '2026-01-05 10:40:00'}
-          # Closed after the capture start, though the snapshots missed it
+          # Closed after the capture start, though the snapshots missed it.
           - {alert_id: ended_after_capture, route_id: Red, alert_effect: DELAY, alert_created_at: '2026-01-04 23:50:00',
              posted_start_at: '2026-01-04 23:50:00', alert_closed_at: '2026-01-05 00:10:00'}
           - {alert_id: before_lamp_start, route_id: Red, alert_effect: DELAY, alert_created_at: '2024-12-31 08:00:00',
              posted_start_at: '2024-12-31 08:00:00', alert_closed_at: '2024-12-31 09:00:00'}
-          # Closed before its announced start → never took effect
+          # Closed before its announced start → never took effect.
           - {alert_id: closed_before_start, route_id: Red, alert_effect: SHUTTLE, alert_created_at: '2025-06-01 08:00:00',
              posted_start_at: '2025-06-03 05:00:00', alert_closed_at: '2025-06-02 12:00:00'}
           - {alert_id: no_end_known, route_id: Red, alert_effect: DELAY, alert_created_at: '2025-06-01 08:00:00',
@@ -207,19 +208,19 @@ unit_tests:
           - {alert_id: first, route_id: Red, alert_cause: DISABLED_TRAIN, alert_effect: DELAY,
              alert_header: 'Red Line delays at Harvard due to a disabled train',
              alert_start_at: '2026-01-05 10:00:00', alert_end_at: '2026-01-05 11:00:00'}
-          # Starts exactly 2 hours after 11:00 → same incident
+          # Starts exactly 2 hours after 11:00 → same incident.
           - {alert_id: at_two_hours, route_id: Red, alert_cause: DISABLED_TRAIN, alert_effect: DELAY,
              alert_header: 'Red Line delays at Harvard due to a disabled train',
              alert_start_at: '2026-01-05 13:00:00', alert_end_at: '2026-01-05 13:30:00'}
-          # Starts 2 hours 1 minute after 13:30 → new incident
+          # Starts 2 hours 1 minute after 13:30 → new incident.
           - {alert_id: past_two_hours, route_id: Red, alert_cause: DISABLED_TRAIN, alert_effect: DELAY,
              alert_header: 'Red Line delays at Harvard due to a disabled train',
              alert_start_at: '2026-01-05 15:31:00', alert_end_at: '2026-01-05 16:00:00'}
-          # "Residual", 5 hours after 16:00 → within 6 hours, same incident
+          # "Residual", 5 hours after 16:00 → within 6 hours, same incident.
           - {alert_id: residual_follow_up, route_id: Red, alert_cause: DISABLED_TRAIN, alert_effect: DELAY,
              alert_header: 'Residual delays at Harvard from an earlier disabled train',
              alert_start_at: '2026-01-05 21:00:00', alert_end_at: '2026-01-05 21:30:00'}
-          # Same 5-hour gap without the wording → new incident
+          # Same 5-hour gap without the wording → new incident.
           - {alert_id: plain_after_five_hours, route_id: Red, alert_cause: DISABLED_TRAIN, alert_effect: DELAY,
              alert_header: 'Red Line delays at Harvard due to a disabled train',
              alert_start_at: '2026-01-06 02:30:00', alert_end_at: '2026-01-06 03:00:00'}
@@ -242,16 +243,16 @@ unit_tests:
           - {alert_id: long_alert, route_id: Red, alert_cause: DISABLED_TRAIN, alert_effect: DELAY,
              alert_header: 'Red Line delays at Harvard due to a disabled train',
              alert_start_at: '2026-01-05 10:00:00', alert_end_at: '2026-01-05 14:00:00'}
-          # Ends at 11:00, inside long_alert
+          # Ends at 11:00, inside long_alert.
           - {alert_id: short_update, route_id: Red, alert_cause: DISABLED_TRAIN, alert_effect: DELAY,
              alert_header: 'Red Line delays at Harvard due to a disabled train',
              alert_start_at: '2026-01-05 10:30:00', alert_end_at: '2026-01-05 11:00:00'}
           # 4.5 hours after short_update's end, but 1.5 after long_alert's →
-          # same incident
+          # same incident.
           - {alert_id: after_latest_end, route_id: Red, alert_cause: DISABLED_TRAIN, alert_effect: DELAY,
              alert_header: 'Red Line delays at Harvard due to a disabled train',
              alert_start_at: '2026-01-05 15:30:00', alert_end_at: '2026-01-05 16:00:00'}
-          # Ongoing (no end) → any later alert at the same place joins it
+          # Ongoing (no end) → any later alert at the same place joins it.
           - {alert_id: ongoing, route_id: Red, alert_cause: DISABLED_TRAIN, alert_effect: DELAY,
              alert_header: 'Red Line delays at Kendall/MIT due to a disabled train',
              alert_start_at: '2026-01-05 10:00:00', alert_end_at: null}
@@ -279,11 +280,11 @@ unit_tests:
           - {alert_id: harvard, route_id: Red, alert_cause: DISABLED_TRAIN, alert_effect: DELAY,
              alert_header: 'Red Line delays at Harvard due to a disabled train',
              alert_start_at: '2026-01-05 10:00:00', alert_end_at: '2026-01-05 11:00:00'}
-          # Different wording, same place → same incident
+          # Different wording, same place → same incident.
           - {alert_id: near_harvard, route_id: Red, alert_cause: DISABLED_TRAIN, alert_effect: DELAY,
              alert_header: 'Red Line delays near Harvard.',
              alert_start_at: '2026-01-05 10:30:00', alert_end_at: '2026-01-05 11:00:00'}
-          # Each of these differs in one way → its own incident
+          # Each of these differs in one way → its own incident.
           - {alert_id: other_station, route_id: Red, alert_cause: DISABLED_TRAIN, alert_effect: DELAY,
              alert_header: 'Red Line delays at Kendall/MIT due to a disabled train',
              alert_start_at: '2026-01-05 10:30:00', alert_end_at: '2026-01-05 11:00:00'}
@@ -296,7 +297,7 @@ unit_tests:
           - {alert_id: other_route, route_id: Orange, alert_cause: DISABLED_TRAIN, alert_effect: DELAY,
              alert_header: 'Orange Line delays at Harvard due to a disabled train',
              alert_start_at: '2026-01-05 10:30:00', alert_end_at: '2026-01-05 11:00:00'}
-          # No location named → never grouped, even with each other
+          # No location named → never grouped, even with each other.
           - {alert_id: no_location, route_id: Red, alert_cause: DISABLED_TRAIN, alert_effect: DELAY,
              alert_header: 'Red Line delays due to a disabled train',
              alert_start_at: '2026-01-05 10:00:00', alert_end_at: '2026-01-05 11:00:00'}
@@ -325,11 +326,11 @@ unit_tests:
           - {alert_id: ended, route_id: Red, alert_cause: DISABLED_TRAIN, alert_effect: DELAY,
              alert_header: 'Red Line delays at Harvard due to a disabled train',
              alert_start_at: '2026-01-05 10:00:00', alert_end_at: '2026-01-05 11:30:00'}
-          # Starts in the future with no posted end → no duration yet
+          # Starts in the future with no posted end → no duration yet.
           - {alert_id: upcoming_open_ended, route_id: Red, alert_cause: CONSTRUCTION, alert_effect: STATION_CLOSURE,
              alert_header: 'Davis will be closed until further notice',
              alert_start_at: '2099-01-05 10:00:00', alert_end_at: null}
-          # Starts in the future with a posted end → its planned length
+          # Starts in the future with a posted end → its planned length.
           - {alert_id: upcoming_planned, route_id: Red, alert_cause: MAINTENANCE, alert_effect: SHUTTLE,
              alert_header: 'Shuttle buses replace Red Line trains between Alewife and Harvard',
              alert_start_at: '2099-01-05 10:00:00', alert_end_at: '2099-01-07 10:00:00'}

@@ -5,7 +5,7 @@
 #   local  development — your gcloud application-default credentials; writes
 #          to dev_silver / dev_gold (macros/generate_schema_name.sql)
 #
-# Both authenticate with method: oauth (no keyfile) and read the real bronze
+# Both authenticate with method: oauth (no keyfile) and read the real bronze.
 #
 # maximum_bytes_billed (50 GiB, ~$0.30) fails any single query that would bill
 # more: the transform's cost guardrail, in place of a project-wide daily cap
@@ -25,7 +25,7 @@ mbta_reliability_analytics:
       # Every model sets its own dataset, so this is only a fallback, and it's
       # a dev one: if a model ever loses its +schema (a stale partial-parse
       # cache in target/ did, 2026-11-03), a local build lands in dev_silver,
-      # never in production
+      # never in production.
       dataset: dev_silver
       location: us-east1
       threads: 4

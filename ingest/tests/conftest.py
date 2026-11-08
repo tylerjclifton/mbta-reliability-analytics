@@ -42,11 +42,13 @@ class FakeResponse:
 @pytest.fixture
 def run_job(monkeypatch):
     """
-    run_job(job, responses) → first DataFrame passed to append_to_bronze (or None).
+    run_job(job, responses) → first DataFrame passed to
+    append_to_bronze (or None).
 
     `responses` is a list of bodies returned by successive HTTP GETs. Each GET's
-    URL, params, and headers are recorded in run_job.requests, and every DataFrame
-    passed to append_to_bronze in run_job.loads (a job can load in batches).
+    URL, params, and headers are recorded in run_job.requests,
+    and every DataFrame passed to append_to_bronze in
+    run_job.loads (a job can load in batches).
     """
 
     def _run(job, responses):

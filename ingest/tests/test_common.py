@@ -110,7 +110,10 @@ class FakeClient:
 
 @pytest.fixture
 def fake_bigquery(monkeypatch):
-    """Swap BigQuery for FakeClient with a fixed target table; returns the recorded loads."""
+    """
+    Swap BigQuery for FakeClient with a fixed target
+    table; returns the recorded loads.
+    """
     FakeClient.loads = []
     monkeypatch.setattr(load.bigquery, 'Client', FakeClient)
     monkeypatch.setenv('GCP_PROJECT_ID', 'proj')
@@ -138,7 +141,10 @@ def test_append_loads_against_the_live_table_schema(fake_bigquery):
 
 
 def test_append_defaults_to_dev_bronze(fake_bigquery, monkeypatch):
-    """Without BQ_DATASET_ID (a local run), rows go to dev_bronze, never production (decision 0012)."""
+    """
+    Without BQ_DATASET_ID (a local run), rows go to dev_bronze,
+    never production (decision 0012).
+    """
     monkeypatch.delenv('BQ_DATASET_ID')
 
     load.append_to_bronze(pd.DataFrame({'alert_id': ['1']}))
@@ -181,7 +187,10 @@ def test_api_headers_without_a_key_are_empty(monkeypatch):
 
 
 def test_api_key_stays_out_of_failure_reports(monkeypatch, capsys):
-    """A real connection error (nothing listens on this port) quotes the URL; the report is emailed."""
+    """
+    A real connection error (nothing listens on this port) quotes
+    the URL; the report is emailed.
+    """
     monkeypatch.setenv('MBTA_API_KEY', 'test-key')
 
     with pytest.raises(SystemExit):
@@ -189,5 +198,5 @@ def test_api_key_stays_out_of_failure_reports(monkeypatch, capsys):
                     headers=mbta_api.api_headers(), timeout=1)
 
     report = last_report(capsys)
-    assert 'filter%5Bactivity%5D=ALL' in report['message']  # the query string is quoted...
-    assert 'test-key' not in report['message']              # ...and the key isn't in it
+    assert 'filter%5Bactivity%5D=ALL' in report['message']  # the query string is quoted…
+    assert 'test-key' not in report['message']              # …and the key isn't in it

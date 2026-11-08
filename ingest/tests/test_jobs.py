@@ -77,7 +77,10 @@ def alert(alert_id, routes, effect='DELAY', start='2026-10-21T08:00:00-04:00', e
 
 
 def test_alerts_one_row_per_alert_kept_whole(run_job):
-    """One row per alert — not per route — with nothing dropped (silver splits routes)."""
+    """
+    One row per alert — not per route — with nothing
+    dropped (silver splits routes).
+    """
     green = alert('1', ['Green-B', 'Green-C'])
     green['attributes']['informed_entity'][0]['stop'] = '70145'
     green['attributes']['active_period'].append({'start': '2026-10-28T08:00:00-04:00', 'end': None})
@@ -89,14 +92,19 @@ def test_alerts_one_row_per_alert_kept_whole(run_job):
 
 
 def test_alerts_keep_every_effect_for_bronze(run_job):
-    """Non-service effects (notices, elevators) are filtered in silver, not here."""
+    """
+    Non-service effects (notices, elevators) are filtered in silver, not here.
+    """
     raw = run_job('mbta-alerts', [{'data': [alert('1', ['Red'], effect='ELEVATOR_CLOSURE')]}])
 
     assert json.loads(raw['alert_json'].iloc[0])['attributes']['effect'] == 'ELEVATOR_CLOSURE'
 
 
 def test_alerts_request_the_whole_feed(run_job, monkeypatch):
-    """No route filter and every activity: every mode and effect reaches bronze (decision 0011)."""
+    """
+    No route filter and every activity: every mode and effect
+    reaches bronze (decision 0011).
+    """
     monkeypatch.setenv('MBTA_API_KEY', 'test-key')
     bus = alert('1', ['39'])
 
@@ -119,7 +127,10 @@ def test_alerts_empty_feed_writes_nothing(run_job):
 # ── mbta-routes ───────────────────────────────────────────────────────────────
 
 def test_routes_request_the_rail_routes_and_shape_one_row_each(run_job, monkeypatch):
-    """The yearly job: asks for exactly the project's rail routes (common/mbta_api.py)."""
+    """
+    The yearly job: asks for exactly the project's rail
+    routes (common/mbta_api.py).
+    """
     monkeypatch.delenv('MBTA_API_KEY', raising=False)
     red = {
         'id': 'Red',
@@ -177,7 +188,9 @@ def test_shapes_request_each_rail_route_and_shape_one_row_per_shape(run_job, mon
 
 
 def test_shapes_route_with_none_fails_before_anything_loads(run_job):
-    """Silver reads only the latest run, so a partial snapshot would erase a line."""
+    """
+    Silver reads only the latest run, so a partial snapshot would erase a line.
+    """
     with pytest.raises(SystemExit) as exit_info:
         run_job('mbta-shapes', [shapes_body('x'), {'data': []}])
 
@@ -198,7 +211,9 @@ def stop(stop_id, name, location_type, parent=None, platform=None):
 
 
 def stops_body(stations, children):
-    """A /stops response; the API leaves out "included" when there are no children."""
+    """
+    A /stops response; the API leaves out "included" when there are no children.
+    """
     return {'data': stations, 'included': children} if children else {'data': stations}
 
 
@@ -271,7 +286,10 @@ def test_ridership_follows_pagination(run_job):
 
 
 def test_ridership_stops_paging_at_an_empty_page(run_job):
-    """A page that adds nothing ends the loop, even if ArcGIS still says more remain."""
+    """
+    A page that adds nothing ends the loop, even if
+    ArcGIS still says more remain.
+    """
     df = run_job('mbta-ridership', [
         arcgis_page([(SEP_30_MS, 'Red Line', 136013.4)], more=True),
         arcgis_page([], more=True),
@@ -347,7 +365,10 @@ def test_ridership_archive_without_older_days_fails_the_job(run_job, monkeypatch
 # ── noaa-weather ──────────────────────────────────────────────────────────────
 
 def ghcn_csv(rows):
-    """A GHCN-Daily station CSV with the kept columns; values space-padded like NCEI's."""
+    """
+    A GHCN-Daily station CSV with the kept columns;
+    values space-padded like NCEI's.
+    """
     header = ('"DATE","TMAX","TMAX_ATTRIBUTES","TMIN","TMIN_ATTRIBUTES",'
               '"PRCP","PRCP_ATTRIBUTES","SNOW","SNOW_ATTRIBUTES"')
     lines = [header] + [
@@ -371,7 +392,10 @@ def test_weather_keeps_only_the_lookback_window(run_job, monkeypatch):
 
 
 def test_weather_empty_window_writes_nothing(run_job, monkeypatch):
-    """NOAA running far behind isn't this job's failure; the freshness check catches a lasting gap."""
+    """
+    NOAA running far behind isn't this job's failure; the
+    freshness check catches a lasting gap.
+    """
     monkeypatch.setenv('LOOKBACK_DAYS', '10')
     old = datetime.date.today() - datetime.timedelta(days=30)
 

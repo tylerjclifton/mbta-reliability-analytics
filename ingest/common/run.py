@@ -58,13 +58,18 @@ def report_failure(summary, details=''):
 
 
 def fail(message):
-    """Report a failure and exit non-zero so Cloud Run marks the execution failed."""
+    """
+    Report a failure and exit non-zero so Cloud Run marks the execution failed.
+    """
     report_failure(message)
     sys.exit(1)
 
 
 def _report_uncaught_exception(exc_type, exc_value, exc_traceback):
-    """Report any exception a job didn't handle, with its traceback, then exit as usual."""
+    """
+    Report any exception a job didn't handle, with its
+    traceback, then exit as usual.
+    """
     details = ''.join(traceback.format_exception(exc_type, exc_value, exc_traceback))
     report_failure(f'{exc_type.__name__}: {exc_value}', details)
     sys.__excepthook__(exc_type, exc_value, exc_traceback)

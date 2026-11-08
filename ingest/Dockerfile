@@ -13,7 +13,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the shared helpers and every job's script
 COPY . .
 
-# Let job scripts import the shared helpers (`from common.load import append_to_bronze`)
+# Let job scripts import the shared helpers
+# (`from common.load import append_to_bronze`)
 ENV PYTHONPATH=/app
 
 # The job's script path is supplied as the container argument

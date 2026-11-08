@@ -75,7 +75,8 @@ df = pd.DataFrame(rows)
 if df.empty:
     fail('The MBTA API returned no stops for any rail route')
 
-# Nullable integers: a missing enum stays NULL instead of turning the column to float
+# Nullable integers: a missing enum stays NULL instead
+# of turning the column to float
 for column in ['location_type', 'vehicle_type', 'wheelchair_boarding']:
     df[column] = df[column].astype('Int64')
 

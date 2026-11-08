@@ -114,7 +114,8 @@ else:
         attributes = feature.get('attributes', {})
 
         # service_date is epoch milliseconds (midnight ET expressed in UTC), so
-        # the UTC calendar date is the service date; a row without one is skipped
+        # the UTC calendar date is the service date; a
+        # row without one is skipped
         service_date_ms = attributes.get('service_date')
         if not isinstance(service_date_ms, (int, float)):
             continue

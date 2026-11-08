@@ -1,6 +1,8 @@
 """
-Tests for the shared ingest helpers in ingest/common/: run.py (failure
-reports), fetch.py, load.py (append to bronze), and mbta_api.py.
+Tests for the shared ingest helpers (ingest/common/)
+
+Covers run.py (failure reports), fetch.py, load.py (append to bronze), and
+mbta_api.py.
 """
 
 # Import standard libraries
@@ -128,7 +130,7 @@ def test_append_adds_audit_columns_and_appends(fake_bigquery):
     load_job = fake_bigquery[0]
     assert load_job.table_ref == 'proj.bronze.mbta_stops'
     assert load_job.job_config.write_disposition == 'WRITE_APPEND'
-    # Every row in a run shares one timestamp — silver depends on it
+    # Every row in a run shares one timestamp — silver depends on it.
     assert load_job.df['ingested_at'].nunique() == 1
     assert load_job.df['ingested_at'].iloc[0] == run.RUN_STARTED_AT
     assert load_job.df['ingested_by'].str.startswith('ingest-').all()

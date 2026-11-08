@@ -1,6 +1,5 @@
 """
-What every ingest job run shares: who it is, when it started, logging, and
-failure reports.
+What every ingest run shares — its name, start time, logging, failure reports
 
 Every ingest job follows the same three steps, each with its shared helper:
   1. Fetch from its source              → common/fetch.py (fetch())
@@ -29,7 +28,7 @@ import os
 import sys
 import traceback
 
-# Configure logging once for every job
+# Configure logging once for every job.
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # One timestamp per run, stamped on every row the run writes. Silver relies on
@@ -37,7 +36,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 RUN_STARTED_AT = datetime.datetime.now(datetime.timezone.utc)
 
 # Job name from the script's folder (e.g. "mbta-alerts"); drives the default
-# bronze table name and the ingested_by audit value
+# bronze table name and the ingested_by audit value.
 JOB_NAME = os.path.basename(os.path.dirname(os.path.abspath(sys.argv[0])))
 
 
@@ -76,5 +75,5 @@ def _report_uncaught_exception(exc_type, exc_value, exc_traceback):
 
 
 # Report any exception a job doesn't handle (a changed API response, a shaping
-# bug); fail() reports its own
+# bug); fail() reports its own.
 sys.excepthook = _report_uncaught_exception

@@ -1,13 +1,14 @@
 """
-Shared settings for the MBTA V3 API jobs (alerts, routes, shapes, stops).
+Shared settings for the MBTA V3 API jobs (alerts, routes, shapes, stops)
 
   - API_URL       the API's base URL
-  - RAIL_ROUTES   the routes this project covers. The routes, shapes, and stops
-                  jobs snapshot exactly these; silver takes the list from the
-                  routes table those snapshots build (silver.mbta_routes__base),
-                  so this is the one place it's written down. The alerts job
-                  captures the whole feed and silver narrows it (decision 0011).
+  - RAIL_ROUTES   the routes this project covers
   - api_headers() request headers carrying the API key
+
+RAIL_ROUTES is the one place the project's routes are written down. The
+routes, shapes, and stops jobs snapshot exactly these, and silver takes the
+list from the routes table those snapshots build (silver.mbta_routes__base).
+The alerts job captures the whole feed, and silver narrows it (decision 0011).
 """
 
 # Import standard libraries

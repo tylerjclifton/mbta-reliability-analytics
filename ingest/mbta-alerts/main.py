@@ -49,7 +49,7 @@ logging.info(f'Fetched {len(alerts)} alerts')
 # ── Shape ─────────────────────────────────────────────────────────────────────
 
 # One row per alert: its ID, and the whole alert as
-# compact JSON (key order kept)
+# compact JSON (key order kept).
 rows = [{'alert_id': alert.get('id'), 'alert_json': json.dumps(alert, separators=(',', ':'))}
         for alert in alerts]
 

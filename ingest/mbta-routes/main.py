@@ -22,7 +22,7 @@ from common.run import fail
 
 # ── Fetch ─────────────────────────────────────────────────────────────────────
 
-# The project's rail routes (common/mbta_api.py), filtered server-side
+# The project's rail routes (common/mbta_api.py), filtered server-side.
 params = {'filter[id]': ','.join(RAIL_ROUTES)}
 
 routes = fetch(f'{API_URL}/routes', params=params, headers=api_headers(), timeout=30).json()['data']

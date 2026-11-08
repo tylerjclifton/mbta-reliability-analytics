@@ -1,5 +1,5 @@
 """
-Ingest job tests: each script, run against canned responses.
+Tests for the ingest jobs: each script, run against canned responses
 
 Each test pins down part of a job's contract: what it requests, what reaches
 bronze (one row per grain, the right types, the source's quirks handled), and
@@ -169,7 +169,7 @@ def shapes_body(*shape_ids):
 
 def test_shapes_request_each_rail_route_and_shape_one_row_per_shape(run_job, monkeypatch):
     monkeypatch.setenv('MBTA_API_KEY', 'test-key')
-    # The API doesn't name the route, so each row takes the route requested
+    # The API doesn't name the route, so each row takes the route requested.
     df = run_job('mbta-shapes', [shapes_body('canonical-931_0009', '931_0010')] + [shapes_body('x')] * 6)
 
     assert [request['params']['filter[route]'] for request in run_job.requests] == [
@@ -271,7 +271,7 @@ def arcgis_page(rows, more):
     }
 
 
-# Midnight Eastern on 2026-09-30, expressed (as ArcGIS does) in UTC epoch ms
+# Midnight Eastern on 2026-09-30, expressed (as ArcGIS does) in UTC epoch ms.
 SEP_30_MS = int(datetime.datetime(2026, 9, 30, 4, tzinfo=datetime.timezone.utc).timestamp() * 1000)
 
 
@@ -338,7 +338,7 @@ def test_ridership_archive_sums_rail_days_before_the_layer(run_job, monkeypatch)
             '2019-02-05,"(07:30:00)",place-dwnxg,Downtown Crossing,Red Line,50\n'
             '2019-02-05,"(07:00:00)",place-sstat,South Station,Silver Line,999\n'
         ),
-        # Columns in another order, as in later years' files
+        # Columns in another order, as in later years' files.
         'GSE_by_year/GSE_2024.csv': (
             'service_date,time_period,station_name,route_or_line,gated_entries,stop_id\n'
             '2024-09-30,"(08:00:00)",Airport,Blue Line,10,place-aport\n'
@@ -419,7 +419,7 @@ def test_weather_values_stay_in_source_units(run_job, monkeypatch):
 def test_weather_missing_value_is_null(run_job, monkeypatch):
     monkeypatch.setenv('LOOKBACK_DAYS', '10')
     day = datetime.date.today() - datetime.timedelta(days=2)
-    # SNOW and its flags left empty, as NCEI writes a value it doesn't have
+    # SNOW and its flags left empty, as NCEI writes a value it doesn't have.
     header = ghcn_csv([]).strip()
     row = f'"{day}","  167",",,1","   33",",,1","    0",",,1,2400","",""'
 

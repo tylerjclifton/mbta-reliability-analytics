@@ -27,15 +27,15 @@ import pandas as pd
 from common.fetch import fetch
 from common.load import append_to_bronze
 
-# Boston Logan International Airport
+# Boston Logan International Airport.
 STATION_ID = 'USW00014739'
 GHCN_URL = f'https://www.ncei.noaa.gov/data/global-historical-climatology-network-daily/access/{STATION_ID}.csv'
 
 # GHCN elements kept: max/min temperature (tenths of °C), precipitation
-# (tenths of mm, liquid equivalent incl. melted snow), and snowfall (mm)
+# (tenths of mm, liquid equivalent incl. melted snow), and snowfall (mm).
 ELEMENTS = ['TMAX', 'TMIN', 'PRCP', 'SNOW']
 
-# Re-pull window start
+# Re-pull window start.
 LOOKBACK_DAYS = int(os.getenv('LOOKBACK_DAYS', '10'))
 start_date = datetime.date.today() - datetime.timedelta(days=LOOKBACK_DAYS)
 
@@ -51,11 +51,11 @@ logging.info(f'Fetched the GHCN-Daily file for {STATION_ID}')
 columns = ['DATE'] + [column for element in ELEMENTS for column in (element, f'{element}_ATTRIBUTES')]
 raw = pd.read_csv(io.StringIO(csv_text), usecols=columns, dtype=str)
 
-# Filter to the re-pull window
+# Filter to the re-pull window.
 raw['DATE'] = pd.to_datetime(raw['DATE']).dt.date
 raw = raw[raw['DATE'] >= start_date]
 
-# Rename to bronze columns; values become nullable integers
+# Rename to bronze columns; values become nullable integers.
 df = pd.DataFrame({'station_id': STATION_ID, 'observation_date': raw['DATE']})
 for element in ELEMENTS:
     df[element.lower()] = pd.to_numeric(raw[element].str.strip(), errors='coerce').astype('Int64')

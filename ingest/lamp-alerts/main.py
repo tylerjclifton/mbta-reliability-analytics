@@ -40,7 +40,7 @@ LAMP_URL = 'https://performancedata.mbta.com/lamp/tableau/alerts/LAMP_RT_ALERTS.
 BATCH_ROWS = 100_000
 
 # Integers stay nullable integers; pandas would otherwise turn a column with
-# NULLs into floats, which the INTEGER columns reject
+# NULLs into floats, which the INTEGER columns reject.
 INTEGER_TYPES = {arrow_type: pd.Int64Dtype() for arrow_type in (pa.int8(), pa.int16(), pa.int32(), pa.int64())}
 
 # ── Fetch ─────────────────────────────────────────────────────────────────────

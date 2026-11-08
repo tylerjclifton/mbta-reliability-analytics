@@ -1,5 +1,5 @@
 """
-Step 1 of every ingest job: fetch from the source.
+Step 1 of every ingest job: fetch from the source
 
 fetch() is a plain HTTP GET that turns a network error or a non-200 response
 into a failed job (with a failure report, see common/run.py) instead of an
@@ -21,7 +21,7 @@ def fetch(url, params=None, headers=None, timeout=60):
         fail(f'Request to {url} failed: {error}')
 
     if response.status_code != 200:
-        # The start of the body usually says why (a rate limit, a bad filter)
+        # The start of the body usually says why (a rate limit, a bad filter).
         reason = ' '.join(response.text.split())[:200]
         fail(f"Request to {url} returned HTTP {response.status_code}: {reason or 'no body'}")
 

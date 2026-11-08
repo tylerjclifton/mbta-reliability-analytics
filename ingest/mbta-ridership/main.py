@@ -32,11 +32,11 @@ from common.fetch import fetch
 from common.load import append_to_bronze
 from common.run import fail
 
-# ArcGIS Feature Service endpoint for MBTA Gated Station Entries
+# ArcGIS Feature Service endpoint for MBTA Gated Station Entries.
 ARCGIS_URL = 'https://services1.arcgis.com/ceiitspzDAHrdGO1/arcgis/rest/services/GSE/FeatureServer/0/query'
 
 # "MBTA Gated Station Entries – Historical": a zip of one CSV per calendar year
-# (2014 on), at the layer's station × 30-minute period grain
+# (2014 on), at the layer's station × 30-minute period grain.
 ARCHIVE_URL = 'https://www.arcgis.com/sharing/rest/content/items/7859894afb5641ce91a2bb03599fdf5b/data'
 
 # The archive fills only days before this, the first day bronze holds from the
@@ -47,10 +47,10 @@ ARCHIVE_BEFORE = datetime.date(2024, 10, 1)
 FROM_ARCHIVE = os.getenv('FROM_ARCHIVE', '').lower() == 'true'
 
 # Rail lines as the layer names them; the Silver Line and Mattapan are out of
-# scope
+# scope.
 TARGET_LINES = ['Red Line', 'Orange Line', 'Blue Line', 'Green Line']
 
-# ArcGIS maxRecordCount for this service
+# ArcGIS maxRecordCount for this service.
 PAGE_SIZE = 2000
 
 # ── Fetch ─────────────────────────────────────────────────────────────────────
@@ -75,12 +75,12 @@ else:
         'f': 'json',
     }
 
-    # Page through the aggregated result
+    # Page through the aggregated result.
     features = []
     while True:
         data = fetch(ARCGIS_URL, params={**query, 'resultOffset': len(features)}, timeout=120).json()
 
-        # ArcGIS reports query errors in the body with HTTP 200
+        # ArcGIS reports query errors in the body with HTTP 200.
         if 'error' in data:
             fail(f"ArcGIS returned an error: {data['error']}")
 
@@ -115,7 +115,7 @@ else:
 
         # service_date is epoch milliseconds (midnight ET expressed in UTC), so
         # the UTC calendar date is the service date; a
-        # row without one is skipped
+        # row without one is skipped.
         service_date_ms = attributes.get('service_date')
         if not isinstance(service_date_ms, (int, float)):
             continue

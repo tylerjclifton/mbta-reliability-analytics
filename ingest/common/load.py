@@ -1,5 +1,5 @@
 """
-Step 3 of every ingest job: load the shaped DataFrame into bronze.
+Step 3 of every ingest job: load the shaped DataFrame into bronze
 
 Bronze tables are defined in Terraform (infra/bigquery.tf). append_to_bronze()
 loads against the live table's schema, so column names and types are owned in
@@ -35,16 +35,16 @@ def append_to_bronze(df):
         logging.info('No rows to append')
         return
 
-    # Resolve the target table
+    # Resolve the target table.
     project_id = os.getenv('GCP_PROJECT_ID', 'mbta-reliability-analytics')
     dataset_id = os.getenv('BQ_DATASET_ID', 'dev_bronze')
     table_id   = os.getenv('BQ_TABLE_ID', JOB_NAME.replace('-', '_'))
     table_ref  = f'{project_id}.{dataset_id}.{table_id}'
 
-    # Stamp the audit columns shared by every bronze table
+    # Stamp the audit columns shared by every bronze table.
     df = df.assign(ingested_at=RUN_STARTED_AT, ingested_by=f'ingest-{JOB_NAME}')
 
-    # Load against the table's own schema (see above) and append
+    # Load against the table's own schema (see above) and append.
     client = bigquery.Client(project=project_id)
     try:
         job_config = bigquery.LoadJobConfig(

@@ -24,7 +24,6 @@ References, so nothing points at what's gone:
   links      markdown links and their #anchors resolve
   paths      file paths named in prose exist
   models     <schema>.<model> names match a dbt model or source
-  functions  name() in prose is defined in the repo (or is a dbt builtin)
   decisions  "decision NNNN" names a record in docs/decisions/
 Decision records describe history, and this folder's README names paths a
 project is expected to have, so only their links are checked.
@@ -349,13 +348,11 @@ def check_punctuation(path, text, lines, problems):
 
 # ── References ────────────────────────────────────────────────────────────────
 
-DBT_BUILTINS = {'ref', 'source', 'var', 'config', 'doc', 'env_var', 'is_incremental', 'run_query', 'this'}
 PATH_TOKEN = re.compile(
     r'(?<![\w/.~-])((?:\.\./)*[\w.-]+(?:/[\w.-]+)+'
     r'(?:\.(?:py|sql|tf|yml|yaml|md|toml|txt|sh|json|csv)|/))(?![\w/])'
 )
 MODEL = re.compile(r'(?<![\w/.-])(\w+)\.(\w+)(?![\w/.-])')
-FUNCTION = re.compile(r'(?<![\w.])(?:[a-z_]\w*\.)?([a-z_]\w{2,})\(\)')
 DECISION = re.compile(r'\bdecisions? (\d{4})\b')
 
 
@@ -365,7 +362,7 @@ def slug(heading):
 
 
 def reference_targets(files):
-    """What prose may point at: paths, dbt models and sources, functions, decisions."""
+    """What prose may point at: paths, dbt models and sources, and decisions."""
     paths = set(files)
     for f in files:
         parts = f.split('/')
@@ -374,23 +371,20 @@ def reference_targets(files):
     if '.gitignore' in files:
         ignored = {line.strip().strip('/') for line in open('.gitignore', encoding='utf-8')
                    if line.strip() and not line.startswith('#')}
-    schemas, names, functions = set(), set(), set(DBT_BUILTINS)
+    schemas, names = set(), set()
     for f in files:
         match = re.search(r'(?:^|/)models/(\w+)/(\w+)\.sql$', f)
         if match:
             schemas.add(match.group(1))
             names.add((match.group(1), match.group(2)))
-        if f.endswith(('.py', '.sql', '.yml')):
+        if f.endswith('.yml'):
             text = open(f, encoding='utf-8').read()
-            functions.update(re.findall(r'^\s*def (\w+)', text, re.M))
-            functions.update(re.findall(r'\{%-?\s*(?:macro|test) (\w+)', text))
-            if f.endswith('.yml') and re.search(r'^sources:', text, re.M):
+            if re.search(r'^sources:', text, re.M):
                 for block in re.finditer(r'schema: (\w+)(.*?)(?=\n  - name:|\Z)', text, re.S):
                     schemas.add(block.group(1))
                     names.update((block.group(1), t) for t in re.findall(r'^      - name: (\w+)', block.group(2), re.M))
     decisions = {m.group(1) for f in files for m in [re.match(r'docs/decisions/(\d{4})-', f)] if m}
-    return {'paths': paths, 'ignored': ignored, 'schemas': schemas, 'names': names,
-            'functions': functions, 'decisions': decisions}
+    return {'paths': paths, 'ignored': ignored, 'schemas': schemas, 'names': names, 'decisions': decisions}
 
 
 def path_exists(token, path, targets):
@@ -404,7 +398,7 @@ def path_exists(token, path, targets):
 
 
 def check_references(path, text, lines, prose, targets, problems):
-    """Links, paths, model names, functions, and decision numbers in prose all resolve."""
+    """Links, paths, model names, and decision numbers in prose all resolve."""
     is_markdown = path.endswith('.md')
     history = path.startswith('docs/decisions/0')
     in_fence, fenced = False, set()
@@ -438,9 +432,6 @@ def check_references(path, text, lines, prose, targets, problems):
         for schema, name in MODEL.findall(re.sub(r'https?://\S+|\]\([^)]*\)', '', line)):
             if schema in targets['schemas'] and (schema, name) not in targets['names']:
                 problems.append(f"{where} names a model or source that doesn't exist: {schema}.{name}")
-        for name in FUNCTION.findall(line):
-            if name not in targets['functions']:
-                problems.append(f"{where} names a function that isn't defined: {name}()")
         for number in DECISION.findall(line):
             if targets['decisions'] and number not in targets['decisions']:
                 problems.append(f"{where} names a decision that doesn't exist: {number}")

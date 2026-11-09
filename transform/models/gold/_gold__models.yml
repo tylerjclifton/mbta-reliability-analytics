@@ -103,7 +103,7 @@ models:
         description: "{{ doc('station_latitude') }}"
       - name: station_longitude
         description: "{{ doc('station_longitude') }}"
-      - name: affects_both_directions
+      - name: is_both_directions
         description: True when service at the station is affected both ways.
       - name: direction_destination
         description: >

@@ -489,7 +489,7 @@ models:
                 field: station_id
               config:
                 severity: warn
-      - name: affects_both_directions
+      - name: is_both_directions
         description: True when the alert affects the station in both directions (or names no direction).
         data_tests: [not_null]
       - name: direction_id

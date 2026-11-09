@@ -74,7 +74,7 @@ SELECT
     e.alert_id,
     e.route_id,
     COALESCE(s.station_id, e.stop_id)                                AS station_id,
-    LOGICAL_OR(e.direction_id IS NULL) OR COUNT(DISTINCT e.direction_id) > 1 AS affects_both_directions,
+    LOGICAL_OR(e.direction_id IS NULL) OR COUNT(DISTINCT e.direction_id) > 1 AS is_both_directions,
     -- The one direction affected; NULL when both are.
     IF(
         LOGICAL_OR(e.direction_id IS NULL) OR COUNT(DISTINCT e.direction_id) > 1,

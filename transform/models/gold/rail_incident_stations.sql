@@ -28,7 +28,7 @@ WITH
             a.incident_id,
             s.route_id,
             s.station_id,
-            s.affects_both_directions,
+            s.is_both_directions,
             s.direction_id
         FROM {{ ref('mbta_alerts__grouped') }} AS a
         INNER JOIN {{ ref('mbta_alerts__by_station') }} AS s
@@ -43,9 +43,9 @@ WITH
             incident_id,
             route_id,
             station_id,
-            LOGICAL_OR(affects_both_directions) OR COUNT(DISTINCT direction_id) > 1 AS affects_both_directions,
+            LOGICAL_OR(is_both_directions) OR COUNT(DISTINCT direction_id) > 1      AS is_both_directions,
             IF(
-                LOGICAL_OR(affects_both_directions) OR COUNT(DISTINCT direction_id) > 1,
+                LOGICAL_OR(is_both_directions) OR COUNT(DISTINCT direction_id) > 1,
                 NULL,
                 ANY_VALUE(direction_id)
             )                                                                       AS direction_id
@@ -80,7 +80,9 @@ SELECT
     s.station_name,
     s.station_latitude,
     s.station_longitude,
-    st.affects_both_directions,
+    st.is_both_directions,
+    -- Temporary: the deployed dashboard reads the old name until it switches.
+    st.is_both_directions                                                           AS affects_both_directions,
     REGEXP_EXTRACT_ALL(r.route_destinations, r"'([^']*)'")[SAFE_OFFSET(st.direction_id)] AS direction_destination,
     i.incident_cause,
     i.incident_effect,

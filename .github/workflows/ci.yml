@@ -4,8 +4,9 @@
 # The checks need no cloud credentials. A push to main that passes them
 # deploys (decision 0006).
 #
-#   python     ruff lint (ingest, dashboard, transform entrypoint, scripts) +
-#              pytest + the conventions check (scripts/check-conventions.py)
+#   python     ruff lint (ingest, dashboard, transform entrypoint, scripts,
+#              conventions) + pytest + the conventions check
+#              (conventions/check.py)
 #   dbt        dbt parse (project compiles) + sqlfluff lint (SQL style)
 #   terraform  fmt check + validate (no backend, no state)
 #   deploy     main only: build + push images tagged with the commit,
@@ -35,9 +36,9 @@ jobs:
       - name: Install
         run: pip install -r ingest/requirements.txt -r requirements-dev.txt
       - name: Lint
-        run: ruff check ingest serve transform scripts
+        run: ruff check ingest serve transform scripts conventions
       - name: Conventions
-        run: python scripts/check-conventions.py
+        run: python conventions/check.py
       - name: Test
         run: pytest
 

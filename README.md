@@ -6,7 +6,7 @@ A full-stack data engineering project tracking MBTA rail reliability, ridership,
 
 **Live dashboard:** [tylerclifton.com](https://tylerclifton.com)
 
-**Docs:** [setup on a new machine](docs/setup.md) · [runbook](docs/runbook.md) · [decision records](docs/decisions/README.md) · [roadmap](docs/roadmap.md) · [conventions](docs/conventions.md)
+**Docs:** [setup on a new machine](docs/setup.md) · [runbook](docs/runbook.md) · [decision records](docs/decisions/README.md) · [roadmap](docs/roadmap.md) · [conventions](conventions/README.md)
 
 ---
 
@@ -172,7 +172,7 @@ The dashboard shows visitors the same thing: the dot beside "Alerts updated" is 
 
 ## Conventions
 
-Naming, file headers, comments, docs, and commit messages follow [docs/conventions.md](docs/conventions.md). In short:
+Naming, file headers, comments, docs, and commit messages follow the general [conventions](conventions/README.md), shared with other projects, plus this project's own ([docs/conventions.md](docs/conventions.md)). In short:
 - **Names say the layer and source:** `bronze.<source>_<entity>`, `silver.<bronze table>__<step>`, `gold.<domain>_<entity>`.
 - **Every file opens with a one-line title**, and a model's header also gives its grain and steps.
 - **Explanations end with a period; titles and labels don't.**
@@ -264,9 +264,8 @@ transform/              dbt Core project
   macros/               generate_schema_name, keep_latest_version, last_processed_snapshot, null_if_epoch, null_if_failed_ghcn_qc
   tests/                Generic tests (unique_combination, accepted_range) + rail_shapes_cover_every_route
 serve/                  Streamlit dashboard (app.py; pure helpers in helpers.py, tested in tests/)
-scripts/
-  build-image.sh        Build + push a component's image (used by CI/CD)
-  check-conventions.py  Width, banners, punctuation, ellipses, spelling (used by CI)
+scripts/build-image.sh  Build + push a component's image (used by CI/CD)
+conventions/            General conventions (README.md) and their check (check.py), copied between projects
 .github/workflows/      CI/CD: lint, tests, dbt parse, terraform validate; deploy on main
 requirements.txt        Local environment: every component + dev tools
 requirements-dev.txt    Dev tool pins (ruff, sqlfluff, pytest), shared with CI
@@ -279,15 +278,15 @@ docs/                   Setup, runbook, decision records, roadmap, conventions
 
 ## Development & deployment
 
-CI (`.github/workflows/ci.yml`) runs on every push and pull request without cloud credentials: ruff + pytest for the Python, `dbt parse` + sqlfluff for the SQL, `terraform fmt` + `validate` for the infrastructure, and a check of the [conventions](docs/conventions.md) a script can judge.
+CI (`.github/workflows/ci.yml`) runs on every push and pull request without cloud credentials: ruff + pytest for the Python, `dbt parse` + sqlfluff for the SQL, `terraform fmt` + `validate` for the infrastructure, and a check of the [conventions](conventions/README.md) a script can judge.
 
 ```bash
 # Local environment (Python 3.13, as in the images; all components + dev tools)
 pip install -r requirements.txt
 
 # The same checks CI runs
-ruff check ingest serve transform scripts && pytest                    # Python
-python scripts/check-conventions.py                                    # Conventions
+ruff check ingest serve transform scripts conventions && pytest        # Python
+python conventions/check.py                                            # Conventions
 (cd transform && dbt parse --profiles-dir . && sqlfluff lint models)   # SQL
 (cd infra && terraform fmt -check -recursive && terraform validate)    # Terraform
 

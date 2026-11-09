@@ -1,8 +1,9 @@
 """
-Conventions check — the rules in docs/conventions.md a script can judge
+Conventions check — the rules in conventions/README.md a script can judge
 
-Run by CI after ruff, and locally the same way:
-  python scripts/check-conventions.py
+Run by CI after the linters, and locally the same way, from anywhere in the
+repo:
+  python conventions/check.py
 
 Layout:
   width      prose within 80 columns; tables and code samples within 120
@@ -19,6 +20,14 @@ Punctuation, by what each piece of prose is for:
              a URL)
   lists      the items of one list end the same way
   YAML       descriptions end with a period
+References, so nothing points at what's gone:
+  links      markdown links and their #anchors resolve
+  paths      file paths named in prose exist
+  models     <schema>.<model> names match a dbt model or source
+  functions  name() in prose is defined in the repo (or is a dbt builtin)
+  decisions  "decision NNNN" names a record in docs/decisions/
+Decision records describe history, and this folder's README names paths a
+project is expected to have, so only their links are checked.
 
 Prose means comments, docstrings, dbt {# … #} blocks, and YAML descriptions. A
 line indented past its block's prose, or with aligned columns (a gap of two or
@@ -29,6 +38,8 @@ problem.
 # Import standard libraries
 import ast
 import io
+import os
+import pathlib
 import re
 import subprocess
 import sys
@@ -56,8 +67,11 @@ BRITISH = re.compile(
     re.IGNORECASE,
 )
 
-# This file lists the spellings it looks for, so it skips itself.
-SELF = 'scripts/check-conventions.py'
+# The repo's root, and this file's path in it: it lists the spellings it looks
+# for, so it skips itself.
+ROOT = subprocess.run(['git', 'rev-parse', '--show-toplevel'], cwd=os.path.dirname(os.path.abspath(__file__)),
+                      capture_output=True, text=True, check=True).stdout.strip()
+SELF = os.path.relpath(os.path.abspath(__file__), ROOT)
 
 BANNER = re.compile(r'^\s*(#|--) ?(═{10,}|── .* ─+)$')
 ALIGNED = re.compile(r'\S {2,}\S')
@@ -255,6 +269,8 @@ def check_block(path, items, problems, titled=False, is_label=lambda run, k, gro
                 problems.append(f'{path}:{first}: title runs to {len(run)} lines; keep it to one')
             if last[2].rstrip().endswith('.'):
                 problems.append(f'{path}:{last[0]}: title ends with a period')
+            if titled and not seen_prose and ' — ' not in run[0][2]:
+                problems.append(f'{path}:{first}: title should read "<name> — <what it is>"')
         elif is_label(run, k, groups):
             if last[2].rstrip().endswith('.'):
                 problems.append(f'{path}:{last[0]}: label ends with a period')
@@ -328,9 +344,108 @@ def check_punctuation(path, text, lines, problems):
                 problems.append(f'{path}:{n}: description needs a closing period')
 
 
+# ── References ────────────────────────────────────────────────────────────────
+
+DBT_BUILTINS = {'ref', 'source', 'var', 'config', 'doc', 'env_var', 'is_incremental', 'run_query', 'this'}
+PATH_TOKEN = re.compile(
+    r'(?<![\w/.~-])((?:\.\./)*[\w.-]+(?:/[\w.-]+)+'
+    r'(?:\.(?:py|sql|tf|yml|yaml|md|toml|txt|sh|json|csv)|/))(?![\w/])'
+)
+MODEL = re.compile(r'(?<![\w/.-])(\w+)\.(\w+)(?![\w/.-])')
+FUNCTION = re.compile(r'(?<![\w.])(?:[a-z_]\w*\.)?([a-z_]\w{2,})\(\)')
+DECISION = re.compile(r'\bdecisions? (\d{4})\b')
+
+
+def slug(heading):
+    """A markdown heading's anchor, as GitHub writes it."""
+    return re.sub(r'[^\w\- ]', '', heading.strip().lower()).replace(' ', '-')
+
+
+def reference_targets(files):
+    """What prose may point at: paths, dbt models and sources, functions, decisions."""
+    paths = set(files)
+    for f in files:
+        parts = f.split('/')
+        paths.update('/'.join(parts[:i]) + '/' for i in range(1, len(parts)))
+    ignored = set()
+    if '.gitignore' in files:
+        ignored = {line.strip().strip('/') for line in open('.gitignore', encoding='utf-8')
+                   if line.strip() and not line.startswith('#')}
+    schemas, names, functions = set(), set(), set(DBT_BUILTINS)
+    for f in files:
+        match = re.search(r'(?:^|/)models/(\w+)/(\w+)\.sql$', f)
+        if match:
+            schemas.add(match.group(1))
+            names.add((match.group(1), match.group(2)))
+        if f.endswith(('.py', '.sql', '.yml')):
+            text = open(f, encoding='utf-8').read()
+            functions.update(re.findall(r'^\s*def (\w+)', text, re.M))
+            functions.update(re.findall(r'\{%-?\s*(?:macro|test) (\w+)', text))
+            if f.endswith('.yml') and re.search(r'^sources:', text, re.M):
+                for block in re.finditer(r'schema: (\w+)(.*?)(?=\n  - name:|\Z)', text, re.S):
+                    schemas.add(block.group(1))
+                    names.update((block.group(1), t) for t in re.findall(r'^      - name: (\w+)', block.group(2), re.M))
+    decisions = {m.group(1) for f in files for m in [re.match(r'docs/decisions/(\d{4})-', f)] if m}
+    return {'paths': paths, 'ignored': ignored, 'schemas': schemas, 'names': names,
+            'functions': functions, 'decisions': decisions}
+
+
+def path_exists(token, path, targets):
+    """A path named in prose exists: from the repo root, beside the file, or as the tail of a tracked path."""
+    if any(part in targets['ignored'] for part in token.strip('/').split('/')):
+        return True
+    beside = os.path.normpath(os.path.join(os.path.dirname(path), token)) + ('/' if token.endswith('/') else '')
+    if token in targets['paths'] or beside in targets['paths']:
+        return True
+    return any(p.endswith('/' + token) for p in targets['paths'])
+
+
+def check_references(path, text, lines, prose, targets, problems):
+    """Links, paths, model names, functions, and decision numbers in prose all resolve."""
+    is_markdown = path.endswith('.md')
+    history = path.startswith('docs/decisions/0')
+    in_fence, fenced = False, set()
+    for n, line in enumerate(lines, 1):
+        if is_markdown and line.lstrip().startswith('```'):
+            in_fence = not in_fence
+            fenced.add(n)
+        elif in_fence:
+            fenced.add(n)
+    for n, line in enumerate(lines, 1):
+        where = f'{path}:{n}:'
+        if is_markdown and n not in fenced:
+            for target in re.findall(r'\]\(([^)\s]+)\)', re.sub(r'`[^`]*`', '', line)):
+                if target.startswith(('http://', 'https://', 'mailto:')):
+                    continue
+                file, _, anchor = target.partition('#')
+                linked = (pathlib.Path(path).parent / file) if file else pathlib.Path(path)
+                if not linked.exists():
+                    problems.append(f'{where} link to a missing file: {target}')
+                elif anchor and linked.suffix == '.md':
+                    headings = re.findall(r'^#+ (.+)$', linked.read_text(encoding='utf-8'), re.M)
+                    if anchor not in {slug(h) for h in headings}:
+                        problems.append(f'{where} link to a missing section: {target}')
+        if history or path.startswith(os.path.dirname(SELF) + '/') or not (n in prose or is_markdown):
+            continue
+        for token in PATH_TOKEN.findall(re.sub(r'https?://\S+|\]\([^)]*\)', '', line)):
+            if not path_exists(token, path, targets):
+                problems.append(f"{where} names a path that doesn't exist: {token}")
+        if n in fenced:
+            continue
+        for schema, name in MODEL.findall(re.sub(r'https?://\S+|\]\([^)]*\)', '', line)):
+            if schema in targets['schemas'] and (schema, name) not in targets['names']:
+                problems.append(f"{where} names a model or source that doesn't exist: {schema}.{name}")
+        for name in FUNCTION.findall(line):
+            if name not in targets['functions']:
+                problems.append(f"{where} names a function that isn't defined: {name}()")
+        for number in DECISION.findall(line):
+            if targets['decisions'] and number not in targets['decisions']:
+                problems.append(f"{where} names a decision that doesn't exist: {number}")
+
+
 # ── Check ─────────────────────────────────────────────────────────────────────
 
-def check(path):
+def check(path, targets):
     """Problems in one file, as 'path:line: message' strings."""
     try:
         with open(path, encoding='utf-8') as handle:
@@ -355,13 +470,18 @@ def check(path):
             problems.append(f'{where} British spelling "{match.group(0)}"')
     if is_code:
         check_punctuation(path, text, lines, problems)
+    if is_code or is_markdown:
+        check_references(path, text, lines, prose, targets, problems)
     return problems
 
 
-problems = [problem for path in tracked_files() for problem in check(path)]
+os.chdir(ROOT)
+files = tracked_files()
+targets = reference_targets(files)
+problems = [problem for path in files for problem in check(path, targets)]
 for problem in problems:
     print(problem)
 if problems:
-    print(f'{len(problems)} convention problem(s); see docs/conventions.md', file=sys.stderr)
+    print(f'{len(problems)} convention problem(s); see conventions/README.md', file=sys.stderr)
     sys.exit(1)
 print('Conventions: all checks passed')

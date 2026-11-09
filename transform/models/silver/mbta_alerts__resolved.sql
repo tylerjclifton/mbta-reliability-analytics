@@ -28,7 +28,8 @@
   neither a close nor a posted end.
 
   Steps:
-    1. runs     — every ingest run and the run after it
+    1. runs     — every ingest run the snapshots table has processed, and the
+                  run after it
     2. cleaned  — snapshots: drop non-service effects; flag alerts still in the
                   feed; when each alert left the feed
     3. lamp     — LAMP: service-affecting alerts the snapshots never saw, with
@@ -44,8 +45,12 @@
 
 WITH
 
-    -- 1. Ingest runs, to the minute (rows from one run share a timestamp).
-    --    Reads only the ingested_at column, so it stays cheap.
+    -- 1. Ingest runs, to the minute (rows from one run share a timestamp), up
+    --    to the newest one silver.mbta_alerts__by_route has processed: every
+    --    run holds rail alerts, so that's its newest last_seen_at. A run that
+    --    lands mid-transform isn't in that table yet, and judging against it
+    --    would make every alert look gone from the feed. Reads only one
+    --    column of each, so it stays cheap.
     runs AS (
         SELECT
             run_at,
@@ -54,6 +59,7 @@ WITH
         FROM (
             SELECT DISTINCT TIMESTAMP_TRUNC(ingested_at, MINUTE) AS run_at
             FROM {{ source('bronze', 'mbta_alerts') }}
+            WHERE ingested_at <= (SELECT MAX(processed.last_seen_at) FROM {{ ref('mbta_alerts__by_route') }} AS processed)
         )
     ),
 

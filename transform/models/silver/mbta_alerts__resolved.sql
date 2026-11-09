@@ -59,7 +59,9 @@ WITH
         FROM (
             SELECT DISTINCT TIMESTAMP_TRUNC(ingested_at, MINUTE) AS run_at
             FROM {{ source('bronze', 'mbta_alerts') }}
-            WHERE ingested_at <= (SELECT MAX(processed.last_seen_at) FROM {{ ref('mbta_alerts__by_route') }} AS processed)
+            WHERE ingested_at <= (
+                SELECT MAX(processed.last_seen_at) FROM {{ ref('mbta_alerts__by_route') }} AS processed
+            )
         )
     ),
 

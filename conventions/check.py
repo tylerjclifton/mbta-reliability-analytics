@@ -146,9 +146,12 @@ def comments(path, text):
                 found.append((token.start[0], token.start[1], token.string[1:], end_of_line))
         return found
     marker = '--' if path.endswith('.sql') else '#'
+    # Inside a dbt {# … #} block, a line starting with -- is prose (a flag such
+    # as --full-refresh), not a SQL comment.
+    in_jinja = {n for first, last, _ in jinja_spans(text) for n in range(first, last + 1)} if marker == '--' else set()
     for n, line in enumerate(text.splitlines(), 1):
         stripped = line.lstrip()
-        if stripped.startswith(('#!', '{#', '#}')):
+        if stripped.startswith(('#!', '{#', '#}')) or n in in_jinja:
             continue
         if stripped.startswith(marker):
             found.append((n, len(line) - len(stripped), stripped[len(marker):], False))

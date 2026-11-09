@@ -1,5 +1,5 @@
 """
-Serve: MBTA Reliability & Ridership dashboard (Streamlit)
+Dashboard — MBTA Reliability & Ridership, served with Streamlit
 
 Reads:      gold.rail_incidents, gold.rail_incident_stations,
             gold.rail_stations, gold.rail_shapes, gold.rail_ridership (cached
@@ -502,8 +502,8 @@ def get_client():
     )
 
 
-# Cache 15 minutes: gold rebuilds hourly, so the page is
-# at most ~75 minutes behind.
+# Cache 15 minutes: gold's alert tables rebuild hourly, so the page's alerts
+# are at most ~75 minutes behind.
 @st.cache_data(ttl=900, show_spinner=False)
 def load_incidents():
     """

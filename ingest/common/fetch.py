@@ -1,5 +1,5 @@
 """
-Step 1 of every ingest job: fetch from the source
+Fetch — step 1 of every ingest job, getting the source's data
 
 fetch() is a plain HTTP GET that turns a network error or a non-200 response
 into a failed job (with a failure report, see common/run.py) instead of an

@@ -1,5 +1,5 @@
 """
-Transform job entrypoint (Dockerfile CMD)
+Transform job — the entrypoint the Dockerfile runs
 
 Runs, in order, stopping at the first failure:
   1. `dbt build` — models + data and unit tests in DAG order; a failing test

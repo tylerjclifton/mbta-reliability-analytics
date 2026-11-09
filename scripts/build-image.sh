@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build and push a component's Docker image to Artifact Registry
+# Image build — build and push a component's image to Artifact Registry
 #
 # Usage:
 #   scripts/build-image.sh <ingest|transform|serve> <tag>

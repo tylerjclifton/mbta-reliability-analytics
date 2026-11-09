@@ -1,5 +1,5 @@
 """
-Step 3 of every ingest job: load the shaped DataFrame into bronze
+Load — step 3 of every ingest job, appending the shaped rows to bronze
 
 Bronze tables are defined in Terraform (infra/bigquery.tf). append_to_bronze()
 loads against the live table's schema, so column names and types are owned in

@@ -1,5 +1,7 @@
 # ══════════════════════════════════════════════════════════════════════════════
-# dbt connection profiles (profile name must match dbt_project.yml)
+# dbt profiles — connections for the transform job and local builds
+#
+# The profile name must match dbt_project.yml.
 #
 #   gcp    production — the transform job, as its attached service account
 #   local  development — your gcloud application-default credentials; writes

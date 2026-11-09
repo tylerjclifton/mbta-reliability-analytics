@@ -1,5 +1,5 @@
 """
-Tests for the shared ingest helpers (ingest/common/)
+Ingest helper tests — the shared helpers in ingest/common/
 
 Covers run.py (failure reports), fetch.py, load.py (append to bronze), and
 mbta_api.py.

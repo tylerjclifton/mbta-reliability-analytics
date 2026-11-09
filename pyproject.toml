@@ -1,4 +1,4 @@
-# Tooling config for the whole repo
+# Tooling config — pytest and ruff, for the whole repo
 #
 # Each component keeps its own requirements.txt.
 

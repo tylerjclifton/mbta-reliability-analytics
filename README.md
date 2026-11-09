@@ -261,8 +261,8 @@ transform/              dbt Core project
   models/bronze/        Source declarations + freshness thresholds
   models/silver/        __base cleaned copies + steps + data tests; unit tests for the alert rules
   models/gold/          Dashboard tables (rail_incidents, rail_incident_stations, rail_stations, rail_shapes, rail_ridership) + tests
-  macros/               keep_latest_version, last_processed_snapshot, null_if_epoch, null_if_failed_ghcn_qc
-  tests/generic/        unique_combination, accepted_range
+  macros/               generate_schema_name, keep_latest_version, last_processed_snapshot, null_if_epoch, null_if_failed_ghcn_qc
+  tests/                Generic tests (unique_combination, accepted_range) + rail_shapes_cover_every_route
 serve/                  Streamlit dashboard (app.py; pure helpers in helpers.py, tested in tests/)
 scripts/
   build-image.sh        Build + push a component's image (used by CI/CD)

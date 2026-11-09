@@ -3,19 +3,8 @@ version: 2
 # ══════════════════════════════════════════════════════════════════════════════
 # Silver — each source's cleaned copy, and the steps built on it
 #
-# Every model is <bronze table>__<step>, so each source's models sort together
-# and the name says what the model is.
-#
-#   __base           the cleaned copy (mbta_alerts__base, mbta_stops__base, …):
-#                    the latest version of each record, renamed and typed, no
-#                    business rules. Views, except mbta_alerts__base.
-#   __<step>         one step, named for what it produces
-#                    (mbta_alerts__by_route, mbta_alerts__resolved,
-#                    mbta_alerts__grouped), built from __base models or
-#                    earlier steps. Views, except mbta_alerts__by_route.
-#
-# The two exceptions are incremental tables: they sit on every 15-minute alert
-# snapshot, too much to re-read each run (see their headers).
+# Models are named <bronze table>__<step> (docs/conventions.md); which are
+# views and which are incremental tables, and why, is decision 0010.
 #
 # Tests run in `dbt build` before gold is rebuilt; an error-severity failure
 # skips everything downstream, so bad data never reaches the dashboard.

@@ -26,7 +26,7 @@ pip install -r requirements.txt        # every component plus ruff, sqlfluff, py
 
 ```bash
 docker run --rm -v "$PWD":/repo -w /repo python:3.13-slim sh -c \
-  "pip install -q -r requirements.txt && ruff check ingest serve transform && pytest"
+  "pip install -q -r requirements.txt && pytest"
 ```
 
 ## 3. Sign in to Google Cloud
@@ -60,13 +60,7 @@ USER_PROJECT_OVERRIDE=true GOOGLE_BILLING_PROJECT=mbta-reliability-analytics \
 
 ## 5. Check that everything works
 
-```bash
-ruff check ingest serve transform && pytest                            # Python
-(cd transform && dbt parse --profiles-dir . && sqlfluff lint models)   # SQL
-(cd infra && terraform fmt -check -recursive && terraform validate)    # Terraform
-```
-
-These are the same checks CI runs. If they pass, you're set up.
+Run the checks CI runs, listed in the README's [Development & deployment](../README.md#development--deployment). If they pass, you're set up.
 
 ## Things that live outside the repo
 

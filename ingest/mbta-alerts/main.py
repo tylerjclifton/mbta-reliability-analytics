@@ -1,5 +1,5 @@
 """
-Ingest: MBTA service alerts
+MBTA alerts ingest — service alerts from the V3 API
 
 Source:     MBTA V3 API /alerts (https://api-v3.mbta.com)
 Cadence:    Every 15 minutes

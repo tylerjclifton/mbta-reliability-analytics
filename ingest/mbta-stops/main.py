@@ -1,5 +1,5 @@
 """
-Ingest: MBTA rail stops (stations and what's inside them)
+MBTA stops ingest — rail stations and what's inside them
 
 Source:     MBTA V3 API /stops (https://api-v3.mbta.com)
 Cadence:    Weekly (stations rarely change; platforms occasionally do)

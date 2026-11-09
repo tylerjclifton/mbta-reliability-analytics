@@ -1,5 +1,5 @@
 """
-Tests for the ingest jobs: each script, run against canned responses
+Ingest job tests — each script, run against canned responses
 
 Each test pins down part of a job's contract: what it requests, what reaches
 bronze (one row per grain, the right types, the source's quirks handled), and

@@ -1,5 +1,5 @@
 # ══════════════════════════════════════════════════════════════════════════════
-# Secret Manager
+# Secret Manager — the MBTA API key
 #
 # Terraform owns the secret (its existence, replication, and who can read it —
 # see iam.tf); the value is added by hand so it never appears in code or state:

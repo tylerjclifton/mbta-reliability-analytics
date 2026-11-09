@@ -21,8 +21,8 @@ import pandas as pd
 TIMEZONE = 'America/New_York'
 
 # How old the alerts data can get before the header's status dot changes.
-# Normally it's at most ~75 minutes old: gold rebuilds hourly and the page
-# caches 15 minutes.
+# Normally it's at most ~75 minutes old: gold's alert tables rebuild hourly and
+# the page caches 15 minutes.
 FRESH_HOURS = 2  # older: at least one hourly transform was missed
 STALE_HOURS = 6  # older: the pipeline has been down for a while
 

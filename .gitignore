@@ -1,4 +1,4 @@
-# Never committed: secrets, Terraform state, build artifacts, and local caches
+# Git ignore list — secrets, Terraform state, build artifacts, and local caches
 
 # Keys & secrets
 keys/

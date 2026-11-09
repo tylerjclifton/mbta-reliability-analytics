@@ -1,5 +1,5 @@
 """
-Ingest: MBTA line shapes (the path each rail route's trains follow)
+MBTA shapes ingest — the path each rail route's trains follow
 
 Source:     MBTA V3 API /shapes (https://api-v3.mbta.com)
 Cadence:    Weekly (shapes rarely change; a new or rerouted stretch of track is

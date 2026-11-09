@@ -1,26 +1,15 @@
 # ══════════════════════════════════════════════════════════════════════════════
 # BigQuery — medallion datasets and bronze tables
 #
-#   bronze  Append-only raw history, written directly by ingest jobs. Rows are
-#           only ever added, never updated or deleted, so nothing depends on a
-#           source keeping its own history. Tables are defined here (not by
-#           dbt or the ingest jobs) so their schemas are owned in one place;
-#           ingest jobs load against the live table schema. Renaming one, or
-#           any change Terraform would make by replacing it, follows decision
-#           0013 instead.
-#   silver  dbt models: each source's cleaned copy plus steps built on it
-#           (views, except three incremental alert tables).
-#   gold    dbt tables the dashboard reads, rebuilt every transform run.
+# One dataset per layer: bronze, written by the ingest jobs, and silver and
+# gold, built by dbt. What each layer holds is in the README's "Medallion
+# layers", and how things are named is in docs/conventions.md.
 #
-# Dev sandboxes mirror the layers for local work, so nothing local touches the
-# live datasets: dev_bronze (local ingest runs, ingest/common/load.py), and
-# dev_silver / dev_gold (local dbt builds, which read the real bronze).
-#
-# Naming: tables are `<source>_<entity>`; silver's models built from each are
-# `<source>_<entity>__<step>` (`__base` is the cleaned copy); the dataset says
-# which layer. A `_legacy` suffix marks a frozen table kept as history, never
-# written again. Columns ending `_at` are TIMESTAMPs, `_date` are DATEs. Every
-# bronze table ends with the same two audit columns.
+# Bronze tables are defined here, not by dbt or the ingest jobs, so their
+# schemas are owned in one place: ingest jobs load against the live table
+# schema, and only ever append (decision 0001). Renaming a bronze table, or any
+# change Terraform would make by replacing one, follows decision 0013 instead.
+# The dev_ sandboxes for local work are defined after the live datasets.
 # ══════════════════════════════════════════════════════════════════════════════
 
 locals {

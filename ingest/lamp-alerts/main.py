@@ -1,5 +1,5 @@
 """
-Ingest: MBTA LAMP alerts archive
+LAMP alerts ingest — the MBTA's archive of its alerts feed
 
 Source:     LAMP_RT_ALERTS.parquet on performancedata.mbta.com, the MBTA's own
             archive of its real-time alerts feed: every alert since 2018, every

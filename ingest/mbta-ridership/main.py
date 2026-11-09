@@ -1,5 +1,5 @@
 """
-Ingest: MBTA rail ridership (gated station entries)
+MBTA ridership ingest — gated station entries on the rail lines
 
 Source:     MBTA Gated Station Entries, an ArcGIS open data feature service
             holding only the last two years; older days drop off it, and

@@ -1,5 +1,5 @@
 """
-Shared fixtures for ingest job tests
+Ingest test fixtures — run a job with canned responses, capturing its loads
 
 Each job is a script (ingest/<job>/main.py) that runs top to bottom: fetch →
 shape → append_to_bronze(). `run_job` executes a script for real with the two

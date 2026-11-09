@@ -1,5 +1,5 @@
 """
-Ingest: NOAA daily weather at Boston Logan
+NOAA weather ingest — daily weather at Boston Logan
 
 Source:     NOAA GHCN-Daily station file for USW00014739 (NCEI): one CSV of the
             station's full daily history (1936 onward), refreshed daily and

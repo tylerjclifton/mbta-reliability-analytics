@@ -1,5 +1,5 @@
 """
-Tests for serve/helpers.py
+Dashboard helper tests — serve/helpers.py
 
 Covers dashboard formatting, data freshness, incident shaping, the
 ridership-vs-calm-days comparison, hours covered per year, chart label spacing,

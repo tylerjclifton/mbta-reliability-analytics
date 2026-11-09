@@ -1,5 +1,5 @@
 """
-Shared settings for the MBTA V3 API jobs (alerts, routes, shapes, stops)
+MBTA API settings — shared by the alerts, routes, shapes, and stops jobs
 
   - API_URL       the API's base URL
   - RAIL_ROUTES   the routes this project covers

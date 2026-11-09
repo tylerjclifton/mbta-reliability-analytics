@@ -1,5 +1,5 @@
 # ══════════════════════════════════════════════════════════════════════════════
-# Google APIs the project uses
+# APIs — the Google APIs the project uses
 #
 # Only what the pipeline needs. Unused APIs from the default "Google Cloud APIs"
 # bundle (Dataplex, Datastore, Analytics Hub, BigQuery Data Transfer, …) were

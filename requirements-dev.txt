@@ -1,4 +1,4 @@
-# Dev tool pins, shared by local checks and CI
+# Dev tool pins — shared by local checks and CI
 #
 # Used by requirements.txt (local) and by CI (.github/workflows/ci.yml), so
 # both run the same versions.

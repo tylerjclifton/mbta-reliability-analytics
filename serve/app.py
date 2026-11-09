@@ -532,7 +532,7 @@ def load_incident_stations():
     df = get_client().query(f"""
         SELECT
             incident_id, station_id, route_name, line_name, station_name,
-            station_latitude, station_longitude, affects_both_directions, direction_destination,
+            station_latitude, station_longitude, is_both_directions, direction_destination,
             incident_effect, incident_start_at, incident_end_at
         FROM `{PROJECT_ID}.{GOLD_DATASET}.rail_incident_stations`
     """).to_dataframe()
@@ -765,7 +765,7 @@ def station_markers(hits, planned=False):
         f'{route}: {effect}' + ('' if both else f' (toward {dest})')
         + (f' · starts {fmt_day(start)}' if planned else '')
         for route, effect, both, dest, start in zip(
-            hits['route_name'], hits['incident_effect'], hits['affects_both_directions'],
+            hits['route_name'], hits['incident_effect'], hits['is_both_directions'],
             hits['direction_destination'], hits['incident_start_at'], strict=True)
     ]
     return (hits.assign(detail=detail).groupby(['station_id', 'line_name'], as_index=False)

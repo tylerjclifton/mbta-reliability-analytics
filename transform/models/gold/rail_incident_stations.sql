@@ -81,8 +81,6 @@ SELECT
     s.station_latitude,
     s.station_longitude,
     st.is_both_directions,
-    -- Temporary: the deployed dashboard reads the old name until it switches.
-    st.is_both_directions                                                           AS affects_both_directions,
     REGEXP_EXTRACT_ALL(r.route_destinations, r"'([^']*)'")[SAFE_OFFSET(st.direction_id)] AS direction_destination,
     i.incident_cause,
     i.incident_effect,

@@ -19,7 +19,7 @@ dbt's conventional prefixes (`stg_` for "staging," `int_` for "intermediate") we
 - A step's name shouldn't suggest a different grain. Alerts tagged with their incident are `__grouped`, not `__incidents`, since they're still one row per alert (one row per incident is `gold.rail_incidents`).
 - The layer isn't in the name; the dataset (`silver.`) already says it. Gold names didn't change.
 
-**Materialization:** everything in silver is a **view**, recomputed every run, except tables that would cost too much to recompute. Today those are `mbta_alerts__base` and `mbta_alerts__by_route`, which sit on every 15-minute alert snapshot (growth rate in [0011](0011-capture-every-mode.md)). They're incremental tables that process only new snapshots.
+**Materialization:** everything in silver is a **view**, recomputed every run, unless recomputing it costs too much. Two kinds of exception are allowed: an **incremental table**, for a model that sits on all of bronze's history and can process only what's new (the alert snapshots grow at the rate in [0011](0011-capture-every-mode.md)); and a **table rebuilt every run**, for a model so many tests and models read that a view, rerun for each reader, costs more than building it once. Which models are exceptions is set in `transform/dbt_project.yml` and the models' own configs, and listed in the README's "Medallion layers".
 
 ## Consequences
 - The refactor was proven pure: old and new code built against the same bronze produced identical gold (all 3,691 rows across four tables, compared both ways). Every later rename was proven the same way.
@@ -29,3 +29,5 @@ dbt's conventional prefixes (`stg_` for "staging," `int_` for "intermediate") we
 ## History
 - **2026-10-24:** logic steps were first named on their own (`alerts_resolved`), and cleaned copies kept their bronze name exactly (`silver.mbta_alerts`). The steps scattered alphabetically and hid their source, and a bare name didn't say it was the cleaned copy, so both were standardized to the pattern above the same day.
 - **2026-10-26:** the live alerts table was renamed `bronze.mbta_alerts` ([0002](0002-raw-alert-capture.md)). Its cleaned copy (latest JSON per alert) became `mbta_alerts__base` (from `mbta_alerts_raw__base`), and the per-route split became `mbta_alerts__by_route` (from `mbta_alerts__base`). Both are incremental tables, renamed in place so nothing was rebuilt. `__stations` became `__by_station` to match.
+- **2026-11-03:** `lamp_alerts__base` became the third incremental table ([0016](0016-alerts-before-capture-from-lamp.md)): it reads bronze only after a new LAMP load.
+- **2026-11-09:** `mbta_alerts__resolved`, `mbta_alerts__grouped`, and `mbta_alerts__by_station` became tables rebuilt every run, the second kind of exception. Each hourly run tested them 19 times, and a test on a view reruns its whole query: 760 of the run's 1,420 MiB (measured 2026-11-09).

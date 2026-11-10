@@ -91,7 +91,7 @@ Each layer is its own BigQuery dataset, with a dev sandbox beside it for local w
 | Layer | Stored as | Written by | Role |
 |---|---|---|---|
 | `bronze` | Append-only tables (Terraform-managed, deletion-protected; [0013](docs/decisions/0013-bronze-tables-in-terraform.md)) | Ingest jobs | Raw history. Each run appends a new version of every record it saw; rows are never updated or deleted, so nothing depends on a source keeping its own history ([0001](docs/decisions/0001-append-only-bronze.md)) |
-| `silver` | Views (three incremental tables, below) | dbt | Each source's **cleaned copy** (latest version, renamed and typed, unit conversion, QC filtering), plus steps that each do **one job** (split alerts by route or station, resolve start/end, group into incidents) |
+| `silver` | Views, and six tables (below) | dbt | Each source's **cleaned copy** (latest version, renamed and typed, unit conversion, QC filtering), plus steps that each do **one job** (split alerts by route or station, resolve start/end, group into incidents) |
 | `gold` | Tables, rebuilt hourly (slow-changing ones daily) | dbt | Cross-source joins served to the dashboard |
 
 | Bronze table | Grain | How it grows |
@@ -113,9 +113,9 @@ Silver models are named `<bronze table>__<step>`. `__base` is each source's clea
 | `mbta_alerts__by_route` | alert × route | Each alert seen since full-JSON capture began, split into one row per rail route (incremental table) |
 | `lamp_alerts__base` | alert | Each rail alert's latest version in the LAMP archive, renamed toward the API's names (incremental table) |
 | `lamp_alerts__by_route` | alert × route | Those LAMP alerts split into one row per rail route |
-| `mbta_alerts__resolved` | alert × route | Service-affecting alerts with their real start and end, and whether they're still in the feed: from the snapshots, or from LAMP for alerts that ended before full-JSON capture |
-| `mbta_alerts__grouped` | alert × route | Each alert tagged with its incident, with readable labels and durations (gold reads this; `gold.rail_incidents` has one row per incident) |
-| `mbta_alerts__by_station` | alert × route × station | Which stations each alert affects, and in which direction |
+| `mbta_alerts__resolved` | alert × route | Service-affecting alerts with their real start and end, and whether they're still in the feed: from the snapshots, or from LAMP for alerts that ended before full-JSON capture (table) |
+| `mbta_alerts__grouped` | alert × route | Each alert tagged with its incident, with readable labels and durations (gold reads this; `gold.rail_incidents` has one row per incident) (table) |
+| `mbta_alerts__by_station` | alert × route × station | Which stations each alert affects, and in which direction (table) |
 | `mbta_routes__base` | route | Each rail route and the line it belongs to |
 | `mbta_stops__base` | stop × route | Every station and platform, mapped to its station, with coordinates |
 | `mbta_shapes__base` | shape × route | The path of each rail route's patterns, from the latest snapshot only |
@@ -130,7 +130,9 @@ Silver models are named `<bronze table>__<step>`. `__base` is each source's clea
 | `rail_shapes` | shape × route | Each rail route's official path, for drawing the lines on the map |
 | `rail_ridership` | service date × line | Gated entries, active incident count, the day's most severe alert effect, whether it was a calm day, and weather |
 
-**`silver.mbta_alerts__by_route`, `silver.mbta_alerts__base`, and `silver.lamp_alerts__base` are tables, not views.** Everything else in silver is a view, recomputed every run ([0010](docs/decisions/0010-silver-naming-and-materialization.md)). Alert snapshots add ~15 GB/year to bronze (the whole feed, every mode; [0011](docs/decisions/0011-capture-every-mode.md)), and a view would re-read all of it for every model and test that uses alerts (~9× per transform), outgrowing the free query tier within a year. The two snapshot tables read only snapshots added since the last run, and the LAMP table reads bronze only after a new load, so cost stays flat; `dbt build --full-refresh` rebuilds them from bronze.
+**Six silver models are tables, not views; everything else in silver is a view, recomputed every run** ([0010](docs/decisions/0010-silver-naming-and-materialization.md)):
+- **Incremental tables:** `mbta_alerts__base`, `mbta_alerts__by_route`, and `lamp_alerts__base`. Alert snapshots add ~15 GB/year to bronze (the whole feed, every mode; [0011](docs/decisions/0011-capture-every-mode.md)), and a view would re-read all of it for every model and test that uses alerts, outgrowing the free query tier within a year. The two snapshot tables read only snapshots added since the last run, and the LAMP table reads bronze only after a new load, so cost stays flat; `dbt build --full-refresh` rebuilds them from bronze.
+- **Tables rebuilt every run:** `mbta_alerts__resolved`, `mbta_alerts__grouped`, and `mbta_alerts__by_station`. Many tests and gold models read them, and a view reruns its whole query for each reader; as tables, their logic runs once per run.
 
 **Alert history: two sources.** Alerts seen since full-JSON capture began (2026-10-24, `alerts_raw_capture_start` in `dbt_project.yml`) come from the project's own snapshots: `bronze.mbta_alerts` holds each alert's full JSON as returned, for the whole feed (every mode since 2026-10-28), and silver keeps only rail ([0011](docs/decisions/0011-capture-every-mode.md)). Alerts that ended before then come from the MBTA's LAMP archive (`bronze.lamp_alerts`), from 2019-09-05 on ([0016](docs/decisions/0016-alerts-before-capture-from-lamp.md)). LAMP holds the same alerts with their stops and the MBTA's own close times, and it's more complete than the project's earlier pipeline, which missed many short alerts. That pipeline's shaped snapshots stay frozen in `bronze.mbta_alerts_legacy`; no model reads them.
 

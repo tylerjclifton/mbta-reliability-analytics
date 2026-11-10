@@ -48,9 +48,11 @@ vars:
     - EXTRA_SERVICE
 
 # Model configuration: one folder per layer, each built into its own dataset.
-# Silver models are views and gold models are tables; the three incremental
-# silver tables set that in their own configs (decision 0010). Bronze is read
-# as sources only (models/bronze/_bronze__sources.yml).
+# Silver models are views and gold models are tables, with the exceptions in
+# decision 0010: silver's three incremental tables set theirs in their own
+# configs, and the alert models below are tables rebuilt every run, since many
+# tests and models read them and a view reruns its whole query for each. Bronze
+# is read as sources only (models/bronze/_bronze__sources.yml).
 #
 # dbt's docs: https://docs.getdbt.com/docs/configuring-models
 #
@@ -63,9 +65,12 @@ models:
     silver:
       +schema: silver
       +materialized: view
-      mbta_shapes__base:    {+tags: daily}
-      mbta_ridership__base: {+tags: daily}
-      noaa_weather__base:   {+tags: daily}
+      mbta_alerts__resolved:   {+materialized: table}
+      mbta_alerts__grouped:    {+materialized: table}
+      mbta_alerts__by_station: {+materialized: table}
+      mbta_shapes__base:       {+tags: daily}
+      mbta_ridership__base:    {+tags: daily}
+      noaa_weather__base:      {+tags: daily}
     gold:
       +schema: gold
       +materialized: table

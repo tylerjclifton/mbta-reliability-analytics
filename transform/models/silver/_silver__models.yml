@@ -57,6 +57,10 @@ models:
         description: Start of the latest version's first active period (UTC).
       - name: posted_end_at
         description: End of that period (UTC); NULL when open-ended.
+      - name: first_posted_end_at
+        description: >
+          The earliest end the alert's first version posted (UTC): the MBTA's
+          first estimate of when it would be over. NULL when it posted none.
       - name: alert_created_at
         description: "{{ doc('alert_created_at') }}"
         data_tests: [not_null]

@@ -49,7 +49,7 @@ Dark theme; official MBTA line colors for every line-level visual, a neutral vio
 
 **Stations affected** — a transit map of the whole network: every station a dot in its line's color with the line a faint path behind them, on a dimmed base map without place names, with line ends and main hubs named, showing the stations hit right now or by planned work in the next 30 days (outlined in white, each affected stretch named at its ends, with each incident on hover; + / − / reset buttons to zoom, drag to pan, while the scroll wheel still scrolls the page; the OpenStreetMap/CARTO credit sits under the map), and the most-affected stations over the trailing 12 months
 
-**Incident patterns** — incidents per week, by line, by cause and effect, median duration by cause, cause mix by line (heatmap)
+**Incident patterns** — incidents per week, by line, by cause and effect, median duration by cause, cause mix by line (heatmap), and how far the MBTA's first posted end times miss the all-clear
 
 **Disruption by year** — delays per year by how long they lasted, and hours of shuttle-bus service per year by line (overlapping diversions count once), for every full year of alert history plus the year in progress, dimmed
 
@@ -129,6 +129,7 @@ Silver models are named `<bronze table>__<step>`. `__base` is each source's clea
 | `rail_stations` | station × line | Every rail station's coordinates, the map's backdrop |
 | `rail_shapes` | shape × route | Each rail route's official path, for drawing the lines on the map |
 | `rail_ridership` | service date × line | Gated entries, active incident count, the day's most severe alert effect, whether it was a calm day, and weather |
+| `rail_delay_estimates` | alert × line | Each subway delay's first posted end against its all-clear, from the LAMP archive |
 
 **Six silver models are tables, not views; everything else in silver is a view, recomputed every run** ([0010](docs/decisions/0010-silver-naming-and-materialization.md)):
 - **Incremental tables:** `mbta_alerts__base`, `mbta_alerts__by_route`, and `lamp_alerts__base`. Alert snapshots add ~15 GB/year to bronze (the whole feed, every mode; [0011](docs/decisions/0011-capture-every-mode.md)), and a view would re-read all of it for every model and test that uses alerts, outgrowing the free query tier within a year. The two snapshot tables read only snapshots added since the last run, and the LAMP table reads bronze only after a new load, so cost stays flat; `dbt build --full-refresh` rebuilds them from bronze.
@@ -262,7 +263,7 @@ transform/              dbt Core project
   run.py                Job entrypoint: dbt build + freshness, failure and warning reports
   models/bronze/        Source declarations + freshness thresholds
   models/silver/        __base cleaned copies + steps + data tests; unit tests for the alert rules
-  models/gold/          Dashboard tables (rail_incidents, rail_incident_stations, rail_stations, rail_shapes, rail_ridership) + tests
+  models/gold/          Dashboard tables (rail_incidents, rail_incident_stations, rail_stations, rail_shapes, rail_ridership, rail_delay_estimates) + tests
   macros/               generate_schema_name, keep_latest_version, last_processed_snapshot, null_if_epoch, null_if_failed_ghcn_qc
   tests/                Generic tests (unique_combination, accepted_range) + rail_shapes_cover_every_route
 serve/                  Streamlit dashboard (app.py; pure helpers in helpers.py, tested in tests/)

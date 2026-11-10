@@ -148,6 +148,42 @@ models:
       - name: ingested_at
         description: "{{ doc('ingested_at') }}"
 
+  - name: rail_delay_estimates
+    description: >
+      One row per subway delay alert × line it names: the end the MBTA first
+      posted, against when the delay actually cleared. From the LAMP archive,
+      topped up weekly.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [alert_id, line_name]
+    columns:
+      - name: alert_id
+        description: "{{ doc('alert_id') }}"
+        data_tests: [not_null]
+      - name: line_name
+        description: "{{ doc('line_name') }}"
+        data_tests: [not_null]
+      - name: alert_cause
+        description: MBTA cause enum, as the API's cause.
+      - name: alert_created_at
+        description: "{{ doc('alert_created_at') }}"
+        data_tests: [not_null]
+      - name: first_posted_end_at
+        description: The earliest end the alert's first version posted (UTC).
+        data_tests: [not_null]
+      - name: alert_closed_at
+        description: When the MBTA closed the alert (UTC), the all-clear.
+        data_tests: [not_null]
+      - name: estimated_minutes
+        description: Minutes from posting to the first estimated end.
+      - name: actual_minutes
+        description: Minutes from posting to the all-clear.
+        data_tests:
+          - accepted_range:
+              arguments:
+                min_value: 0
+
   - name: rail_stations
     description: >
       One row per station × line: every rail station's name and coordinates,

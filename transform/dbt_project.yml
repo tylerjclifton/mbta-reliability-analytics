@@ -74,6 +74,7 @@ models:
     gold:
       +schema: gold
       +materialized: table
-      rail_stations:  {+tags: daily}
-      rail_shapes:    {+tags: daily}
-      rail_ridership: {+tags: daily}
+      rail_stations:        {+tags: daily}
+      rail_shapes:          {+tags: daily}
+      rail_ridership:       {+tags: daily}
+      rail_delay_estimates: {+tags: daily}

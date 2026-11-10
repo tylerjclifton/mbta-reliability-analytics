@@ -2,8 +2,8 @@
 Dashboard — MBTA Reliability & Ridership, served with Streamlit
 
 Reads:      gold.rail_incidents, gold.rail_incident_stations,
-            gold.rail_stations, gold.rail_shapes, gold.rail_ridership (cached
-            for 15 minutes)
+            gold.rail_stations, gold.rail_shapes, gold.rail_ridership,
+            gold.rail_delay_estimates (cached for 15 minutes)
 Deployed:   Cloud Run service `serve` (infra/cloud-run-services.tf), public at
             tylerclifton.com
 
@@ -12,7 +12,8 @@ Layout:
   2. Service status     — KPIs, incidents happening now, planned work coming up
   3. Stations affected  — map of stations hit now or by planned work,
                           most-affected stations
-  4. Incident patterns  — when, where, why, and how long (trailing 12 months)
+  4. Incident patterns  — when, where, why, and how long, and how far the
+                          MBTA's posted end times miss (trailing 12 months)
   5. Disruption by year — delays by length and shuttle-bus hours, each full
                           year of alert history
   6. Ridership          — per-line tiles (latest month), monthly ridership
@@ -564,6 +565,20 @@ def load_shapes():
 
 
 @st.cache_data(ttl=900, show_spinner=False)
+def load_delay_estimates():
+    """
+    gold.rail_delay_estimates, one row per subway delay × line: the end the MBTA
+    first posted, against the all-clear.
+    """
+    df = get_client().query(f"""
+        SELECT alert_id, line_name, alert_created_at, estimated_minutes, actual_minutes
+        FROM `{PROJECT_ID}.{GOLD_DATASET}.rail_delay_estimates`
+    """).to_dataframe()
+    df['alert_created_at'] = pd.to_datetime(df['alert_created_at'], utc=True)
+    return df
+
+
+@st.cache_data(ttl=900, show_spinner=False)
 def load_ridership():
     """
     gold.rail_ridership, one row per service date × line, plus each day's
@@ -603,6 +618,7 @@ incidents_all = load_incidents()
 incident_stations_all = load_incident_stations()
 stations_all = load_stations()
 shapes_all = load_shapes()
+delay_estimates_all = load_delay_estimates()
 ridership_all = load_ridership()
 loading.empty()
 st.session_state['loaded'] = True
@@ -667,6 +683,7 @@ incidents = incidents_all[incidents_all['line_name'].isin(selected_lines)]
 incident_stations = incident_stations_all[incident_stations_all['line_name'].isin(selected_lines)]
 stations = stations_all[stations_all['line_name'].isin(selected_lines)]
 shapes = shapes_all[shapes_all['line_name'].isin(selected_lines)]
+delay_estimates = delay_estimates_all[delay_estimates_all['line_name'].isin(selected_lines)]
 ridership = ridership_all[ridership_all['line_name'].isin(selected_lines)]
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1068,6 +1085,26 @@ else:
                              tickvals=list(mix_pct.columns),
                              ticktext=[line.replace(' ', '<br>') for line in mix_pct.columns])
             show(fig)
+
+    # ── Posted end times against the all-clear ────────────────────────────────
+    with st.container(key='card_estimates'):
+        card_title('Posted end times vs the all-clear',
+                   'Subway delays · the end the MBTA first posted · LAMP archive, up to a week behind')
+        # An alert naming two lines counts once.
+        est = delay_estimates[delay_estimates['alert_created_at'] >= window_start].drop_duplicates('alert_id')
+        if est.empty:
+            st.markdown('<div class="empty">No delays with a posted end yet.</div>', unsafe_allow_html=True)
+        else:
+            miss = (est['estimated_minutes'] - est['actual_minutes']).abs()
+            kpi_tiles([
+                dict(label='First posted end', value=fmt_duration(est['estimated_minutes'].median()),
+                     sub='Median, from posting'),
+                dict(label='Actual all-clear', value=fmt_duration(est['actual_minutes'].median()),
+                     sub='Median, from posting'),
+                dict(label='Typical miss', value=fmt_duration(miss.median()), sub='Median gap between the two'),
+                dict(label='Within 15 minutes', value=f'{(miss <= 15).mean() * 100:.0f}%',
+                     sub=f'Of {fmt_count(len(est))} delays'),
+            ])
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 5. Disruption by year
@@ -1511,9 +1548,9 @@ st.markdown(f"""
   <a href="{REPO_URL}" target="_blank" rel="noopener">Source code, decision records, and runbook on GitHub</a><br>
   <b>Stack</b> · Python ingest jobs on Cloud Run · BigQuery (bronze, silver, gold) · dbt Core · Terraform ·
   GitHub Actions · Streamlit<br>
-  <b>Sources</b> · MBTA V3 API (alerts since Oct 2026, routes, stops) · MBTA LAMP archive (earlier alerts, from
-  Sep 2019) · MBTA Gated Station Entries (ArcGIS Open Data, with its yearly archive from 2014) · NOAA GHCN-Daily,
-  Boston Logan (USW00014739)<br>
+  <b>Sources</b> · MBTA V3 API (alerts since Oct 2026, routes, stops) · MBTA LAMP archive (the alerts the API's
+  snapshots missed, from Sep 2019; topped up weekly) · MBTA Gated Station Entries (ArcGIS Open Data, with its
+  yearly archive from 2014) · NOAA GHCN-Daily, Boston Logan (USW00014739)<br>
   <b>Refresh</b> · Page data hourly, from alerts checked every 15 minutes · Weather daily
   (NOAA posts ~3 days behind) · Ridership weekly (MBTA posts in batches, weeks to months behind)<br>
   <b>Incidents</b> · An incident groups the alerts the MBTA posts for one event (same route, cause, effect, and

@@ -21,14 +21,16 @@
   half-loaded. `dbt build --full-refresh` does the same.
 
   Steps:
-    1. versions     — distinct LAMP rows, renamed (none
-                      unless there's a new load)
-    2. loads        — the latest load, stamped on every row
-    3. latest       — each alert's latest version, flagged if a row names a
-                      rail route
-    4. entities     — each latest version's distinct informed entities
-    5. final select — per alert: that version's fields, entities, and first
-                      active period; rail alerts only
+    1. versions        — distinct LAMP rows, renamed (none unless there's a
+                         new load)
+    2. loads           — the latest load, stamped on every row
+    3. latest          — each alert's latest version, flagged if a row names
+                         a rail route
+    4. entities        — each latest version's distinct informed entities
+    5. first_estimates — the end each alert's first version posted
+    6. final select    — per alert: the latest version's fields, entities,
+                         and first active period, and the first posted end;
+                         rail alerts only
 #}
 
 {{
@@ -118,9 +120,26 @@ WITH
             FROM latest
         ) AS distinct_entities
         GROUP BY alert_id
+    ),
+
+    -- 5. The earliest end each alert's first version posted: the MBTA's first
+    --    estimate of when it would be over.
+    first_estimates AS (
+        SELECT
+            alert_id,
+            MIN(IF(last_modified_timestamp = first_version, period_end_at, NULL)) AS first_posted_end_at
+        FROM (
+            SELECT
+                alert_id,
+                last_modified_timestamp,
+                period_end_at,
+                MIN(last_modified_timestamp) OVER (PARTITION BY alert_id) AS first_version
+            FROM versions
+        ) AS ordered_versions
+        GROUP BY alert_id
     )
 
--- 5. One row per alert. A version's fields repeat on each of its rows. Its
+-- 6. One row per alert. A version's fields repeat on each of its rows. Its
 --    first active period is the earliest-starting one.
 SELECT
     l.alert_id,
@@ -138,6 +157,7 @@ SELECT
         STRUCT(l.period_start_at AS start_at, l.period_end_at AS end_at)
         ORDER BY COALESCE(l.period_start_at, TIMESTAMP '9999-12-31') LIMIT 1
     )[OFFSET(0)].end_at                                        AS posted_end_at,
+    ANY_VALUE(f.first_posted_end_at)                           AS first_posted_end_at,
     ANY_VALUE(l.alert_created_at)                              AS alert_created_at,
     ANY_VALUE(l.alert_updated_at)                              AS alert_updated_at,
     ANY_VALUE(l.alert_closed_at)                               AS alert_closed_at,
@@ -147,6 +167,8 @@ SELECT
 FROM latest AS l
 INNER JOIN entities AS e
     ON l.alert_id = e.alert_id
+LEFT JOIN first_estimates AS f
+    ON l.alert_id = f.alert_id
 CROSS JOIN loads
 GROUP BY l.alert_id
 HAVING LOGICAL_OR(l.is_rail_route)

@@ -70,7 +70,9 @@ for batch in parquet.iter_batches(batch_size=BATCH_ROWS):
     df.columns = [column.removesuffix('.translation.text').replace('.', '_') for column in df.columns]
     df = df[(df['last_modified_timestamp'] >= cutoff.timestamp()).fillna(False)]
     kept += len(df)
-    append_to_bronze(df)
+    # Most batches hold only older rows; skip them rather than log each one.
+    if len(df):
+        append_to_bronze(df)
 logging.info(f'Shaped {kept} rows modified since {cutoff:%Y-%m-%d}')
 
 # The MBTA updates alerts every day, so a window with no rows means LAMP has

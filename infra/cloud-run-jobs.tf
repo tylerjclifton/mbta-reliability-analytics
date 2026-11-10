@@ -21,9 +21,9 @@ locals {
   # schedule means the job runs only on demand (docs/runbook.md).
   ingest_jobs = {
     "lamp-alerts" = {
-      schedule          = null
+      schedule          = var.lamp_ingestion_schedule
       uses_mbta_api_key = false
-      memory            = "2Gi" # 5M+ rows, loaded in batches sized for it (ingest/lamp-alerts/main.py)
+      memory            = "2Gi" # reads the whole 5M+ row file, in batches sized for it (ingest/lamp-alerts/main.py)
       timeout           = "1800s"
       env               = {}
     }

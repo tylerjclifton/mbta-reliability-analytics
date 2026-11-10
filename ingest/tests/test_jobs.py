@@ -27,21 +27,60 @@ def lamp_file(table):
     return buffer.getvalue()
 
 
+def days_ago(days):
+    """Epoch seconds, as LAMP's *_timestamp columns hold them."""
+    return int((datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=days)).timestamp())
+
+
 def test_lamp_alerts_renames_columns_and_keeps_integers_nullable(run_job):
     df = run_job('lamp-alerts', [lamp_file(pa.table({
         'id': pa.array([1040505, 1040505], pa.int64()),
         'header_text.translation.text': ['Shuttle buses replace trains', 'Shuttle buses replace trains'],
         'closed_datetime': pa.array([datetime.datetime(2026, 10, 22, 12, 0), None], pa.timestamp('us')),
         'informed_entity.route_type': pa.array([2, None], pa.int8()),
+        'last_modified_timestamp': pa.array([days_ago(1), days_ago(1)], pa.int64()),
     }))])
 
-    assert list(df.columns) == ['id', 'header_text', 'closed_datetime', 'informed_entity_route_type']
+    assert list(df.columns) == ['id', 'header_text', 'closed_datetime', 'informed_entity_route_type',
+                                'last_modified_timestamp']
     assert df['informed_entity_route_type'].dtype == 'Int64'
     assert df['informed_entity_route_type'].isna().tolist() == [False, True]
 
 
+def test_lamp_alerts_loads_only_the_last_two_weeks(run_job):
+    df = run_job('lamp-alerts', [lamp_file(pa.table({
+        'id': pa.array([1, 2, 3], pa.int64()),
+        'last_modified_timestamp': pa.array([days_ago(1), days_ago(13), days_ago(30)], pa.int64()),
+    }))])
+
+    assert df['id'].tolist() == [1, 2]
+
+
+def test_lamp_alerts_window_can_reach_the_whole_file(run_job, monkeypatch):
+    monkeypatch.setenv('LOOKBACK_DAYS', '4000')
+    df = run_job('lamp-alerts', [lamp_file(pa.table({
+        'id': pa.array([1, 2], pa.int64()),
+        'last_modified_timestamp': pa.array([days_ago(1), days_ago(2000)], pa.int64()),
+    }))])
+
+    assert df['id'].tolist() == [1, 2]
+
+
+def test_lamp_alerts_nothing_modified_in_the_window_fails_the_job(run_job):
+    with pytest.raises(SystemExit) as exit_info:
+        run_job('lamp-alerts', [lamp_file(pa.table({
+            'id': pa.array([1], pa.int64()),
+            'last_modified_timestamp': pa.array([days_ago(30)], pa.int64()),
+        }))])
+
+    assert exit_info.value.code == 1
+
+
 def test_lamp_alerts_loads_every_batch(run_job):
-    one_row_over_a_batch = pa.table({'id': pa.array(range(100_001), pa.int64())})
+    one_row_over_a_batch = pa.table({
+        'id': pa.array(range(100_001), pa.int64()),
+        'last_modified_timestamp': pa.array([days_ago(1)] * 100_001, pa.int64()),
+    })
 
     run_job('lamp-alerts', [lamp_file(one_row_over_a_batch)])
 

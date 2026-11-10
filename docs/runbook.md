@@ -36,12 +36,13 @@ gcloud run jobs execute ingest-mbta-ridership --region us-east1 --update-env-var
 
 ### Load the LAMP alerts archive
 
-`ingest-lamp-alerts` has no schedule: it supplies alerts from before the project's own full-JSON capture ([0016](decisions/0016-alerts-before-capture-from-lamp.md)), so one load covers it. It takes several minutes (5M+ rows in ~50 batches). Re-run it only to pick up a correction LAMP makes to old alerts; silver drops the rows a new load repeats.
+`ingest-lamp-alerts` runs weekly and loads only the rows LAMP modified in the last two weeks: the alerts the 15-minute snapshots missed, and the MBTA's close times ([0016](decisions/0016-alerts-before-capture-from-lamp.md)). Run it by hand after a missed week, or with a longer window to pick up a correction LAMP makes to older alerts; silver drops the rows a load repeats.
 
-Don't put it on a schedule. Each load adds the whole archive to bronze (~3.4 GB uncompressed), and `silver.lamp_alerts__base` rebuilds from every load after a new one, so a dozen loads would push that rebuild past the 50 GiB per-query limit. Regular reloads need the model to read only the newest complete load first ([roadmap](roadmap.md)).
+Keep whole-file loads rare. One adds the whole archive to bronze (~3.4 GB uncompressed, several minutes in ~50 batches), and `silver.lamp_alerts__base` rereads every load after a new one, so a dozen would push that rebuild past the 50 GiB per-query limit.
 
 ```bash
-gcloud run jobs execute ingest-lamp-alerts --region us-east1 --wait
+gcloud run jobs execute ingest-lamp-alerts --region us-east1 --wait                                       # the usual two weeks
+gcloud run jobs execute ingest-lamp-alerts --region us-east1 --wait --update-env-vars LOOKBACK_DAYS=4000  # the whole file
 ```
 
 ### Rebuild an incremental silver table

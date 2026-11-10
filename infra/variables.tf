@@ -74,6 +74,12 @@ variable "shapes_ingestion_schedule" {
   default     = "45 6 * * 1"
 }
 
+variable "lamp_ingestion_schedule" {
+  description = "Cron for the LAMP alerts top-up. Weekly (Mondays 7AM ET); each run loads the rows LAMP modified in the last two weeks, so one missed run loses nothing."
+  type        = string
+  default     = "0 7 * * 1"
+}
+
 variable "routes_ingestion_schedule" {
   description = "Cron for MBTA routes ingestion. Yearly on Jan 1; routes rarely change."
   type        = string

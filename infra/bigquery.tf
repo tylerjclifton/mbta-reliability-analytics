@@ -57,7 +57,7 @@ locals {
     # *_datetime is Eastern local time; *_timestamp is the same moment in epoch
     # seconds.
     lamp_alerts = {
-      description = "The MBTA's LAMP alerts archive (performancedata.mbta.com): every alert since 2018, every mode, as LAMP flattens it. Loaded on demand, not on a schedule (decision 0016). Grain: alert × version × informed entity × active period × ingest run."
+      description = "The MBTA's LAMP alerts archive (performancedata.mbta.com): every alert since 2018, every mode, as LAMP flattens it. The whole archive once, then weekly the rows LAMP modified in the last two weeks (decision 0016). Grain: alert × version × informed entity × active period × ingest run."
       clustering  = ["id"]
       columns = [
         { name = "id", type = "INTEGER", description = "MBTA alert ID (the API's alert_id, as a number)" },

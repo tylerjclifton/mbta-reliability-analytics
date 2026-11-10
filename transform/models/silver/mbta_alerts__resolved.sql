@@ -5,12 +5,12 @@
   alerts that affect train service, and works out when each one really started
   and ended, and whether it's still in the live feed.
 
-  Two sources, split at full-JSON capture (var alerts_raw_capture_start;
-  decision 0016):
-    - alerts seen since then: the project's own 15-minute snapshots
-      (silver.mbta_alerts__by_route)
-    - alerts that ended before then: the MBTA's LAMP archive
-      (silver.lamp_alerts__by_route), from var lamp_alerts_start on
+  Two sources (decision 0016):
+    - alerts the project's own 15-minute snapshots saw, from full-JSON
+      capture on (var alerts_raw_capture_start): silver.mbta_alerts__by_route
+    - every other alert: the MBTA's LAMP archive (silver.lamp_alerts__by_route),
+      from var lamp_alerts_start on; that's the history before the capture,
+      and the short alerts the snapshots missed since
 
     start  = posted start, else when MBTA created the alert
     end    = whichever comes first:
@@ -33,7 +33,7 @@
     2. cleaned  — snapshots: drop non-service effects; flag alerts still in the
                   feed; when each alert left the feed
     3. lamp     — LAMP: service-affecting alerts the snapshots never saw, with
-                  their end; only those that ended before the capture start
+                  their end
     4. resolved — start/end per the rules above, both sources; drop alerts
                   that ended before they started
 
@@ -90,9 +90,9 @@ WITH
             AND a.last_seen_at >= {{ capture_start }}
     ),
 
-    -- 3. LAMP alerts the snapshots never saw, ending at whichever came first:
-    --    the posted end or the close. Kept only if that's before the capture
-    --    start; later ones are the snapshots' to record (decision 0016).
+    -- 3. LAMP alerts the snapshots never saw, before the capture start or
+    --    since, ending at whichever came first: the posted end or the close
+    --    (decision 0016).
     lamp AS (
         SELECT
             *,
@@ -176,7 +176,5 @@ SELECT
     ingested_at,
     ingested_by
 FROM lamp
-WHERE
-    lamp_end_at < {{ capture_start }}
-    -- Ended before starting → never took effect.
-    AND lamp_end_at > COALESCE(posted_start_at, alert_created_at)
+-- Ended before starting → never took effect.
+WHERE lamp_end_at > COALESCE(posted_start_at, alert_created_at)

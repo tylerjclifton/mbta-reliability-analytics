@@ -97,7 +97,7 @@ models:
       - name: route_color
         description: Route hex color without the leading #.
       - name: route_destinations
-        description: Terminal stations, as a stringified list.
+        description: Terminal stations, one per direction (direction_id indexes it).
       - name: ingested_at
         description: "{{ doc('ingested_at') }}"
       - name: ingested_by

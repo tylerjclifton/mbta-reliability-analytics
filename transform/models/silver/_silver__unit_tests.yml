@@ -170,13 +170,13 @@ unit_tests:
         - {alert_id: service_alert}
         - {alert_id: announced_in_feed}
 
-  - name: resolved_lamp_alerts_before_capture
+  - name: resolved_lamp_alerts_the_snapshots_missed
     description: >
-      LAMP supplies alerts the snapshots never saw that ended before full-JSON
-      capture: each ends at its close, or its posted end if earlier. Alerts the
-      snapshots saw, that ended after the capture start, that were created
-      before var lamp_alerts_start, that ended before starting, or that have
-      neither a close nor a posted end are left out.
+      LAMP supplies the alerts the snapshots never saw, before the capture
+      start or since: each ends at its close, or its posted end if earlier.
+      Alerts the snapshots saw, that were created before var lamp_alerts_start,
+      that ended before starting, or that have neither a close nor a posted end
+      are left out.
     model: mbta_alerts__resolved
     overrides: *resolved_vars
     given:
@@ -199,7 +199,7 @@ unit_tests:
              posted_start_at: '2025-06-02 05:00:00', posted_end_at: '2025-06-02 23:00:00'}
           - {alert_id: seen_by_snapshots, route_id: Red, alert_effect: DELAY, alert_created_at: '2026-01-05 09:00:00',
              posted_start_at: '2026-01-05 09:00:00', alert_closed_at: '2026-01-05 10:40:00'}
-          # Closed after the capture start, though the snapshots missed it.
+          # Closed after the capture start, but the snapshots missed it.
           - {alert_id: ended_after_capture, route_id: Red, alert_effect: DELAY, alert_created_at: '2026-01-04 23:50:00',
              posted_start_at: '2026-01-04 23:50:00', alert_closed_at: '2026-01-05 00:10:00'}
           - {alert_id: before_lamp_start, route_id: Red, alert_effect: DELAY, alert_created_at: '2024-12-31 08:00:00',
@@ -217,6 +217,7 @@ unit_tests:
         - {alert_id: posted_end_first,  is_in_feed: false, alert_end_at: '2025-06-01 09:00:00'}
         - {alert_id: never_closed,      is_in_feed: false, alert_end_at: '2025-06-02 23:00:00'}
         - {alert_id: seen_by_snapshots, is_in_feed: true,  alert_end_at: null}
+        - {alert_id: ended_after_capture, is_in_feed: false, alert_end_at: '2026-01-05 00:10:00'}
 
   # ── mbta_alerts__grouped ────────────────────────────────────────────────────
   # Alerts are Red Line, cause DISABLED_TRAIN, effect DELAY unless a test is

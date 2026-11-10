@@ -4,7 +4,7 @@
   silver.lamp_alerts__base split into one row per rail route its entities
   name, with the columns of silver.mbta_alerts__by_route plus the close time.
   A reshaping step with no business rules: silver.mbta_alerts__resolved takes
-  from here the alerts that ended before full-JSON capture (decision 0016).
+  from here the alerts the snapshots never saw (decision 0016).
 
   Steps:
     1. final select — one row per alert × distinct rail route in its entities

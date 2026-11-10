@@ -6,8 +6,8 @@
   enums (cause_detail, effect_detail) become alert_cause and alert_effect, the
   API's names for them; epoch seconds become timestamps; and the version's rows
   (one per informed entity × active period) collapse to its entity list and
-  first active period, as silver.mbta_alerts__by_route reads the API's. Alerts
-  from before full-JSON capture come from here (decision 0016).
+  first active period, as silver.mbta_alerts__by_route reads the API's. Silver
+  takes the alerts the snapshots never saw from here (decision 0016).
 
   Narrowed to rail here, unlike silver.mbta_alerts__base: LAMP holds every mode
   back to 2018, and the views built on this read it on every transform.

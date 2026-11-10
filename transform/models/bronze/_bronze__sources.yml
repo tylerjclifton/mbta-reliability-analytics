@@ -32,8 +32,8 @@ sources:
       - name: lamp_alerts
         description: >
           The MBTA's LAMP alerts archive: every alert since 2018, every mode,
-          flattened by LAMP. Silver takes rail alerts from before full-JSON
-          capture from it (decision 0016). Grain: alert × version × informed
+          flattened by LAMP. Silver takes the rail alerts the snapshots never
+          saw from it (decision 0016). Grain: alert × version × informed
           entity × active period × ingest run.
         config:
           freshness:

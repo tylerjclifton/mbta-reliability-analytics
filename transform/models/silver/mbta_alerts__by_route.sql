@@ -10,9 +10,9 @@
   Each alert's full JSON (bronze.mbta_alerts) is split into one row per rail
   route it names (one row per target route in informed_entity; the first
   active period), the rules the old ingest used for the frozen
-  bronze.mbta_alerts_legacy. No model reads that table anymore: alerts that
-  ended before full-JSON capture come from the MBTA's LAMP archive instead
-  (silver.lamp_alerts__by_route; decision 0016).
+  bronze.mbta_alerts_legacy. No model reads that table anymore: alerts the
+  snapshots never saw, before full-JSON capture or since, come from the MBTA's
+  LAMP archive instead (silver.lamp_alerts__by_route; decision 0016).
 
   This is where alerts are narrowed to rail: since 2026-10-28 bronze holds the
   whole feed (bus, commuter rail, ferry too; decision 0011), and an alert that

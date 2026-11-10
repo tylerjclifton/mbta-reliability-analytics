@@ -13,7 +13,8 @@
   it from bronze.
 
   Full-JSON capture started 2026-10-24, so alerts that ended before then
-  aren't here.
+  aren't here; nor are short alerts that closed between two runs. Both come
+  from the MBTA's LAMP archive instead (decision 0016).
 
   Steps:
     1. new_snapshots — bronze rows ingested after the latest one already here

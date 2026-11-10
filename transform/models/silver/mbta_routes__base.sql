@@ -35,7 +35,9 @@ SELECT
         ELSE CAST(route_type AS STRING)
     END                                                         AS route_type,
     color                                                       AS route_color,
-    direction_destinations                                      AS route_destinations,
+    -- Bronze keeps the API's list as Python's repr, "['Ashmont/Braintree',
+    -- 'Alewife']"; no terminal's name has an apostrophe to break it.
+    REGEXP_EXTRACT_ALL(direction_destinations, r"'([^']*)'")       AS route_destinations,
     ingested_at,
     ingested_by
 FROM latest_versions

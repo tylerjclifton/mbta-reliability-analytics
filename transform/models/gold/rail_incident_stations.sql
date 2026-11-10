@@ -68,9 +68,8 @@ WITH
         GROUP BY station_id
     )
 
--- 4. Incident details, station location, and the affected direction's terminal
---    (route_destinations is "['Ashmont/Braintree', 'Alewife']", indexed by
---    direction_id).
+-- 4. Incident details, station location, and the affected direction's
+--    terminal (route_destinations, indexed by direction_id).
 SELECT
     st.incident_id,
     st.route_id,
@@ -81,7 +80,7 @@ SELECT
     s.station_latitude,
     s.station_longitude,
     st.is_both_directions,
-    REGEXP_EXTRACT_ALL(r.route_destinations, r"'([^']*)'")[SAFE_OFFSET(st.direction_id)] AS direction_destination,
+    r.route_destinations[SAFE_OFFSET(st.direction_id)]                              AS direction_destination,
     i.incident_cause,
     i.incident_effect,
     i.incident_header,

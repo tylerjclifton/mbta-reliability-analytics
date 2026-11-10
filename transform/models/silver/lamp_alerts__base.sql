@@ -44,7 +44,7 @@
 {#- The newest load already processed (none on a first build). -#}
 {%- set processed_through = last_processed_snapshot('ingested_at') -%}
 
-{#- Whether bronze holds a load this table hasn't processed. Counting rows in.
+{#- Whether bronze holds a load this table hasn't processed. Counting rows in
     the partitions after it reads next to nothing. -#}
 {%- set has_new_load = true -%}
 {%- if processed_through and execute -%}

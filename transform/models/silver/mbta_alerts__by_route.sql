@@ -52,8 +52,8 @@
     'alert_created_at', 'alert_updated_at', 'alert_closed_at',
 ] -%}
 
-{#- The newest snapshot already processed (none on a first build), compiled.
-    in as a literal so bronze's partitions are pruned -#}
+{#- The newest snapshot already processed (none on a first build), compiled
+    in as a literal so bronze's partitions are pruned. -#}
 {%- set processed_through = last_processed_snapshot() %}
 
 WITH

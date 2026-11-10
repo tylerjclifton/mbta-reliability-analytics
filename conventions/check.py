@@ -330,7 +330,13 @@ def check_punctuation(path, text, lines, problems):
             if n in (first, last) and not line.strip():
                 continue
             numbered.append((n, line))
-        base = min((len(t) - len(t.lstrip()) for _, t in numbered if t.strip()), default=0)
+        # Text on the opening line sits right after the delimiter; give it the
+        # indent of the lines after it, which continue it.
+        opens_with_text = bool(numbered) and numbered[0][0] == first and numbered[0][1].strip()
+        indented = [t for _, t in (numbered[1:] if opens_with_text else numbered) if t.strip()]
+        base = min((len(t) - len(t.lstrip()) for t in indented), default=0)
+        if opens_with_text:
+            numbered[0] = (first, ' ' * base + numbered[0][1].strip())
         check_block(path, kinds(numbered, base), problems, titled=is_header)
 
     # YAML descriptions are prose.

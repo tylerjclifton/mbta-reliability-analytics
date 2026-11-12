@@ -9,6 +9,12 @@
   first active period, as silver.mbta_alerts__by_route reads the API's. Silver
   takes the alerts the snapshots never saw from here (decision 0016).
 
+  The active periods come from the latest version that has any, not the latest
+  version: when the MBTA closes an alert, LAMP adds a version with the close
+  time and no active period. Read from that one, every closed alert would lose
+  its posted dates and start when it was posted, so planned work announced
+  weeks ahead counted from the announcement (until 2026-11).
+
   Narrowed to rail here, unlike silver.mbta_alerts__base: LAMP holds every mode
   back to 2018, and the views built on this read it on every transform.
 
@@ -27,10 +33,12 @@
     3. latest          — each alert's latest version, flagged if a row names
                          a rail route
     4. entities        — each latest version's distinct informed entities
-    5. first_estimates — the end each alert's first version posted
-    6. final select    — per alert: the latest version's fields, entities,
-                         and first active period, and the first posted end;
-                         rail alerts only
+    5. latest_periods  — the active periods of each alert's latest version
+                         that has any
+    6. first_estimates — the end each alert's first version posted
+    7. final select    — per alert: the latest version's fields and entities,
+                         the first of its latest periods, and the first posted
+                         end; rail alerts only
 #}
 
 {{
@@ -122,7 +130,32 @@ WITH
         GROUP BY alert_id
     ),
 
-    -- 5. The earliest end each alert's first version posted: the MBTA's first
+    -- 5. Each alert's active periods, earliest first, from its latest version
+    --    that has any (the closing version has none). A version repeats each
+    --    period once per informed entity; DISTINCT keeps one.
+    latest_periods AS (
+        SELECT
+            alert_id,
+            ARRAY_AGG(STRUCT(period_start_at AS start_at, period_end_at AS end_at) ORDER BY period_start_at) AS periods
+        FROM (
+            SELECT DISTINCT
+                alert_id,
+                period_start_at,
+                period_end_at
+            FROM (
+                SELECT
+                    alert_id,
+                    period_start_at,
+                    period_end_at
+                FROM versions
+                WHERE period_start_at IS NOT NULL
+                QUALIFY last_modified_timestamp = MAX(last_modified_timestamp) OVER (PARTITION BY alert_id)
+            ) AS dated_version
+        ) AS distinct_periods
+        GROUP BY alert_id
+    ),
+
+    -- 6. The earliest end each alert's first version posted: the MBTA's first
     --    estimate of when it would be over.
     first_estimates AS (
         SELECT
@@ -139,8 +172,9 @@ WITH
         GROUP BY alert_id
     )
 
--- 6. One row per alert. A version's fields repeat on each of its rows. Its
---    first active period is the earliest-starting one.
+-- 7. One row per alert. A version's fields repeat on each of its rows. Its
+--    first active period is the earliest-starting one; an alert that never
+--    posted one (a few dozen) has no posted dates.
 SELECT
     l.alert_id,
     ANY_VALUE(l.alert_header)                                  AS alert_header,
@@ -149,14 +183,8 @@ SELECT
     ANY_VALUE(l.alert_effect)                                  AS alert_effect,
     ANY_VALUE(l.alert_severity)                                AS alert_severity,
     ANY_VALUE(l.alert_duration_certainty)                      AS alert_duration_certainty,
-    ARRAY_AGG(
-        STRUCT(l.period_start_at AS start_at, l.period_end_at AS end_at)
-        ORDER BY COALESCE(l.period_start_at, TIMESTAMP '9999-12-31') LIMIT 1
-    )[OFFSET(0)].start_at                                      AS posted_start_at,
-    ARRAY_AGG(
-        STRUCT(l.period_start_at AS start_at, l.period_end_at AS end_at)
-        ORDER BY COALESCE(l.period_start_at, TIMESTAMP '9999-12-31') LIMIT 1
-    )[OFFSET(0)].end_at                                        AS posted_end_at,
+    ANY_VALUE(p.periods)[SAFE_OFFSET(0)].start_at              AS posted_start_at,
+    ANY_VALUE(p.periods)[SAFE_OFFSET(0)].end_at                AS posted_end_at,
     ANY_VALUE(f.first_posted_end_at)                           AS first_posted_end_at,
     ANY_VALUE(l.alert_created_at)                              AS alert_created_at,
     ANY_VALUE(l.alert_updated_at)                              AS alert_updated_at,
@@ -167,6 +195,8 @@ SELECT
 FROM latest AS l
 INNER JOIN entities AS e
     ON l.alert_id = e.alert_id
+LEFT JOIN latest_periods AS p
+    ON l.alert_id = p.alert_id
 LEFT JOIN first_estimates AS f
     ON l.alert_id = f.alert_id
 CROSS JOIN loads

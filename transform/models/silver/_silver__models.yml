@@ -42,8 +42,8 @@ models:
     description: >
       One row per rail alert in the MBTA's LAMP archive: its latest version,
       renamed toward the API's names, with its informed entities and first
-      active period. Incremental table that reads bronze only after a new load
-      (see model header; decision 0016).
+      posted active period. Incremental table that reads bronze only after a
+      new load (see model header; decision 0016).
     columns:
       - name: alert_id
         description: "{{ doc('alert_id') }}"
@@ -54,7 +54,10 @@ models:
         description: MBTA effect enum, as the API's effect (LAMP's effect_detail).
         data_tests: [not_null]
       - name: posted_start_at
-        description: Start of the latest version's first active period (UTC).
+        description: >
+          Start of the first active period (UTC) in the latest version that
+          has any; the version LAMP adds when an alert closes has none. NULL
+          when no version posted one.
       - name: posted_end_at
         description: End of that period (UTC); NULL when open-ended.
       - name: first_posted_end_at

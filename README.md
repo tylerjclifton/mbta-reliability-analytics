@@ -51,7 +51,7 @@ Dark theme; official MBTA line colors for every line-level visual, a neutral vio
 
 **Incident patterns** — incidents per week, by line, by cause and effect, median duration by cause, cause mix by line (heatmap), and how far the MBTA's first posted end times miss the all-clear
 
-**Disruption by year** — delays per year by how long they lasted, and hours of shuttle-bus service per year by line (overlapping diversions count once), for every full year of alert history plus the year in progress, dimmed
+**Disruption by year** — delays per year by how long they lasted, and hours per year with part of each line out of service, suspended or on shuttle buses (the MBTA's labels for the two overlap; overlapping outages count once), for every full year of alert history plus the year in progress, dimmed
 
 **Ridership** — per-line tiles: the latest published month's average entries per day vs the same month a year earlier and in 2019, the last full year before the pandemic (each tile names its month); monthly ridership, switchable between the last 2 years and all history since 2014 (each month plus a trailing 12-month average that evens out the seasons, with a few events marked); ridership by alert effect (delay, suspension, shuttle) vs each line's calm days; day of week
 

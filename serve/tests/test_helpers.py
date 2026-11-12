@@ -46,6 +46,11 @@ def test_fmt_count(n, expected):
     assert fmt_count(n) == expected
 
 
+@pytest.mark.parametrize('n, expected', [(8_310, '8.3K'), (707, '0.7K'), (14_200, '14K'), (40, '40'), (0, '0')])
+def test_fmt_count_in_thousands_matches_a_k_axis(n, expected):
+    assert fmt_count(n, thousands=True) == expected
+
+
 def test_fmt_pct_uses_a_true_minus_sign():
     assert fmt_pct(-6.42) == '−6.4%'
     assert fmt_pct(2.1) == '+2.1%'

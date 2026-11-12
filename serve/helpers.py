@@ -39,12 +39,18 @@ def fmt_duration(minutes):
     return '1 day' if days < 1.5 else f'{days:.0f} days'
 
 
-def fmt_count(n):
-    """A count, with K or M from 10,000 up: 1,284 · 118K · 3.2M."""
+def fmt_count(n, thousands=False):
+    """
+    A count, with K or M from 10,000 up: 1,284 · 118K · 3.2M. `thousands`
+    puts counts from 100 up in K too (8.3K), to match an axis labeled in K;
+    smaller ones stay whole, as 0.0K would hide them.
+    """
     if n >= 1_000_000:
         return f'{n / 1_000_000:.1f}M'
     if n >= 10_000:
         return f'{n / 1_000:.0f}K'
+    if thousands and n >= 100:
+        return f'{n / 1_000:.1f}K'
     return f'{n:,.0f}'
 
 

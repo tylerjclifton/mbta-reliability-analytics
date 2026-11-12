@@ -14,8 +14,8 @@ Layout:
                           most-affected stations
   4. Incident patterns  — when, where, why, and how long, and how far the
                           MBTA's posted end times miss (trailing 12 months)
-  5. Disruption by year — delays by length and shuttle-bus hours, each full
-                          year of alert history
+  5. Disruption by year — delays by length and out-of-service hours, each
+                          full year of alert history
   6. Ridership          — per-line tiles (latest month), monthly ridership
                           (2 years or all history), ridership by alert
                           effect, day of week
@@ -222,8 +222,11 @@ button[data-variant="pills"][data-selected="true"] p {{ color: {INK}; font-weigh
 button[data-variant="segmented_control"]:not([data-selected="true"]) p,
 button[data-variant="pills"]:not([data-selected="true"]) p {{ color: {MUTED}; }}
 
-/* KPI tiles */
-.kpis {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 1rem; }}
+/* KPI tiles. Streamlit pulls every markdown block up 1rem, to absorb a
+   closing paragraph's margin; a tile row has none, so it gives the 1rem back
+   rather than hang over what follows. */
+.kpis {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 1rem;
+         margin-bottom: 1rem; }}
 .kpi  {{ background: {CARD}; border: 1px solid {BORDER}; border-radius: 14px; padding: 1rem 1.1rem;
          position: relative; overflow: hidden; }}
 .kpi .stripe {{ position: absolute; left: 0; top: 0; bottom: 0; width: 4px; }}
@@ -231,6 +234,9 @@ button[data-variant="pills"]:not([data-selected="true"]) p {{ color: {MUTED}; }}
 .kpi .value  {{ color: {INK}; font-size: 2rem; font-weight: 650; letter-spacing: -0.02em;
                line-height: 1.2; margin-top: 0.2rem; }}
 .kpi .sub    {{ color: {INK_2}; font-size: 0.8rem; margin-top: 0.15rem; }}
+/* Inside a card, tiles sit flat on it, each under a hairline, not boxes in a box */
+div[class*="st-key-card_"] .kpi {{ background: none; border: none; border-top: 1px solid {BORDER};
+            border-radius: 0; padding: 0.75rem 0 0; }}
 .delta-up   {{ color: #0ca30c; }}
 .delta-down {{ color: #e66767; }}
 
@@ -379,7 +385,8 @@ def style(fig, height=300, legend=False):
 def count_axis(fig, top, axis='y'):
     """
     Label a count axis like the KPI tiles (126K, 3.2M) with ~4 round ticks from
-    0 to `top`. One unit per axis: never 5,000 beside 10K.
+    0 to `top`. One unit per axis: never 5,000 beside 10K. Returns whether the
+    axis is in K, so value labels beside it can match (fmt_count's `thousands`).
     """
     raw = max(top, 1) / 4
     magnitude = 10 ** np.floor(np.log10(raw))
@@ -388,6 +395,7 @@ def count_axis(fig, top, axis='y'):
     in_thousands = 10_000 <= ticks[-1] < 1_000_000
     labels = [f'{t / 1_000:g}K' if in_thousands and t else fmt_count(t) for t in ticks]
     getattr(fig, f'update_{axis}axes')(tickvals=ticks, ticktext=labels, range=[0, ticks[-1] * 1.04])
+    return in_thousands
 
 
 def show(fig, config=CHART_CONFIG):
@@ -474,7 +482,11 @@ def band_bars(df, baseline, y_range, height=260):
     ))
     style(fig, height=height)
     fig.update_yaxes(range=y_range, ticksuffix='%', zeroline=True, zerolinecolor=AXIS, zerolinewidth=1)
-    fig.update_xaxes(tickfont=dict(color=INK_2, size=11))
+    # Ranges ("−10 to −5°") break after "to", so
+    # neighbors don't touch at phone width.
+    bands = df['band'].astype(str)
+    fig.update_xaxes(tickfont=dict(color=INK_2, size=11), tickvals=bands,
+                     ticktext=[band.replace(' to ', ' to<br>') for band in bands])
     return fig
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -727,7 +739,6 @@ kpi_tiles([
          sub='first alert to all-clear'),
 ])
 
-st.write('')
 now_col, next_col = st.columns(2, gap='medium')
 
 with now_col:
@@ -1101,7 +1112,7 @@ else:
                      sub='Median, from posting'),
                 dict(label='Actual all-clear', value=fmt_duration(est['actual_minutes'].median()),
                      sub='Median, from posting'),
-                dict(label='Typical miss', value=fmt_duration(miss.median()), sub='Median gap between the two'),
+                dict(label='Typical miss', value=fmt_duration(miss.median()), sub='Median per delay, early or late'),
                 dict(label='Within 15 minutes', value=f'{(miss <= 15).mean() * 100:.0f}%',
                      sub=f'Of {fmt_count(len(est))} delays'),
             ])
@@ -1141,7 +1152,7 @@ section(
     '(dimmed).',
 )
 
-delay_col, shuttle_col = st.columns(2, gap='medium')
+delay_col, outage_col = st.columns(2, gap='medium')
 
 # ── Delays per year, by how long they lasted ──────────────────────────────────
 with delay_col:
@@ -1179,13 +1190,19 @@ with delay_col:
                        f"{long_ones[last_full]:,} in {last_full}. Short ones held steadier, so the rise isn't "
                        'just more alerts being posted.')
 
-# ── Shuttle-bus hours per year, by line ───────────────────────────────────────
-with shuttle_col:
-    with st.container(key='card_shuttle_hours'):
-        card_title('Shuttle-bus hours per year', 'Hours with shuttle buses on part of the line · overlaps count once')
-        shuttles = started[started['incident_effect'] == 'Shuttle'].rename(
+# ── Out-of-service hours per year, by line ────────────────────────────────────
+# Shuttles and suspensions together: the MBTA's labels for the two overlap (the
+# 2022 Orange Line shutdown, run with shuttle buses, was posted as a
+# suspension), and either way trains weren't running on part of the line.
+OUT_OF_SERVICE_EFFECTS = ['Shuttle', 'Suspension']
+
+with outage_col:
+    with st.container(key='card_out_of_service'):
+        card_title('Out-of-service hours per year',
+                   'Hours with part of the line suspended or on shuttle buses · overlaps count once')
+        outages = started[started['incident_effect'].isin(OUT_OF_SERVICE_EFFECTS)].rename(
             columns={'incident_start_at': 'start_at', 'incident_end_at': 'end_at'})
-        hours = (hours_by_year(shuttles[['line_name', 'start_at', 'end_at']], now)
+        hours = (hours_by_year(outages[['line_name', 'start_at', 'end_at']], now)
                  .pivot(index='year', columns='line_name', values='hours')
                  .reindex(index=years, columns=selected_lines).fillna(0))
         fig = go.Figure()
@@ -1196,17 +1213,19 @@ with shuttle_col:
                 hovertemplate=f'%{{x}} · {line}: %{{y:,.0f}} hours<extra></extra>',
             ))
         totals = hours.sum(axis=1)
-        fig.add_trace(go.Scatter(
-            x=year_labels, y=totals, mode='text', text=[f'{h / 1000:.{1 if h < 10_000 else 0}f}K' for h in totals],
-            textposition='top center', textfont=dict(color=INK_2, size=11), showlegend=False, hoverinfo='skip',
-            cliponaxis=False,
-        ))
         style(fig, height=300, legend=True)
         # Legend in line order, as everywhere else
         # (Plotly reverses it for stacks).
         fig.update_layout(barmode='stack', barcornerradius=4, legend_traceorder='normal')
         year_axis(fig)
-        count_axis(fig, max(totals.max(), 1) * 1.12)
+        in_thousands = count_axis(fig, max(totals.max(), 1) * 1.12)
+        # Each year's total, in the axis's own units: 8.3K beside a K axis,
+        # 1,926 beside one in hundreds (a single line's hours).
+        fig.add_trace(go.Scatter(
+            x=year_labels, y=totals, mode='text', text=[fmt_count(h, thousands=in_thousands) for h in totals],
+            textposition='top center', textfont=dict(color=INK_2, size=11), showlegend=False, hoverinfo='skip',
+            cliponaxis=False,
+        ))
         show(fig)
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1279,7 +1298,6 @@ for line in selected_lines:
                           change_vs(current, baseline, baseline_month_label)] if part),
                       color=LINE_COLORS[line]))
 kpi_tiles(tiles)
-st.write('')
 
 # ── Monthly ridership: the last 2 years, or everything ────────────────────────
 # Average per day, not monthly totals: months run 28–31 days, which would move
@@ -1333,18 +1351,17 @@ with st.container(key='card_monthly'):
                 line=dict(color=LINE_COLORS[line], width=2.5), hoverinfo='skip',
             ))
             if not trend.empty:
-                # Name only: the trend's value isn't the tiles' latest
-                # month, so it stays in the hover.
                 ends.append((line, trend['month_start'].iloc[-1], trend['trend'].iloc[-1], line))
         else:
             last = m.iloc[-1]
-            ends.append((line, last['month_start'], last['daily_avg'], f"{line} · {fmt_count(last['daily_avg'])}"))
+            ends.append((line, last['month_start'], last['daily_avg'], line))
     top = shown['daily_avg'].max()
     label_line_ends(fig, ends, top)
     style(fig, height=360)
-    # The end labels live in the right margin: names only in all history,
-    # name and value otherwise.
-    fig.update_layout(margin=dict(l=4, r=84 if show_all else 128, t=28 if show_all else 8, b=4),
+    # The end labels, names only, live in the right margin. No values: the 2
+    # years' last month is the tiles' above, the trend isn't, and the hover
+    # has both; a value would cost the plot a third of its width on a phone.
+    fig.update_layout(margin=dict(l=4, r=84, t=28 if show_all else 8, b=4),
                       hovermode='x unified')
     # A fixed range: left to autorange, Plotly stretches the axis to fit the end
     # labels, which squeezes the lines on a phone. Ticks
@@ -1548,9 +1565,9 @@ st.markdown(f"""
   <a href="{REPO_URL}" target="_blank" rel="noopener">Source code, decision records, and runbook on GitHub</a><br>
   <b>Stack</b> · Python ingest jobs on Cloud Run · BigQuery (bronze, silver, gold) · dbt Core · Terraform ·
   GitHub Actions · Streamlit<br>
-  <b>Sources</b> · MBTA V3 API (alerts since Oct 2026, routes, stops) · MBTA LAMP archive (the alerts the API's
-  snapshots missed, from Sep 2019; topped up weekly) · MBTA Gated Station Entries (ArcGIS Open Data, with its
-  yearly archive from 2014) · NOAA GHCN-Daily, Boston Logan (USW00014739)<br>
+  <b>Sources</b> · MBTA V3 API (alerts since Oct 2026, routes, stops, line shapes) · MBTA LAMP archive (the
+  alerts the API's snapshots missed, from Sep 2019; topped up weekly) · MBTA Gated Station Entries (ArcGIS Open
+  Data, with its yearly archive from 2014) · NOAA GHCN-Daily, Boston Logan (USW00014739)<br>
   <b>Refresh</b> · Page data hourly, from alerts checked every 15 minutes · Weather daily
   (NOAA posts ~3 days behind) · Ridership weekly (MBTA posts in batches, weeks to months behind)<br>
   <b>Incidents</b> · An incident groups the alerts the MBTA posts for one event (same route, cause, effect, and

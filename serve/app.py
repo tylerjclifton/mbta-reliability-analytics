@@ -2,8 +2,9 @@
 Dashboard — MBTA Reliability & Ridership, served with Streamlit
 
 Reads:      gold.rail_incidents, gold.rail_incident_stations,
-            gold.rail_stations, gold.rail_shapes, gold.rail_ridership,
-            gold.rail_delay_estimates (cached for 15 minutes)
+            gold.rail_incident_periods, gold.rail_stations, gold.rail_shapes,
+            gold.rail_ridership, gold.rail_delay_estimates (cached for 15
+            minutes)
 Deployed:   Cloud Run service `serve` (infra/cloud-run-services.tf), public at
             tylerclifton.com
 
@@ -78,7 +79,6 @@ from pandas.tseries.holiday import USFederalHolidayCalendar
 # Import dashboard helpers
 from helpers import (
     TIMEZONE,
-    active_at,
     decode_polyline,
     effect_vs_calm,
     esc,
@@ -88,6 +88,7 @@ from helpers import (
     fmt_pct,
     freshness,
     hours_by_year,
+    in_force,
     one_row_per_incident,
     pct_vs_calm,
     run_end_labels,
@@ -555,6 +556,21 @@ def load_incident_stations():
 
 
 @st.cache_data(ttl=900, show_spinner=False)
+def load_incident_periods():
+    """
+    gold.rail_incident_periods, one row per incident × route × alert period:
+    when each incident was in force.
+    """
+    df = get_client().query(f"""
+        SELECT incident_id, route_name, line_name, incident_effect, period_start_at, period_end_at
+        FROM `{PROJECT_ID}.{GOLD_DATASET}.rail_incident_periods`
+    """).to_dataframe()
+    for col in ['period_start_at', 'period_end_at']:
+        df[col] = pd.to_datetime(df[col], utc=True)
+    return df
+
+
+@st.cache_data(ttl=900, show_spinner=False)
 def load_stations():
     """gold.rail_stations, one row per station × line: the map's backdrop."""
     return get_client().query(f"""
@@ -628,6 +644,7 @@ if 'loaded' not in st.session_state:
 
 incidents_all = load_incidents()
 incident_stations_all = load_incident_stations()
+incident_periods_all = load_incident_periods()
 stations_all = load_stations()
 shapes_all = load_shapes()
 delay_estimates_all = load_delay_estimates()
@@ -693,7 +710,8 @@ selected_lines = st.pills(
 
 incidents = incidents_all[incidents_all['line_name'].isin(selected_lines)]
 incident_stations = incident_stations_all[incident_stations_all['line_name'].isin(selected_lines)]
-stations = stations_all[stations_all['line_name'].isin(selected_lines)]
+incident_periods = incident_periods_all[incident_periods_all['line_name'].isin(selected_lines)]
+stations =stations_all[stations_all['line_name'].isin(selected_lines)]
 shapes = shapes_all[shapes_all['line_name'].isin(selected_lines)]
 delay_estimates = delay_estimates_all[delay_estimates_all['line_name'].isin(selected_lines)]
 ridership = ridership_all[ridership_all['line_name'].isin(selected_lines)]
@@ -704,9 +722,12 @@ ridership = ridership_all[ridership_all['line_name'].isin(selected_lines)]
 
 section('Service status', 'Incidents on the selected lines right now, and planned work ahead.')
 
-active = one_row_per_incident(active_at(incidents, now)).sort_values('incident_start_at', ascending=False)
+# Incidents in force now or still to come, dated by the period that matters
+# now: planned work posted for several weekends shows the current or next one.
+current = in_force(incidents, incident_periods, now)
+active = one_row_per_incident(current[current['is_active']]).sort_values('incident_start_at', ascending=False)
 
-upcoming = one_row_per_incident(incidents[incidents['incident_start_at'] > now]).sort_values('incident_start_at')
+upcoming = one_row_per_incident(current[~current['is_active']]).sort_values('incident_start_at')
 upcoming_30d = upcoming[upcoming['incident_start_at'] <= now + pd.Timedelta(days=30)]
 
 # Incidents that have started. `started` keeps gold's incident × route rows (for
@@ -801,10 +822,13 @@ def station_markers(hits, planned=False):
                  lon=('station_longitude', 'first'), detail=('detail', lambda x: '<br>'.join(sorted(set(x))))))
 
 
-# Incidents affecting stations right now, and planned
-# ones starting within 30 days.
-active_hits = active_at(incident_stations, now)
-planned_hits = incident_stations[incident_stations['incident_start_at'].between(now, now + pd.Timedelta(days=30))]
+# Stations hit by incidents in force right now, and by planned ones starting
+# within 30 days, on the same dates as the status cards above.
+hits = (incident_stations.drop(columns=['incident_start_at', 'incident_end_at'])
+        .merge(current[['incident_id', 'route_name', 'incident_start_at', 'incident_end_at', 'is_active']],
+               on=['incident_id', 'route_name']))
+active_hits = hits[hits['is_active']]
+planned_hits = hits[~hits['is_active'] & (hits['incident_start_at'] <= now + pd.Timedelta(days=30))]
 
 
 def station_map(backdrop, shapes, markers, height=560):
@@ -1200,8 +1224,10 @@ with outage_col:
     with st.container(key='card_out_of_service'):
         card_title('Out-of-service hours per year',
                    'Hours with part of the line suspended or on shuttle buses · overlaps count once')
-        outages = started[started['incident_effect'].isin(OUT_OF_SERVICE_EFFECTS)].rename(
-            columns={'incident_start_at': 'start_at', 'incident_end_at': 'end_at'})
+        # By period, so planned work posted for several weekends counts only
+        # those weekends.
+        outages = incident_periods[incident_periods['incident_effect'].isin(OUT_OF_SERVICE_EFFECTS)].rename(
+            columns={'period_start_at': 'start_at', 'period_end_at': 'end_at'})
         hours = (hours_by_year(outages[['line_name', 'start_at', 'end_at']], now)
                  .pivot(index='year', columns='line_name', values='hours')
                  .reindex(index=years, columns=selected_lines).fillna(0))

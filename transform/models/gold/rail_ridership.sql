@@ -9,7 +9,7 @@
   day, so the dashboard can compare ridership by effect against calm days.
 
   Steps:
-    1. incident_counts — count distinct incidents active per service date ×
+    1. incident_counts — count distinct incidents in force per service date ×
                          line, the day's most severe effect, and whether it
                          was calm
     2. final select    — ridership + incident count and effect + weather
@@ -17,9 +17,11 @@
 
 WITH
 
-    -- 1. An incident counts toward every service date between its start and
-    --    end (or today, if ongoing). Incidents are per route; COUNT(DISTINCT)
-    --    counts one that spans several Green Line branches once for the line.
+    -- 1. An incident counts toward every service date one of its periods
+    --    covers (gold.rail_incident_periods; to today if ongoing), so planned
+    --    work posted for several weekends leaves the weekdays between them
+    --    alone. Periods are per route; COUNT(DISTINCT) counts an incident on
+    --    several Green Line branches once for the line.
     incident_counts AS (
         SELECT
             d.service_date,
@@ -39,10 +41,10 @@ WITH
             -- disqualifies the day. Days with no incident count 0 here.
             COUNTIF(i.incident_effect != 'Station Closure') = 0 AS is_calm_day
         FROM {{ ref('mbta_ridership__base') }} AS d
-        LEFT JOIN {{ ref('rail_incidents') }} AS i
+        LEFT JOIN {{ ref('rail_incident_periods') }} AS i
             ON  d.line_name = i.line_name
-            AND d.service_date BETWEEN i.incident_start_date
-                AND COALESCE(i.incident_end_date, CURRENT_DATE('{{ var("local_timezone") }}'))
+            AND d.service_date BETWEEN i.period_start_date
+                AND COALESCE(i.period_end_date, CURRENT_DATE('{{ var("local_timezone") }}'))
         GROUP BY
             d.service_date,
             d.line_name

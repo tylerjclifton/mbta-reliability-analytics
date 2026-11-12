@@ -2,7 +2,7 @@
   silver.lamp_alerts__by_route — one row per LAMP alert × rail route
 
   silver.lamp_alerts__base split into one row per rail route its entities
-  name, with the columns of silver.mbta_alerts__by_route plus the close time.
+  name, with the same columns as silver.mbta_alerts__by_route.
   A reshaping step with no business rules: silver.mbta_alerts__resolved takes
   from here the alerts the snapshots never saw (decision 0016).
 
@@ -17,6 +17,7 @@ SELECT
     rail.route_id,
     a.posted_start_at,
     a.posted_end_at,
+    a.active_periods,
     a.alert_duration_certainty,
     a.alert_header,
     a.alert_description,

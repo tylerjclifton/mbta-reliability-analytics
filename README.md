@@ -91,7 +91,7 @@ Each layer is its own BigQuery dataset, with a dev sandbox beside it for local w
 | Layer | Stored as | Written by | Role |
 |---|---|---|---|
 | `bronze` | Append-only tables (Terraform-managed, deletion-protected; [0013](docs/decisions/0013-bronze-tables-in-terraform.md)) | Ingest jobs | Raw history. Each run appends a new version of every record it saw; rows are never updated or deleted, so nothing depends on a source keeping its own history ([0001](docs/decisions/0001-append-only-bronze.md)) |
-| `silver` | Views, and six tables (below) | dbt | Each source's **cleaned copy** (latest version, renamed and typed, unit conversion, QC filtering), plus steps that each do **one job** (split alerts by route or station, resolve start/end, group into incidents) |
+| `silver` | Views, and five tables (below) | dbt | Each source's **cleaned copy** (latest version, renamed and typed, unit conversion, QC filtering), plus steps that each do **one job** (split alerts by route or station, resolve start/end, group into incidents) |
 | `gold` | Tables, rebuilt hourly (slow-changing ones daily) | dbt | Cross-source joins served to the dashboard |
 
 | Bronze table | Grain | How it grows |
@@ -109,13 +109,14 @@ Silver models are named `<bronze table>__<step>`. `__base` is each source's clea
 
 | Silver model | Grain | What it is |
 |---|---|---|
-| `mbta_alerts__base` | alert | Each alert's latest full JSON (incremental table) |
-| `mbta_alerts__by_route` | alert × route | Each alert seen since full-JSON capture began, split into one row per rail route (incremental table) |
-| `lamp_alerts__base` | alert | Each rail alert's latest version in the LAMP archive, renamed toward the API's names (incremental table) |
+| `mbta_alerts__base` | alert | Each alert's latest version: its JSON's fields typed, and the JSON itself (incremental table) |
+| `mbta_alerts__by_route` | alert × route | Those alerts split into one row per rail route |
+| `lamp_alerts__base` | alert | Each rail alert's latest version in the LAMP archive, with the same columns (incremental table) |
 | `lamp_alerts__by_route` | alert × route | Those LAMP alerts split into one row per rail route |
 | `mbta_alerts__resolved` | alert × route | Service-affecting alerts with their real start and end, and whether they're still in the feed: from the snapshots, or from LAMP for alerts they never saw (table) |
 | `mbta_alerts__grouped` | alert × route | Each alert tagged with its incident, with readable labels and durations (gold reads this; `gold.rail_incidents` has one row per incident) (table) |
 | `mbta_alerts__by_station` | alert × route × station | Which stations each alert affects, and in which direction (table) |
+| `mbta_alerts__by_period` | alert × route × period | When each alert was in force: each period it posted, cut off where it stopped |
 | `mbta_routes__base` | route | Each rail route and the line it belongs to |
 | `mbta_stops__base` | stop × route | Every station and platform, mapped to its station, with coordinates |
 | `mbta_shapes__base` | shape × route | The path of each rail route's patterns, from the latest snapshot only |
@@ -126,13 +127,14 @@ Silver models are named `<bronze table>__<step>`. `__base` is each source's clea
 |---|---|---|
 | `rail_incidents` | incident × route | One row per real-world event — the MBTA's re-posted/follow-up alerts collapsed (dashboard reads this), with how many stations it names |
 | `rail_incident_stations` | incident × route × station | The stations each incident names, with coordinates and direction, for the map |
+| `rail_incident_periods` | incident × route × period | When each incident was in force, with the service dates it covers: hours out of service, which days had a shuttle, what's in force now |
 | `rail_stations` | station × line | Every rail station's coordinates, the map's backdrop |
 | `rail_shapes` | shape × route | Each rail route's official path, for drawing the lines on the map |
 | `rail_ridership` | service date × line | Gated entries, active incident count, the day's most severe alert effect, whether it was a calm day, and weather |
 | `rail_delay_estimates` | alert × line | Each subway delay's first posted end against its all-clear, from the LAMP archive |
 
-**Six silver models are tables, not views; everything else in silver is a view, recomputed every run** ([0010](docs/decisions/0010-silver-naming-and-materialization.md)):
-- **Incremental tables:** `mbta_alerts__base`, `mbta_alerts__by_route`, and `lamp_alerts__base`. Alert snapshots add ~15 GB/year to bronze (the whole feed, every mode; [0011](docs/decisions/0011-capture-every-mode.md)), and a view would re-read all of it for every model and test that uses alerts, outgrowing the free query tier within a year. The two snapshot tables read only snapshots added since the last run, and the LAMP table reads bronze only after a new load, so cost stays flat; `dbt build --full-refresh` rebuilds them from bronze.
+**Five silver models are tables, not views; everything else in silver is a view, recomputed every run** ([0010](docs/decisions/0010-silver-naming-and-materialization.md)):
+- **Incremental tables:** `mbta_alerts__base` and `lamp_alerts__base`, each source's cleaned copy. Alert snapshots add ~15 GB/year to bronze (the whole feed, every mode; [0011](docs/decisions/0011-capture-every-mode.md)), and a view would re-read all of it for every model and test that uses alerts, outgrowing the free query tier within a year. The snapshot table reads only snapshots added since the last run, and the LAMP table reads bronze only after a new load, so cost stays flat; `dbt build --full-refresh` rebuilds them from bronze. Both parse their source into the same typed columns once, and the steps after them read those.
 - **Tables rebuilt every run:** `mbta_alerts__resolved`, `mbta_alerts__grouped`, and `mbta_alerts__by_station`. Many tests and gold models read them, and a view reruns its whole query for each reader; as tables, their logic runs once per run.
 
 **Alert history: two sources.** Alerts seen since full-JSON capture began (2026-10-24, `alerts_raw_capture_start` in `dbt_project.yml`) come from the project's own snapshots: `bronze.mbta_alerts` holds each alert's full JSON as returned, for the whole feed (every mode since 2026-10-28), and silver keeps only rail ([0011](docs/decisions/0011-capture-every-mode.md)). Every other alert comes from the MBTA's LAMP archive (`bronze.lamp_alerts`, topped up weekly), from 2019-09-05 on: those that ended before then, and the short alerts that closed between two snapshots since ([0016](docs/decisions/0016-alerts-before-capture-from-lamp.md)). LAMP holds the same alerts with their stops and the MBTA's own close times, and it's more complete than the project's earlier pipeline, which missed many short alerts. That pipeline's shaped snapshots stay frozen in `bronze.mbta_alerts_legacy`; no model reads them.
@@ -140,6 +142,8 @@ Silver models are named `<bronze table>__<step>`. `__base` is each source's clea
 **Alerts → stations.** Alerts name the stops they affect, mostly by platform and direction. `silver.mbta_alerts__by_station` unpacks that list from each alert's latest version (its full JSON, or LAMP's entities) and rolls platforms up to their station using `silver.mbta_stops__base`, one row per alert × route × station. It sits beside the alert × route models instead of changing their grain. Shuttles, suspensions, and station closures name their stations; most delays are line-wide and name none, so `gold.rail_incidents.stations_affected` is 0 for them. A few retired platforms LAMP names have no station today and are left out (model header).
 
 **Alert end times.** An alert ends at whichever comes first: the end time the MBTA posted (an estimate, usually rounded to the hour), or when the MBTA closed it. LAMP always has the close; a snapshot has it when a run catches the alert in the few minutes it stays in the feed after closing. Otherwise a snapshot alert ends when it left the feed (midway between the last 15-minute run that saw it and the next, capped at 30 minutes after it was last seen), a few minutes after the true close ([0016](docs/decisions/0016-alerts-before-capture-from-lamp.md)). Since July 2026, 82% of alerts left the feed before their posted end.
+
+**Alert periods.** An alert posts one or more active periods; planned work can post several (each weekend of a month, or every night for a year). An alert's start and end are its first period's, so an incident is counted and timed once. `silver.mbta_alerts__by_period` keeps every period, each cut off where the alert stopped, and `gold.rail_incident_periods` serves them to the views that run by the clock: out-of-service hours, which days had a shuttle or suspension, and what's in force now or next. Their service dates follow the MBTA's 3 AM to 3 AM day, so a weekend diversion ending at 2:59 Monday morning doesn't mark Monday. LAMP stores a final version with no periods when the MBTA closes an alert; the periods come from the latest version that has them.
 
 **Alerts → incidents.** The MBTA often posts several alerts for one event (an update, or "delays due to an earlier disabled train at JFK/UMass"). `silver.mbta_alerts__grouped` groups them: same route, cause, effect, and station named in the header, starting within 2 hours of the incident's latest end (6 hours for "earlier"/"residual" follow-ups). Alerts that don't affect train service (notices, elevator/parking issues — `non_service_alert_effects` in `dbt_project.yml`) are excluded in `silver.mbta_alerts__resolved`; bronze keeps them.
 
@@ -263,8 +267,8 @@ transform/              dbt Core project
   run.py                Job entrypoint: dbt build + freshness, failure and warning reports
   models/bronze/        Source declarations + freshness thresholds
   models/silver/        __base cleaned copies + steps + data tests; unit tests for the alert rules
-  models/gold/          Dashboard tables (rail_incidents, rail_incident_stations, rail_stations, rail_shapes, rail_ridership, rail_delay_estimates) + tests
-  macros/               generate_schema_name, keep_latest_version, last_processed_snapshot, null_if_epoch, null_if_failed_ghcn_qc
+  models/gold/          Dashboard tables (rail_incidents, rail_incident_stations, rail_incident_periods, rail_stations, rail_shapes, rail_ridership, rail_delay_estimates) + tests
+  macros/               generate_schema_name, keep_latest_version, last_processed_snapshot, null_if_epoch, null_if_failed_ghcn_qc, service_date
   tests/                Generic tests (unique_combination, accepted_range) + rail_shapes_cover_every_route
 serve/                  Streamlit dashboard (app.py; pure helpers in helpers.py, tested in tests/)
 scripts/build-image.sh  Build + push a component's image (used by CI/CD)

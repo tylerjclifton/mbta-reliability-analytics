@@ -147,3 +147,11 @@ Cause shared by the incident's alerts (e.g. "Disabled Train").
 {% docs incident_effect %}
 Effect shared by the incident's alerts (e.g. "Delay", "Shuttle").
 {% enddocs %}
+
+{% docs active_periods %}
+The periods the alert posted, earliest first, each a start_at and an end_at (UTC; NULL end when open-ended). Most alerts post one; planned work can post several (each weekend of a month). Periods with no start are left out; the first is the posted start and end. See silver.mbta_alerts__by_period.
+{% enddocs %}
+
+{% docs informed_entities %}
+The alert's distinct informed entities: route_id, stop_id, and direction_id (a NULL direction means both).
+{% enddocs %}

@@ -6,8 +6,9 @@
   enums (cause_detail, effect_detail) become alert_cause and alert_effect, the
   API's names for them; epoch seconds become timestamps; and the version's rows
   (one per informed entity × active period) collapse to its entity list and
-  first active period, as silver.mbta_alerts__by_route reads the API's. Silver
-  takes the alerts the snapshots never saw from here (decision 0016).
+  active periods, the first as the posted start and end, the same columns as
+  silver.mbta_alerts__base. Silver takes the alerts the snapshots never saw
+  from here (decision 0016).
 
   The active periods come from the latest version that has any, not the latest
   version: when the MBTA closes an alert, LAMP adds a version with the close
@@ -37,8 +38,8 @@
                          that has any
     6. first_estimates — the end each alert's first version posted
     7. final select    — per alert: the latest version's fields and entities,
-                         the first of its latest periods, and the first posted
-                         end; rail alerts only
+                         its latest periods (the first as the posted start
+                         and end), and the first posted end; rail alerts only
 #}
 
 {{
@@ -185,6 +186,7 @@ SELECT
     ANY_VALUE(l.alert_duration_certainty)                      AS alert_duration_certainty,
     ANY_VALUE(p.periods)[SAFE_OFFSET(0)].start_at              AS posted_start_at,
     ANY_VALUE(p.periods)[SAFE_OFFSET(0)].end_at                AS posted_end_at,
+    COALESCE(ANY_VALUE(p.periods), [])                         AS active_periods,
     ANY_VALUE(f.first_posted_end_at)                           AS first_posted_end_at,
     ANY_VALUE(l.alert_created_at)                              AS alert_created_at,
     ANY_VALUE(l.alert_updated_at)                              AS alert_updated_at,

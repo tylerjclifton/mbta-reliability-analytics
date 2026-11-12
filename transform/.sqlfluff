@@ -27,8 +27,8 @@ load_macros_from_path = macros
 # dbt's var() needs no values here: the dbt builtins stub it to render 'item'.
 
 # Empty (falsy), like dbt's parse phase: skips run_query() blocks that need a
-# live warehouse (the incremental silver/mbta_alerts__by_route.sql and
-# silver/mbta_alerts__base.sql).
+# live warehouse (the incremental silver/mbta_alerts__base.sql and
+# silver/lamp_alerts__base.sql).
 execute =
 
 [sqlfluff:rules:convention.quoted_literals]

@@ -71,8 +71,8 @@ models:
     description: >
       One row per incident × route × station the incident's alerts name, with
       the station's coordinates and the incident's details — the dashboard's
-      map. Covers incidents since full-JSON capture began (2026-10-24) whose
-      alerts name stations.
+      map and most-affected stations. Covers incidents whose alerts name
+      stations, from the live feed or LAMP.
     data_tests:
       - unique_combination:
           arguments:
@@ -123,6 +123,49 @@ models:
         description: "{{ doc('incident_is_in_feed') }}"
       - name: ingested_at
         description: "{{ doc('ingested_at') }}"
+
+  - name: rail_incident_periods
+    description: >
+      One row per incident × route × period its alerts posted: when each
+      incident was in force, for hours out of service, which service days had
+      a shuttle or suspension (rail_ridership), and what's in force now or
+      next. Most incidents have one period; planned work can have several.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [alert_id, route_id, period_start_at]
+    columns:
+      - name: incident_id
+        description: "{{ doc('incident_id') }}"
+        data_tests: [not_null]
+      - name: route_id
+        description: "{{ doc('route_id') }}"
+        data_tests: [not_null]
+      - name: route_name
+        description: "{{ doc('route_name') }}"
+      - name: line_name
+        description: "{{ doc('line_name') }}"
+        data_tests: [not_null]
+      - name: incident_effect
+        description: "{{ doc('incident_effect') }}"
+        data_tests: [not_null]
+      - name: alert_id
+        description: The alert that posted the period; an incident's alerts can post the same one.
+        data_tests: [not_null]
+      - name: period_start_at
+        description: When the period began (UTC).
+        data_tests: [not_null]
+      - name: period_end_at
+        description: >
+          When it ended (UTC): its posted end or when its alert stopped,
+          whichever came first. NULL while in force with neither.
+      - name: period_start_date
+        description: >
+          Service date the period starts on (Eastern; a service day runs 3 AM
+          to 3 AM, macros/service_date.sql).
+        data_tests: [not_null]
+      - name: period_end_date
+        description: Service date it ends on; NULL while it has no end.
 
   - name: rail_shapes
     description: >

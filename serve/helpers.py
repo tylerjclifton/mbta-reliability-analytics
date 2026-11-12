@@ -1,10 +1,10 @@
 """
 Dashboard helpers — pure functions, tested apart from the Streamlit app
 
-Formatting, data freshness, incident shaping (which are active, one row per
-incident, hours covered per year), the ridership-vs-calm-days comparison, chart
-label spacing, decoding the map's line shapes, and choosing which affected
-stations the map names.
+Formatting, data freshness, incident shaping (which are in force now or next,
+one row per incident, hours covered per year), the ridership-vs-calm-days
+comparison, chart label spacing, decoding the map's line shapes, and choosing
+which affected stations the map names.
 
 Kept out of app.py (which starts Streamlit when imported) so they can be unit
 tested; see serve/tests/test_helpers.py.
@@ -162,13 +162,43 @@ def effect_vs_calm(days, effects, min_days):
     }).reset_index(drop=True)
 
 
-def active_at(df, now):
+def in_force(incidents, periods, now):
     """
-    Rows whose incident is in effect at `now`: started, and not
-    yet ended (NULL end = ongoing).
+    Incident × route rows in force at `now` or still to come, dated as the
+    status cards and the map show them, with is_active. The incident's own
+    span decides first (one alert, or a run of follow-ups, as
+    gold.rail_incidents spans it). Once that's over, an alert that posted
+    several periods (each weekend of a month) stands in with its current or
+    next one, on that period's dates, so a later weekend still shows.
+
+    incidents  incident_id, route_name, incident_start_at, incident_end_at,
+               incident_duration_minutes, and anything else to keep
+    periods    incident_id, route_name, period_start_at, period_end_at
+               (NaT = ongoing)
     """
-    return df[(df['incident_start_at'] <= now)
-              & (df['incident_end_at'].isna() | (df['incident_end_at'] >= now))]
+    key = ['incident_id', 'route_name']
+    own = incidents[incidents['incident_end_at'].isna() | (incidents['incident_end_at'] >= now)]
+    own = own.assign(is_active=own['incident_start_at'] <= now)
+
+    # Each incident × route's period in force, else its next one, where the
+    # incident's own span is over.
+    later = periods[periods['period_end_at'].isna() | (periods['period_end_at'] >= now)]
+    later = (later.assign(is_active=later['period_start_at'] <= now)
+             .sort_values(['is_active', 'period_start_at'], ascending=[False, True])
+             .drop_duplicates(key)[key + ['period_start_at', 'period_end_at', 'is_active']])
+    later = later[~later.set_index(key).index.isin(own.set_index(key).index)]
+    later = later.merge(incidents.drop(columns=['incident_start_at', 'incident_end_at', 'incident_duration_minutes']),
+                        on=key)
+    # Minutes: the whole period once it has an end, so far while it runs
+    # open-ended, none before an open-ended one starts.
+    length = (later['period_end_at'] - later['period_start_at']).dt.total_seconds() / 60
+    so_far = (now - later['period_start_at']).dt.total_seconds() / 60
+    later = later.assign(
+        incident_start_at=later['period_start_at'],
+        incident_end_at=later['period_end_at'],
+        incident_duration_minutes=length.where(later['period_end_at'].notna(), so_far.where(later['is_active'])),
+    )
+    return pd.concat([own, later[own.columns]], ignore_index=True)
 
 
 def decode_polyline(encoded):

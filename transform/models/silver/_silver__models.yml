@@ -21,13 +21,45 @@ models:
 
   - name: mbta_alerts__base
     description: >
-      One row per alert since full-JSON capture began (2026-10-24): its latest
-      JSON plus first/last seen. Incremental table, so each run reads only new
-      alert snapshots (see model header).
+      One row per alert since full-JSON capture began (2026-10-24), every
+      mode: its latest version, the JSON's fields typed (the same columns as
+      lamp_alerts__base; enums as the API sends them), the JSON itself, and
+      first/last seen. Incremental table, so each run reads only new alert
+      snapshots (see model header).
     columns:
       - name: alert_id
         description: "{{ doc('alert_id') }}"
         data_tests: [unique, not_null]
+      - name: alert_header
+        description: "{{ doc('alert_header') }}"
+      - name: alert_description
+        description: "{{ doc('alert_description') }}"
+      - name: alert_cause
+        description: MBTA cause enum (e.g. SIGNAL_PROBLEM).
+      - name: alert_effect
+        description: MBTA effect enum (e.g. DELAY, SHUTTLE).
+        data_tests: [not_null]
+      - name: alert_severity
+        description: "{{ doc('alert_severity') }}"
+      - name: alert_duration_certainty
+        description: MBTA enum (KNOWN, ESTIMATED, UNKNOWN).
+      - name: posted_start_at
+        description: Start of the first active period (UTC); NULL when it posted none.
+      - name: posted_end_at
+        description: End of that period (UTC); NULL when open-ended.
+      - name: active_periods
+        description: "{{ doc('active_periods') }}"
+      - name: alert_created_at
+        description: "{{ doc('alert_created_at') }}"
+        data_tests: [not_null]
+      - name: alert_updated_at
+        description: "{{ doc('alert_updated_at') }}"
+      - name: alert_closed_at
+        description: >
+          When the MBTA closed the alert (UTC), if a snapshot caught it after
+          closing; alerts stay in the feed only a few minutes after.
+      - name: informed_entities
+        description: "{{ doc('informed_entities') }}"
       - name: alert_json
         description: The alert's latest JSON:API object, exactly as the API returned it.
         data_tests: [not_null]
@@ -60,6 +92,8 @@ models:
           when no version posted one.
       - name: posted_end_at
         description: End of that period (UTC); NULL when open-ended.
+      - name: active_periods
+        description: "{{ doc('active_periods') }}"
       - name: first_posted_end_at
         description: >
           The earliest end the alert's first version posted (UTC): the MBTA's
@@ -275,11 +309,9 @@ models:
   - name: mbta_alerts__by_route
     description: >
       One row per alert × route seen since full-JSON capture began
-      (2026-10-24): the latest snapshot split by rail route and renamed to
-      project conventions (enum values as the API sends them), plus first/last
-      seen. Earlier alerts come from LAMP (lamp_alerts__by_route). Incremental
-      table, so the transform reads only new snapshots instead of re-reading
-      all of bronze (see model header).
+      (2026-10-24): mbta_alerts__base split by the rail routes its entities
+      name, with its typed columns (enum values as the API sends them) and
+      first/last seen. Other alerts come from LAMP (lamp_alerts__by_route).
     data_tests:
       - unique_combination:
           arguments:
@@ -295,6 +327,8 @@ models:
         description: Start the MBTA posted (UTC); NULL when unset (the API's epoch placeholder).
       - name: posted_end_at
         description: End the MBTA posted (UTC), an estimate usually on the hour; NULL when unset.
+      - name: active_periods
+        description: "{{ doc('active_periods') }}"
       - name: alert_duration_certainty
         description: MBTA enum (KNOWN, ESTIMATED, UNKNOWN).
       - name: alert_header
@@ -325,8 +359,8 @@ models:
   - name: lamp_alerts__by_route
     description: >
       One row per LAMP alert × rail route: lamp_alerts__base split by the rail
-      routes its entities name, with mbta_alerts__by_route's columns plus the
-      close time. mbta_alerts__resolved takes the alerts that ended before
+      routes its entities name, with mbta_alerts__by_route's columns.
+      mbta_alerts__resolved takes the alerts that ended before
       full-JSON capture from here (decision 0016).
     data_tests:
       - unique_combination:
@@ -372,6 +406,10 @@ models:
         data_tests: [not_null]
       - name: alert_end_at
         description: "{{ doc('alert_end_at') }}"
+      - name: active_periods
+        description: >
+          {{ doc('active_periods') }} alert_start_at and alert_end_at resolve
+          the first; mbta_alerts__by_period resolves each.
       - name: ingested_at
         description: >
           When the run that wrote this version started (UTC): the last-seen
@@ -383,6 +421,32 @@ models:
           - accepted_values:
               arguments:
                 values: [ingest-mbta-alerts, ingest-lamp-alerts]
+
+  - name: mbta_alerts__by_period
+    description: >
+      One row per service-affecting alert × route × active period that took
+      effect, each period cut off where the alert stopped (its close, or
+      leaving the feed); an alert that posted none is its resolved span. When
+      alerts were in force by the clock, beside the alert × route grain (see
+      model header).
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [alert_id, route_id, period_start_at]
+    columns:
+      - name: alert_id
+        description: "{{ doc('alert_id') }}"
+        data_tests: [not_null]
+      - name: route_id
+        description: "{{ doc('route_id') }}"
+        data_tests: [not_null]
+      - name: period_start_at
+        description: When the period began (UTC).
+        data_tests: [not_null]
+      - name: period_end_at
+        description: >
+          When it ended (UTC): its posted end or when the alert stopped,
+          whichever came first. NULL while in force with neither.
 
   - name: mbta_alerts__grouped
     description: >

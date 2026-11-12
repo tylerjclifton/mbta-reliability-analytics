@@ -12,7 +12,6 @@ import pytest
 
 # Import the helpers under test
 from helpers import (
-    active_at,
     decode_polyline,
     effect_vs_calm,
     fmt_count,
@@ -20,6 +19,7 @@ from helpers import (
     fmt_pct,
     freshness,
     hours_by_year,
+    in_force,
     join_routes,
     one_row_per_incident,
     pct_vs_calm,
@@ -86,16 +86,56 @@ def test_join_routes_compacts_green_line_branches():
     assert join_routes(['Red Line', 'Orange Line']) == 'Orange Line, Red Line'
 
 
-def test_active_at_keeps_started_and_unended_incidents():
-    now = pd.Timestamp('2026-10-20 12:00', tz='UTC')
-    df = pd.DataFrame({
-        'incident_id': ['ongoing', 'ends_later', 'ended', 'not_started'],
-        'incident_start_at': pd.to_datetime(['2026-10-20 08:00', '2026-10-20 11:00',
-                                             '2026-10-20 09:00', '2026-10-21 08:00'], utc=True),
-        'incident_end_at': pd.to_datetime([None, '2026-10-20 13:00', '2026-10-20 10:00', None], utc=True),
+def in_force_inputs():
+    """
+    Five Red Line incidents at noon on Oct 20, and their alerts' periods.
+    weekends posted Oct 17–19 and Oct 24–26: its own span is the first
+    weekend (over), so the second stands in, next.
+    """
+    ts = lambda values: pd.to_datetime(values, utc=True)  # noqa: E731
+    incidents = pd.DataFrame({
+        'incident_id': ['ongoing', 'ends_later', 'ended', 'not_started', 'weekends'],
+        'route_name': 'Red Line',
+        'incident_start_at': ts(['2026-10-20 08:00', '2026-10-20 11:00', '2026-10-20 09:00',
+                                 '2026-10-21 08:00', '2026-10-17 07:00']),
+        'incident_end_at': ts([None, '2026-10-20 13:00', '2026-10-20 10:00', None, '2026-10-19 07:00']),
+        'incident_duration_minutes': [240, 120, 60, None, 2880],
+        'incident_header': ['a', 'b', 'c', 'd', 'Shuttles two weekends'],
     })
+    periods = pd.DataFrame({
+        'incident_id': ['ongoing', 'ends_later', 'ended', 'not_started', 'weekends', 'weekends'],
+        'route_name': 'Red Line',
+        'period_start_at': ts(['2026-10-20 08:00', '2026-10-20 11:00', '2026-10-20 09:00',
+                               '2026-10-21 08:00', '2026-10-17 07:00', '2026-10-24 07:00']),
+        'period_end_at': ts([None, '2026-10-20 13:00', '2026-10-20 10:00', None,
+                             '2026-10-19 07:00', '2026-10-26 07:00']),
+    })
+    return incidents, periods
 
-    assert active_at(df, now)['incident_id'].tolist() == ['ongoing', 'ends_later']
+
+def test_in_force_keeps_incidents_running_or_to_come_on_their_own_span():
+    incidents, periods = in_force_inputs()
+    out = in_force(incidents, periods, pd.Timestamp('2026-10-20 12:00', tz='UTC')).set_index('incident_id')
+
+    assert out[out['is_active']].index.tolist() == ['ongoing', 'ends_later']
+    assert 'ended' not in out.index
+    assert not out.loc['not_started', 'is_active']
+    assert out.loc['ongoing', 'incident_duration_minutes'] == 240
+
+
+def test_in_force_shows_a_later_period_on_its_own_dates():
+    incidents, periods = in_force_inputs()
+
+    # Between the weekends: the second is next, dated as itself.
+    upcoming = in_force(incidents, periods, pd.Timestamp('2026-10-20 12:00', tz='UTC')).set_index('incident_id')
+    assert not upcoming.loc['weekends', 'is_active']
+    assert upcoming.loc['weekends', 'incident_start_at'] == pd.Timestamp('2026-10-24 07:00', tz='UTC')
+    assert upcoming.loc['weekends', 'incident_duration_minutes'] == 2880
+    assert upcoming.loc['weekends', 'incident_header'] == 'Shuttles two weekends'
+
+    # During the second weekend: in force.
+    during = in_force(incidents, periods, pd.Timestamp('2026-10-25 12:00', tz='UTC')).set_index('incident_id')
+    assert during.loc['weekends', 'is_active']
 
 
 def test_one_row_per_incident_collapses_branches():

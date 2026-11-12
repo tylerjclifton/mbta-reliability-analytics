@@ -12,7 +12,7 @@
 # maximum_bytes_billed (50 GiB, ~$0.30) fails any single query that would bill
 # more: the transform's cost guardrail, in place of a project-wide daily cap
 # (decision 0004). Sized for the biggest query the transform can run, a full
-# rebuild of silver.mbta_alerts__by_route, which reads every alert snapshot;
+# rebuild of silver.mbta_alerts__base, which reads every alert snapshot;
 # that outgrows the limit around mid-2030 (tracked in docs/roadmap.md). Hourly
 # incremental runs read only new snapshots (KBs).
 # ══════════════════════════════════════════════════════════════════════════════

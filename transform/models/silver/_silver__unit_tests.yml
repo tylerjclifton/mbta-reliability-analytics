@@ -14,6 +14,7 @@ version: 2
 #                          30-minute midpoint cap; LAMP's close), start
 #                          fallback, which alerts are dropped, which source an
 #                          alert comes from
+#   mbta_alerts__by_period each period cut off where its alert stopped
 #   mbta_alerts__grouped   2- and 6-hour follow-up windows (and their edges),
 #                          what keeps alerts apart (route, cause, location)
 #
@@ -265,6 +266,95 @@ unit_tests:
         - {alert_id: never_closed,      is_in_feed: false, alert_end_at: '2025-06-02 23:00:00'}
         - {alert_id: seen_by_snapshots, is_in_feed: true,  alert_end_at: null}
         - {alert_id: ended_after_capture, is_in_feed: false, alert_end_at: '2026-01-05 00:10:00'}
+
+  # ── mbta_alerts__by_period ──────────────────────────────────────────────────
+
+  - name: by_period_cuts_periods_where_the_alert_stopped
+    description: >
+      Each posted period ends at its own end or where the alert stopped (its
+      close, or leaving the feed), whichever is first; a period after the alert
+      stopped never happened. An open-ended period still in force has no end,
+      and an alert that posted none is its resolved span.
+    model: mbta_alerts__by_period
+    given:
+      # SQL rows, since the input has an array of periods.
+      - input: ref('mbta_alerts__resolved')
+        format: sql
+        rows: |
+          SELECT
+              alert_id,
+              'Red' AS route_id,
+              active_periods,
+              alert_start_at,
+              alert_end_at,
+              alert_closed_at,
+              is_in_feed,
+              left_feed_at
+          FROM UNNEST([
+              -- Posted for June 2–4, closed early on the 4th at 03:00.
+              STRUCT(
+                  'closed_early' AS alert_id,
+                  [STRUCT(TIMESTAMP '2025-06-02 05:00:00' AS start_at, TIMESTAMP '2025-06-04 05:00:00' AS end_at)]
+                      AS active_periods,
+                  TIMESTAMP '2025-06-02 05:00:00' AS alert_start_at,
+                  TIMESTAMP '2025-06-04 03:00:00' AS alert_end_at,
+                  TIMESTAMP '2025-06-04 03:00:00' AS alert_closed_at,
+                  FALSE AS is_in_feed,
+                  CAST(NULL AS TIMESTAMP) AS left_feed_at
+              ),
+              -- Three weekends posted, closed before the third.
+              STRUCT(
+                  'weekends',
+                  [
+                      STRUCT(TIMESTAMP '2025-06-07 07:00:00', TIMESTAMP '2025-06-09 07:00:00'),
+                      STRUCT(TIMESTAMP '2025-06-14 07:00:00', TIMESTAMP '2025-06-16 07:00:00'),
+                      STRUCT(TIMESTAMP '2025-06-21 07:00:00', TIMESTAMP '2025-06-23 07:00:00')
+                  ],
+                  TIMESTAMP '2025-06-07 07:00:00',
+                  TIMESTAMP '2025-06-09 07:00:00',
+                  TIMESTAMP '2025-06-18 12:00:00',
+                  FALSE,
+                  CAST(NULL AS TIMESTAMP)
+              ),
+              -- Open-ended and still in the feed.
+              STRUCT(
+                  'ongoing',
+                  [STRUCT(TIMESTAMP '2025-06-02 05:00:00', CAST(NULL AS TIMESTAMP))],
+                  TIMESTAMP '2025-06-02 05:00:00',
+                  CAST(NULL AS TIMESTAMP),
+                  CAST(NULL AS TIMESTAMP),
+                  TRUE,
+                  CAST(NULL AS TIMESTAMP)
+              ),
+              -- Open-ended, left the feed at 09:30.
+              STRUCT(
+                  'left_feed',
+                  [STRUCT(TIMESTAMP '2025-06-02 08:00:00', CAST(NULL AS TIMESTAMP))],
+                  TIMESTAMP '2025-06-02 08:00:00',
+                  TIMESTAMP '2025-06-02 09:30:00',
+                  CAST(NULL AS TIMESTAMP),
+                  FALSE,
+                  TIMESTAMP '2025-06-02 09:30:00'
+              ),
+              -- Posted no period.
+              STRUCT(
+                  'no_period',
+                  CAST([] AS ARRAY<STRUCT<start_at TIMESTAMP, end_at TIMESTAMP>>),
+                  TIMESTAMP '2025-06-02 08:00:00',
+                  TIMESTAMP '2025-06-02 08:45:00',
+                  TIMESTAMP '2025-06-02 08:45:00',
+                  FALSE,
+                  CAST(NULL AS TIMESTAMP)
+              )
+          ])
+    expect:
+      rows:
+        - {alert_id: closed_early, period_start_at: '2025-06-02 05:00:00', period_end_at: '2025-06-04 03:00:00'}
+        - {alert_id: weekends,     period_start_at: '2025-06-07 07:00:00', period_end_at: '2025-06-09 07:00:00'}
+        - {alert_id: weekends,     period_start_at: '2025-06-14 07:00:00', period_end_at: '2025-06-16 07:00:00'}
+        - {alert_id: ongoing,      period_start_at: '2025-06-02 05:00:00', period_end_at: null}
+        - {alert_id: left_feed,    period_start_at: '2025-06-02 08:00:00', period_end_at: '2025-06-02 09:30:00'}
+        - {alert_id: no_period,    period_start_at: '2025-06-02 08:00:00', period_end_at: '2025-06-02 08:45:00'}
 
   # ── mbta_alerts__grouped ────────────────────────────────────────────────────
   # Alerts are Red Line, cause DISABLED_TRAIN, effect DELAY unless a test is

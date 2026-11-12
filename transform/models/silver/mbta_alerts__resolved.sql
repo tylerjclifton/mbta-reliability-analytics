@@ -85,8 +85,9 @@ WITH
             -- Exempt from the length rule: the line is only long once
             -- the effect list is rendered.
             a.alert_effect NOT IN {{ non_service_effects }}  -- noqa: LT05
-            -- Rows last seen before full-JSON capture are history from the
-            -- frozen table, which LAMP replaces.
+            -- The seam with LAMP (decision 0016): the snapshots cover what
+            -- they saw from full-JSON capture on, as all of
+            -- silver.mbta_alerts__base is.
             AND a.last_seen_at >= {{ capture_start }}
     ),
 
@@ -117,6 +118,7 @@ SELECT
     route_id,
     posted_start_at,
     posted_end_at,
+    active_periods,
     alert_duration_certainty,
     alert_header,
     alert_description,
@@ -158,6 +160,7 @@ SELECT
     route_id,
     posted_start_at,
     posted_end_at,
+    active_periods,
     alert_duration_certainty,
     alert_header,
     alert_description,

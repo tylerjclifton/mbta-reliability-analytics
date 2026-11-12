@@ -49,7 +49,7 @@ vars:
 
 # Model configuration: one folder per layer, each built into its own dataset.
 # Silver models are views and gold models are tables, with the exceptions in
-# decision 0010: silver's three incremental tables set theirs in their own
+# decision 0010: silver's two incremental tables set theirs in their own
 # configs, and the alert models below are tables rebuilt every run, since many
 # tests and models read them and a view reruns its whole query for each. Bronze
 # is read as sources only (models/bronze/_bronze__sources.yml).

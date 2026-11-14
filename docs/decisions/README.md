@@ -15,6 +15,7 @@ Numbers are assigned in the order records are written and never change. The inde
 | [0013](0013-bronze-tables-in-terraform.md) | Bronze tables are defined in Terraform, not by ingest or dbt | Accepted |
 | [0015](0015-ridership-history-from-archive.md) | Ridership before the live layer comes from the MBTA's yearly archive, into the same bronze table | Accepted |
 | [0016](0016-alerts-before-capture-from-lamp.md) | Alerts from before full-JSON capture come from the MBTA's LAMP archive | Accepted |
+| [0018](0018-ridership-for-every-mode.md) | Ridership for every mode from the MBTA's monthly figures; ferry trips with their times | Accepted |
 
 ## Modeling
 

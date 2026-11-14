@@ -34,6 +34,14 @@ The ridership layer holds only its last two years. Days before 2024-10-01 come f
 gcloud run jobs execute ingest-mbta-ridership --region us-east1 --update-env-vars FROM_ARCHIVE=true --wait
 ```
 
+### Backfill ferry trips
+
+`ingest-mbta-ferry-trips` re-pulls the last year of service each week, since the MBTA publishes ferry trips months late ([0018](decisions/0018-ridership-for-every-mode.md)). The whole layer (2018-11 on, ~400,000 trip legs) was loaded once when the job was added; re-run it whole only if the MBTA revises older years.
+
+```bash
+gcloud run jobs execute ingest-mbta-ferry-trips --region us-east1 --wait --update-env-vars LOOKBACK_DAYS=4000
+```
+
 ### Load the LAMP alerts archive
 
 `ingest-lamp-alerts` runs weekly and loads only the rows LAMP modified in the last two weeks: the alerts the 15-minute snapshots missed, and the MBTA's close times ([0016](decisions/0016-alerts-before-capture-from-lamp.md)). Run it by hand after a missed week, or with a longer window to pick up a correction LAMP makes to older alerts; silver drops the rows a load repeats.
@@ -87,9 +95,9 @@ Re-run the GitHub Actions deploy for an earlier commit, or revert the commit and
 
 Every deploy ends with a transform run, whose freshness check fails on an empty bronze table. So a new source ships in two pushes ([0006](decisions/0006-deploy-only-through-ci.md)):
 
-1. Push the ingest job, its bronze table (`local.bronze_tables` in `infra/bigquery.tf`), and its schedule, with no models that read it.
+1. Push the ingest job, its bronze table (`local.bronze_tables` in `infra/bigquery.tf`), and its schedule, with no models that read it. Declare the table in `transform/models/bronze/_bronze__sources.yml` with no freshness check yet, so prose may name it (the conventions check) and the deploy's freshness check skips it.
 2. Once that deploy passes, seed the table: `gcloud run jobs execute ingest-<source>-<entity> --region us-east1 --wait`. Check the rows landed in `bronze.<source>_<entity>`.
-3. Push the source declaration (`transform/models/bronze/_bronze__sources.yml`) and the models that read it.
+3. Push the table's freshness check and the models that read it.
 
 ### Clean up after renaming a dbt model
 

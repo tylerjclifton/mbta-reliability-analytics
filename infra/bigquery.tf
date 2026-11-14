@@ -151,6 +151,50 @@ locals {
       ]
     }
 
+    # Every mode, monthly, as published: unlinked trips, not gated entries, and
+    # some rows are subtotals of others (decision 0018).
+    mbta_mode_ridership = {
+      description = "Monthly riders on every MBTA mode and line, as the MBTA reports them to the National Transit Database (MBTA ArcGIS open data), from 2018-07; the whole layer every run, subtotals included (decision 0018). Grain: month × day type × mode or line × ingest run."
+      clustering  = ["month_of_service", "route_or_line"]
+      columns = [
+        { name = "month_of_service", type = "DATE", description = "First day of the month" },
+        { name = "daytype", type = "STRING", description = "Weekday, Saturday, Sunday, or Total (the three together)" },
+        { name = "daycount", type = "INTEGER", description = "Days of that type in the month" },
+        { name = "route_or_line", type = "STRING", description = "Mode or line as published (e.g. Bus, Red Line); Heavy Rail, Light Rail, and All Bus are subtotals of others" },
+        { name = "ridership_total", type = "INTEGER", description = "Unlinked trips over the month's days of that type (a ride with a transfer counts twice)" },
+        { name = "ridership_average", type = "INTEGER", description = "Unlinked trips per day of that type" },
+      ]
+    }
+
+    # Ferry trip legs as published: actual times and rider counts are text, and
+    # "NA" marks a missing value (decision 0018).
+    mbta_ferry_trips = {
+      description = "Every MBTA ferry trip leg from MBTA ArcGIS open data, from 2018-11, with riders on and off and the scheduled and actual times; the last year of service re-pulled every run (decision 0018). Grain: trip leg × ingest run."
+      clustering  = ["service_date", "route_id"]
+      columns = [
+        { name = "service_date", type = "DATE", description = "MBTA service date" },
+        { name = "route_id", type = "STRING", description = "Ferry route (e.g. F4)" },
+        { name = "route_name", type = "STRING", description = "Route and its name (e.g. F4-Charlestown)" },
+        { name = "trip_freq", type = "STRING", description = "Trip frequency class as published" },
+        { name = "trip_freq_adj", type = "STRING", description = "Adjusted trip frequency class as published" },
+        { name = "sub_route", type = "STRING", description = "The route's pattern (e.g. f4-charlestown-boston)" },
+        { name = "trip_id", type = "STRING", description = "Trip ID; NA in older years" },
+        { name = "stop_id", type = "STRING", description = "Leg ID; NA in older years" },
+        { name = "departure_terminal", type = "STRING", description = "Where the leg departs" },
+        { name = "mbta_sched_departure", type = "TIMESTAMP", description = "Scheduled departure" },
+        { name = "actual_departure", type = "STRING", description = "Actual departure, Eastern, as text (YYYY-MM-DD HH:MM)" },
+        { name = "pax_on", type = "STRING", description = "Riders boarding, as text" },
+        { name = "pax_load", type = "STRING", description = "Riders aboard after boarding, as text" },
+        { name = "pax_off", type = "STRING", description = "Riders leaving, as text, negative" },
+        { name = "mbta_sched_arrival", type = "TIMESTAMP", description = "Scheduled arrival" },
+        { name = "actual_arrival", type = "STRING", description = "Actual arrival, Eastern, as text (YYYY-MM-DD HH:MM)" },
+        { name = "arrival_terminal", type = "STRING", description = "Where the leg arrives" },
+        { name = "vessel_time_slot", type = "STRING", description = "Vessel assignment as published" },
+        { name = "trip_endpoint", type = "STRING", description = "Midpoint or Trip Endpoint: whether the leg ends the trip" },
+        { name = "travel_direction", type = "STRING", description = "To Boston or From Boston" },
+      ]
+    }
+
     noaa_weather = {
       description = "NOAA GHCN-Daily values for Boston Logan (USW00014739) in source units; recent window re-pulled every run. Grain: observation date × ingest run."
       clustering  = ["observation_date"]

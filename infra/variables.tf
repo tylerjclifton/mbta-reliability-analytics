@@ -80,6 +80,18 @@ variable "lamp_ingestion_schedule" {
   default     = "0 7 * * 1"
 }
 
+variable "mode_ridership_ingestion_schedule" {
+  description = "Cron for MBTA mode ridership ingestion. Weekly (Mondays 7:15AM ET): the MBTA adds each month weeks after it ends."
+  type        = string
+  default     = "15 7 * * 1"
+}
+
+variable "ferry_ingestion_schedule" {
+  description = "Cron for MBTA ferry trips ingestion. Weekly (Mondays 7:30AM ET): the MBTA updates ferry trips irregularly, months late, and each run re-pulls the last year."
+  type        = string
+  default     = "30 7 * * 1"
+}
+
 variable "routes_ingestion_schedule" {
   description = "Cron for MBTA routes ingestion. Yearly on Jan 1; routes rarely change."
   type        = string

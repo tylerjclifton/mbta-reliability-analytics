@@ -163,6 +163,109 @@ def test_alerts_empty_feed_writes_nothing(run_job):
     assert raw.empty
 
 
+# ── mbta-ferry-trips ──────────────────────────────────────────────────────────
+
+def ferry_page(rows, more):
+    """One page of the ferry layer: each row a dict of its attributes."""
+    return {'features': [{'attributes': row} for row in rows], 'exceededTransferLimit': more}
+
+
+def ferry_trip(**overrides):
+    """A trip leg as the layer returns it (2026-03-31, Navy Yard → Long Wharf)."""
+    return {
+        'service_date': int(datetime.datetime(2026, 3, 31, 4, tzinfo=datetime.timezone.utc).timestamp() * 1000),
+        'route_id': 'F4', 'route_name': 'F4-Charlestown', 'trip_id': 'NA', 'departure_terminal': 'Navy Yard',
+        'mbta_sched_departure': int(datetime.datetime(2026, 3, 31, 13, 45, tzinfo=datetime.timezone.utc)
+                                    .timestamp() * 1000),
+        'actual_departure': '2026-03-31 09:45', 'pax_on': '8', 'pax_off': '-8', 'arrival_terminal': 'Long Wharf S',
+        'ObjectId': 392962, **overrides,
+    }
+
+
+def test_ferry_trips_request_the_lookback_window(run_job, monkeypatch):
+    monkeypatch.setenv('LOOKBACK_DAYS', '30')
+    run_job('mbta-ferry-trips', [ferry_page([ferry_trip()], more=False)])
+
+    since = datetime.date.today() - datetime.timedelta(days=30)
+    assert run_job.requests[0]['params']['where'] == f"service_date >= DATE '{since}'"
+
+
+def test_ferry_trips_keep_values_as_published_and_type_the_dates(run_job):
+    df = run_job('mbta-ferry-trips', [ferry_page([ferry_trip()], more=False)])
+
+    assert 'ObjectId' not in df.columns
+    assert df['service_date'].tolist() == [datetime.date(2026, 3, 31)]
+    assert df['mbta_sched_departure'].tolist() == [pd.Timestamp('2026-03-31 13:45', tz='UTC')]
+    assert df[['trip_id', 'actual_departure', 'pax_on', 'pax_off']].iloc[0].tolist() == [
+        'NA', '2026-03-31 09:45', '8', '-8']
+    assert df['vessel_time_slot'].isna().all()   # absent from the response → NULL
+
+
+def test_ferry_trips_follow_pagination(run_job):
+    df = run_job('mbta-ferry-trips', [
+        ferry_page([ferry_trip(route_id='F4')], more=True),
+        ferry_page([ferry_trip(route_id='F1')], more=False),
+    ])
+
+    assert df['route_id'].tolist() == ['F4', 'F1']
+    assert [request['params']['resultOffset'] for request in run_job.requests] == [0, 1]
+
+
+def test_ferry_trips_nothing_in_the_window_fails_the_job(run_job):
+    with pytest.raises(SystemExit) as exit_info:
+        run_job('mbta-ferry-trips', [ferry_page([], more=False)])
+
+    assert exit_info.value.code == 1
+
+
+# ── mbta-mode-ridership ───────────────────────────────────────────────────────
+
+# The 1st of September 2026 at midnight Eastern, in UTC epoch ms.
+SEP_1_MS = int(datetime.datetime(2026, 9, 1, 4, tzinfo=datetime.timezone.utc).timestamp() * 1000)
+
+
+def mode_page(rows, more):
+    """One page of the monthly layer: (line, day type, total) per row."""
+    return {
+        'features': [{'attributes': {'month_of_service': SEP_1_MS, 'daytype': daytype, 'daycount': 21,
+                                     'route_or_line': line, 'ridership_total': total,
+                                     'ridership_average': total // 21}}
+                     for line, daytype, total in rows],
+        'exceededTransferLimit': more,
+    }
+
+
+def test_mode_ridership_keeps_every_row_subtotals_included(run_job):
+    df = run_job('mbta-mode-ridership', [
+        mode_page([('Red Line', 'Weekday', 3630361), ('Heavy Rail', 'Weekday', 8058137)], more=True),
+        mode_page([('Ferry', 'Total', 120000)], more=False),
+    ])
+
+    assert df['route_or_line'].tolist() == ['Red Line', 'Heavy Rail', 'Ferry']
+    assert [request['params']['resultOffset'] for request in run_job.requests] == [0, 2]
+
+
+def test_mode_ridership_month_is_its_first_day_and_counts_stay_whole(run_job):
+    df = run_job('mbta-mode-ridership', [mode_page([('Bus', 'Weekday', 6000000)], more=False)])
+
+    assert df['month_of_service'].tolist() == [datetime.date(2026, 9, 1)]
+    assert df['ridership_total'].dtype == 'Int64'
+
+
+def test_mode_ridership_api_error_fails_the_job(run_job):
+    with pytest.raises(SystemExit) as exit_info:
+        run_job('mbta-mode-ridership', [{'error': {'code': 400, 'message': 'bad query'}}])
+
+    assert exit_info.value.code == 1
+
+
+def test_mode_ridership_empty_layer_fails_the_job(run_job):
+    with pytest.raises(SystemExit) as exit_info:
+        run_job('mbta-mode-ridership', [mode_page([], more=False)])
+
+    assert exit_info.value.code == 1
+
+
 # ── mbta-routes ───────────────────────────────────────────────────────────────
 
 def test_routes_request_the_rail_routes_and_shape_one_row_each(run_job, monkeypatch):

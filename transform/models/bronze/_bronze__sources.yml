@@ -97,6 +97,22 @@ sources:
             warn_after: {count: 8, period: day}
             error_after: {count: 15, period: day}
 
+      - name: mbta_mode_ridership
+        description: >
+          Monthly riders on every mode and line as the MBTA reports them to the
+          National Transit Database: unlinked trips, subtotals included
+          (decision 0018). Grain: month × day type × mode or line × ingest run.
+        # No freshness check until the table is seeded (docs/runbook.md, "Add
+        # a new source").
+
+      - name: mbta_ferry_trips
+        description: >
+          Every ferry trip leg, with riders on and off and the scheduled and
+          actual times, as published (decision 0018). Grain: trip leg × ingest
+          run.
+        # No freshness check until the table is seeded (docs/runbook.md, "Add
+        # a new source").
+
       - name: noaa_weather
         description: >
           NOAA GHCN-Daily values for Boston Logan in source units (tenths of °C,

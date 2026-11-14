@@ -55,6 +55,23 @@ locals {
       timeout           = "600s" # Seven requests, one per route
       env               = {}
     }
+    "mbta-ferry-trips" = {
+      schedule          = var.ferry_ingestion_schedule
+      uses_mbta_api_key = false
+      memory            = "2Gi" # the whole layer (~400K rows) on a backfill
+      timeout           = "1200s"
+      # Re-pulls LOOKBACK_DAYS days of service each run; the default, 365, is
+      # set once in ingest/mbta-ferry-trips/main.py. Override it at execution
+      # time to backfill: `--update-env-vars LOOKBACK_DAYS=4000`.
+      env = {}
+    }
+    "mbta-mode-ridership" = {
+      schedule          = var.mode_ridership_ingestion_schedule
+      uses_mbta_api_key = false
+      memory            = "512Mi"
+      timeout           = "600s" # The whole layer, ~5,000 rows
+      env               = {}
+    }
     "mbta-ridership" = {
       schedule          = var.ridership_ingestion_schedule
       uses_mbta_api_key = false

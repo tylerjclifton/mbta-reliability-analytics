@@ -61,6 +61,13 @@ def fmt_pct(x, decimals=1):
     return f'{x:+.{decimals}f}%'.replace('-', '−')
 
 
+def fmt_minutes(x):
+    """Minutes to one decimal, with a true minus sign below zero: 2.3 · −0.2."""
+    if round(x, 1) == 0:
+        return '0.0'
+    return f'{x:.1f}'.replace('-', '−')
+
+
 def fmt_day(ts):
     """A date as Eastern month and day: Oct 19."""
     return ts.tz_convert(TIMEZONE).strftime('%b %-d')

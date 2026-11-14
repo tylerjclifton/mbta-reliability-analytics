@@ -17,6 +17,7 @@ from helpers import (
     effect_vs_calm,
     fmt_count,
     fmt_duration,
+    fmt_minutes,
     fmt_pct,
     freshness,
     hours_by_year,
@@ -61,6 +62,11 @@ def test_fmt_pct_uses_a_true_minus_sign():
 def test_fmt_pct_shows_zero_unsigned():
     assert fmt_pct(0) == '0.0%'
     assert fmt_pct(-0.04) == '0.0%'
+
+
+@pytest.mark.parametrize('x, expected', [(2.34, '2.3'), (-0.24, '−0.2'), (-0.04, '0.0'), (10.5, '10.5')])
+def test_fmt_minutes_uses_a_true_minus_sign(x, expected):
+    assert fmt_minutes(x) == expected
 
 
 @pytest.mark.parametrize('age_hours, expected', [

@@ -3,7 +3,7 @@
 **Status:** Accepted · **Date:** 2026-11-14
 
 ## Context
-The project measures reliability through alerts: what the MBTA posts, when, and for how long ([0016](0016-alerts-before-capture-from-lamp.md)). Alerts miss what the MBTA doesn't post. Slow zones, for one, cost Red Line riders minutes on every trip in 2023 but rarely appeared as alerts. Commuter rail had riders but no reliability measure ([0018](0018-ridership-for-every-mode.md)), and nothing said how riders themselves judge the service. The MBTA's open data portal publishes all three, checked 2026-11-14:
+The project measures reliability through alerts: what the MBTA posts, when, and for how long ([0016](0016-alerts-before-capture-from-lamp.md)). Alerts miss what the MBTA doesn't post. Slow zones, for one, cost Red Line riders minutes on every trip in 2023 but rarely appeared as alerts: 11 of that year's 884 Red, Orange, and Blue Line incidents mentioned a speed restriction (checked 2026-11-14). Commuter rail had riders but no reliability measure ([0018](0018-ridership-for-every-mode.md)), and nothing said how riders themselves judge the service. The MBTA's open data portal publishes all three, checked 2026-11-14:
 
 | Dataset | Grain | Coverage |
 |---|---|---|

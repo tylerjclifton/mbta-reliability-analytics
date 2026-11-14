@@ -12,7 +12,7 @@ A full-stack data engineering project tracking MBTA rail reliability, ridership,
 
 ## What it does
 
-Ingests data from ten sources on an automated schedule, transforms it through a medallion architecture, and serves a live analytics dashboard.
+Ingests data from thirteen sources on an automated schedule, transforms it through a medallion architecture, and serves a live analytics dashboard.
 
 | Source | Data | Schedule | Each run pulls |
 |---|---|---|---|
@@ -26,6 +26,9 @@ Ingests data from ten sources on an automated schedule, transforms it through a 
 | MBTA ArcGIS Open Data | Monthly riders on every mode and line (subway, Mattapan trolley, bus and Silver Line, commuter rail, ferry, The RIDE), as reported to the National Transit Database | Weekly — Mondays 7:15AM ET | The whole layer, 2018-07 on (catches revisions) ([0018](docs/decisions/0018-ridership-for-every-mode.md)) |
 | MBTA ArcGIS Open Data | Estimated commuter rail boardings per day and line | Weekly — Mondays 7:20AM ET | The whole file, 2020-06-22 on (catches revisions) ([0018](docs/decisions/0018-ridership-for-every-mode.md)) |
 | MBTA ArcGIS Open Data | Every ferry trip leg: riders on and off, scheduled and actual times | Weekly — Mondays 7:30AM ET | The last year of service (the MBTA publishes months late); the whole layer, 2018-11 on, loaded once ([0018](docs/decisions/0018-ridership-for-every-mode.md)) |
+| MBTA ArcGIS Open Data | Riders' trip times on the Red, Orange, and Blue Lines against a baseline, per half hour and direction (the MBTA's estimates) | Weekly — Mondays 7:05AM ET | The last 120 days of service (the MBTA publishes weeks late); the whole file, 2022 on, loaded once ([0019](docs/decisions/0019-reliability-riders-feel.md)) |
+| MBTA ArcGIS Open Data | Commuter rail trains measured, on time, and canceled, per day, line, and peak or off-peak | Weekly — Mondays 7:10AM ET | The last 120 days of service; the whole file, 2016 on, loaded once ([0019](docs/decisions/0019-reliability-riders-feel.md)) |
+| MBTA ArcGIS Open Data | The MBTA's monthly rider survey: overall rating, last trip, reliability, communication | Weekly — Mondays 7:25AM ET | The whole file, 2016-02 on ([0019](docs/decisions/0019-reliability-riders-feel.md)) |
 
 ### Data sources at a glance
 
@@ -38,6 +41,9 @@ Each kind of data has one live source, and history from an archive where the liv
 | Riders by mode | ArcGIS layer (all of it), weekly | Same source | None | 2018-07-01 |
 | Commuter rail riders, daily | ArcGIS file (all of it), weekly | Same source | None | 2020-06-22 |
 | Ferry trips | ArcGIS layer (its last year), weekly | Same source, loaded whole once | None | 2018-11-01 |
+| Subway trip times | ArcGIS file (its last 120 days), weekly | Same source, loaded whole once | None | 2022-01-01 |
+| Commuter rail reliability | ArcGIS file (its last 120 days), weekly | Same source, loaded whole once | None | 2016-01-01 |
+| Rider survey | ArcGIS file (all of it), weekly | Same source | None | 2016-02-01 |
 | Weather | NOAA GHCN-Daily, daily | Same source, re-pulled further back once | None | 2014-01-01 |
 | Routes, stops, line shapes | MBTA API | Not kept: the MBTA archives every past schedule ([0011](docs/decisions/0011-capture-every-mode.md)) | — | Current only |
 
@@ -103,7 +109,7 @@ Each layer is its own BigQuery dataset, with a dev sandbox beside it for local w
 | Layer | Stored as | Written by | Role |
 |---|---|---|---|
 | `bronze` | Append-only tables (Terraform-managed, deletion-protected; [0013](docs/decisions/0013-bronze-tables-in-terraform.md)) | Ingest jobs | Raw history. Each run appends a new version of every record it saw; rows are never updated or deleted, so nothing depends on a source keeping its own history ([0001](docs/decisions/0001-append-only-bronze.md)) |
-| `silver` | Views, and five tables (below) | dbt | Each source's **cleaned copy** (latest version, renamed and typed, unit conversion, QC filtering), plus steps that each do **one job** (split alerts by route or station, resolve start/end, group into incidents) |
+| `silver` | Views, and six tables (below) | dbt | Each source's **cleaned copy** (latest version, renamed and typed, unit conversion, QC filtering), plus steps that each do **one job** (split alerts by route or station, resolve start/end, group into incidents) |
 | `gold` | Tables, rebuilt hourly (slow-changing ones daily) | dbt | Cross-source joins served to the dashboard |
 
 | Bronze table | Grain | How it grows |
@@ -117,6 +123,9 @@ Each layer is its own BigQuery dataset, with a dev sandbox beside it for local w
 | `mbta_monthly_ridership` | month × day type × mode or line × ingest run | The whole layer re-pulled weekly, subtotals included as published ([0018](docs/decisions/0018-ridership-for-every-mode.md)) |
 | `mbta_commuter_rail_boardings` | service date × line × ingest run | The whole file re-pulled weekly ([0018](docs/decisions/0018-ridership-for-every-mode.md)) |
 | `mbta_ferry_trips` | trip leg × ingest run | The last year of service re-pulled weekly; the whole layer, 2018-11 on, loaded once ([0018](docs/decisions/0018-ridership-for-every-mode.md)) |
+| `mbta_excess_trip_time` | service date × half hour × line × direction × ingest run | The last 120 days of service re-pulled weekly; the whole file, 2022 on, loaded once ([0019](docs/decisions/0019-reliability-riders-feel.md)) |
+| `mbta_commuter_rail_reliability` | row of the file × ingest run | The last 120 days of service re-pulled weekly; the whole file, 2016 on, loaded once. A line's branches can share a day and period, so no column is unique ([0019](docs/decisions/0019-reliability-riders-feel.md)) |
+| `mbta_customer_satisfaction` | survey × question × ingest run | The whole file re-pulled weekly ([0019](docs/decisions/0019-reliability-riders-feel.md)) |
 | `noaa_weather` | observation date × ingest run | Last 10 days re-pulled daily (NOAA revises recent days) |
 | `lamp_alerts` | alert × version × informed entity × active period × ingest run | The whole archive once, then each week the rows LAMP modified in the last two weeks ([0016](docs/decisions/0016-alerts-before-capture-from-lamp.md)) |
 
@@ -285,6 +294,9 @@ ingest/                 One shared image for every ingest job
   mbta-monthly-ridership/  ArcGIS monthly riders on every mode and line (weekly)
   mbta-commuter-rail-boardings/  ArcGIS daily commuter rail boardings by line (weekly)
   mbta-ferry-trips/     ArcGIS ferry trip legs, the last year (weekly); the whole layer on demand
+  mbta-excess-trip-time/  ArcGIS subway trip times against a baseline, the last 120 days (weekly); the whole file on demand
+  mbta-commuter-rail-reliability/  ArcGIS commuter rail trains on time and canceled, the last 120 days (weekly); the whole file on demand
+  mbta-customer-satisfaction/  ArcGIS monthly rider survey (weekly)
   noaa-weather/         NOAA GHCN-Daily for Boston Logan (daily)
   lamp-alerts/          The MBTA's LAMP alerts archive, the last two weeks' changes (weekly)
 transform/              dbt Core project

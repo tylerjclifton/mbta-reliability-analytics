@@ -98,6 +98,24 @@ variable "ferry_ingestion_schedule" {
   default     = "30 7 * * 1"
 }
 
+variable "excess_trip_time_ingestion_schedule" {
+  description = "Cron for MBTA excess trip time ingestion. Weekly (Mondays 7:05AM ET): the MBTA replaces the file about weekly, weeks late, and each run re-pulls the last 120 days."
+  type        = string
+  default     = "5 7 * * 1"
+}
+
+variable "commuter_rail_reliability_ingestion_schedule" {
+  description = "Cron for MBTA commuter rail reliability ingestion. Weekly (Mondays 7:10AM ET): the MBTA replaces the file about weekly, and each run re-pulls the last 120 days."
+  type        = string
+  default     = "10 7 * * 1"
+}
+
+variable "customer_satisfaction_ingestion_schedule" {
+  description = "Cron for MBTA customer satisfaction ingestion. Weekly (Mondays 7:25AM ET): the MBTA adds each month's survey to the file."
+  type        = string
+  default     = "25 7 * * 1"
+}
+
 variable "routes_ingestion_schedule" {
   description = "Cron for MBTA routes ingestion. Yearly on Jan 1; routes rarely change."
   type        = string

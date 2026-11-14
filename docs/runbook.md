@@ -34,12 +34,20 @@ The ridership layer holds only its last two years. Days before 2024-10-01 come f
 gcloud run jobs execute ingest-mbta-gated-entries --region us-east1 --update-env-vars FROM_ARCHIVE=true --wait
 ```
 
-### Backfill ferry trips
+### Backfill ferry trips, subway trip times, or commuter rail reliability
 
-`ingest-mbta-ferry-trips` re-pulls the last year of service each week, since the MBTA publishes ferry trips months late ([0018](decisions/0018-ridership-for-every-mode.md)). The whole layer (2018-11 on, ~400,000 trip legs) was loaded once when the job was added; re-run it whole only if the MBTA revises older years.
+Three jobs keep only a recent window of service each week (`LOOKBACK_DAYS`), since each source is long and the MBTA publishes it weeks or months late:
+
+| Job | Window | Loaded whole once |
+|---|---|---|
+| `ingest-mbta-ferry-trips` | Last year | 2018-11 on, ~400,000 trip legs ([0018](decisions/0018-ridership-for-every-mode.md)) |
+| `ingest-mbta-excess-trip-time` | Last 120 days | 2022 on, ~390,000 rows ([0019](decisions/0019-reliability-riders-feel.md)) |
+| `ingest-mbta-commuter-rail-reliability` | Last 120 days | 2016 on, ~110,000 rows ([0019](decisions/0019-reliability-riders-feel.md)) |
+
+Each was loaded whole when it was added. Re-run one whole only if the MBTA revises older years:
 
 ```bash
-gcloud run jobs execute ingest-mbta-ferry-trips --region us-east1 --wait --update-env-vars LOOKBACK_DAYS=4000
+gcloud run jobs execute <job> --region us-east1 --wait --update-env-vars LOOKBACK_DAYS=4000
 ```
 
 ### Load the LAMP alerts archive

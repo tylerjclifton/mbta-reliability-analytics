@@ -14,7 +14,7 @@ These rules cover all prose: comments, docstrings, docs, and commit messages.
 - **Each fact lives in one place.** Thresholds, formulas, and figures sit next to the code that sets them; elsewhere, describe them rather than copying the number. A short repeated explanation is fine where it saves opening another file, and a pointer always comes with a one-line summary.
 - **Docs change with the code**, in the same commit: README, model headers and YAML, `docs/`. A new decision gets a record in `docs/decisions/`.
 - **Date what will go stale.** A measured figure or a checked fact carries the date it was true: "peak memory, measured 2026-11-03: 1.1 GB".
-- **American spelling** (color, canceled), to match code identifiers.
+- **American spelling** (color, canceled), to match code identifiers. A name a source publishes keeps its spelling where code must match it; mark that line `spelling: as published` for the check, and rename it to American spelling as soon as it's read.
 - **Refer to decisions by number:** "decision 0016" in code, a link in docs.
 - **Typography:**
   - **Em dash:** spaced ( — ), to join a name to what it is or to set off an aside.

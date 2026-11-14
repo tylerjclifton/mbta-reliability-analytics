@@ -89,6 +89,30 @@ locals {
       timeout           = "900s" # The layer's two years, paged; or the yearly archive
       env               = {}
     }
+    "mbta-excess-trip-time" = {
+      schedule          = var.excess_trip_time_ingestion_schedule
+      uses_mbta_api_key = false
+      memory            = "1Gi" # reads the whole ~95 MB file, ~390K rows
+      timeout           = "900s"
+      # Keeps LOOKBACK_DAYS days of service each run; the default, 120, is set
+      # once in ingest/mbta-excess-trip-time/main.py. Override it at execution
+      # time to backfill: `--update-env-vars LOOKBACK_DAYS=4000`.
+      env = {}
+    }
+    "mbta-commuter-rail-reliability" = {
+      schedule          = var.commuter_rail_reliability_ingestion_schedule
+      uses_mbta_api_key = false
+      memory            = "512Mi"
+      timeout           = "600s" # One ~13 MB file; LOOKBACK_DAYS as above
+      env               = {}
+    }
+    "mbta-customer-satisfaction" = {
+      schedule          = var.customer_satisfaction_ingestion_schedule
+      uses_mbta_api_key = false
+      memory            = "512Mi"
+      timeout           = "600s" # One file, ~500 rows
+      env               = {}
+    }
     "noaa-weather" = {
       schedule          = var.weather_ingestion_schedule
       uses_mbta_api_key = false

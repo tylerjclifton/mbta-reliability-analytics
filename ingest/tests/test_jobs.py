@@ -186,6 +186,129 @@ def test_commuter_rail_boardings_empty_file_fails_the_job(run_job):
     assert exit_info.value.code == 1
 
 
+# ── mbta-commuter-rail-reliability ────────────────────────────────────────────
+
+RELIABILITY_HEADER = ('service_date,gtfs_route_id,gtfs_route_short_name,gtfs_route_long_name,gtfs_route_desc,'
+                      'route_category,mode_type,peak_offpeak_ind,metric_type,otp_numerator,otp_denominator,'
+                      'cancelled_numerator\n')  # spelling: as published
+
+
+def reliability_row(day, line='CR-Newburyport', counts='12,14,0'):
+    """A row of the file: the day as the MBTA writes it (M/D/YYYY)."""
+    return (f'{day.month}/{day.day}/{day.year},{line},NA,Newburyport/Rockport Line,Commuter Rail,NA,'
+            f'Commuter Rail,OFF_PEAK,Headway / Schedule Adherence,{counts}\n')
+
+
+def test_commuter_rail_reliability_keeps_rows_as_published(run_job):
+    day = datetime.date.today() - datetime.timedelta(days=3)
+    df = run_job('mbta-commuter-rail-reliability', [
+        RELIABILITY_HEADER + reliability_row(day) + reliability_row(day, counts='13,15,1')  # two branches
+        + reliability_row(day, counts='5,,0'),                                              # no count → NULL
+    ])
+
+    assert list(df.columns) == ['service_date', 'gtfs_route_id', 'gtfs_route_short_name', 'gtfs_route_long_name',
+                                'gtfs_route_desc', 'route_category', 'mode_type', 'peak_offpeak_ind', 'metric_type',
+                                'otp_numerator', 'otp_denominator', 'canceled_numerator']
+    assert df['service_date'].tolist() == [day] * 3
+    assert df['gtfs_route_short_name'].tolist() == ['NA'] * 3
+    assert df['otp_denominator'].dtype == 'Int64'
+    assert df['otp_denominator'].isna().tolist() == [False, False, True]
+
+
+def test_commuter_rail_reliability_keeps_only_the_lookback_window(run_job, monkeypatch):
+    monkeypatch.setenv('LOOKBACK_DAYS', '30')
+    recent, old = (datetime.date.today() - datetime.timedelta(days=days) for days in (29, 31))
+    df = run_job('mbta-commuter-rail-reliability', [
+        RELIABILITY_HEADER + reliability_row(recent) + reliability_row(old),
+    ])
+
+    assert df['service_date'].tolist() == [recent]
+
+
+def test_commuter_rail_reliability_nothing_in_the_window_fails_the_job(run_job):
+    with pytest.raises(SystemExit) as exit_info:
+        run_job('mbta-commuter-rail-reliability', [RELIABILITY_HEADER + reliability_row(datetime.date(2016, 1, 1))])
+
+    assert exit_info.value.code == 1
+
+
+# ── mbta-customer-satisfaction ────────────────────────────────────────────────
+
+SATISFACTION_HEADER = ('"survey_date","question_description","response_total",'
+                       + ','.join(f'"response_{n}_text","response_{n}_percent"' for n in range(1, 8)) + '\n')
+
+
+def test_customer_satisfaction_types_each_survey_and_keeps_its_answers(run_job):
+    answers = ['Strongly Disagree', 'Disagree', 'Slightly Disagree', 'Neither Agree nor Disagree', 'Slightly Agree',
+               'Agree', 'Strongly Agree']
+    shares = [0.05, 0.11, 0.11, 0.09, 0.33, 0.23, 0.09]
+    df = run_job('mbta-customer-satisfaction', [
+        SATISFACTION_HEADER
+        + '"10/01/2026","The mbta provides reliable public transportation services.",484,'
+        + ','.join(f'"{text}",{share}' for text, share in zip(answers, shares, strict=True)) + '\n'
+        + ',"No date",10' + ',' * 14 + '\n',                                       # no date → skipped
+    ])
+
+    assert len(df) == 1
+    assert df['survey_date'].tolist() == [datetime.date(2026, 10, 1)]
+    assert df['response_total'].dtype == 'Int64'
+    assert df[[f'response_{n}_text' for n in range(1, 8)]].iloc[0].tolist() == answers
+    assert df[[f'response_{n}_percent' for n in range(1, 8)]].iloc[0].tolist() == shares
+
+
+def test_customer_satisfaction_empty_file_fails_the_job(run_job):
+    with pytest.raises(SystemExit) as exit_info:
+        run_job('mbta-customer-satisfaction', [SATISFACTION_HEADER])
+
+    assert exit_info.value.code == 1
+
+
+# ── mbta-excess-trip-time ─────────────────────────────────────────────────────
+
+TRIP_TIME_HEADER = ('svc_date,day,halfhour,peak,route_id,dir_id,est_pax,weighted_bl_trip_time,weighted_bl_wait_time,'
+                    'weighted_bl_travel_time,weighted_trip_time,weighted_wait_time,weighted_travel_time,'
+                    'five_min_thresh,twenty_min_thresh,twenty_pct_thresh,thirty_pct_thresh\n')
+
+
+def trip_time_row(day, route='Red'):
+    """A row of the file: 390 riders southbound in the last half hour of the day."""
+    return (f'{day},Weekday,23:30:00,OFF-PEAK,{route},SB,390.2,5811.9,1543.3,4268.6,6375.2,1996.4,4378.7,'
+            '390.2,390.2,253.4,339.6\n')
+
+
+def test_excess_trip_time_renames_the_date_and_keeps_values_as_published(run_job):
+    day = datetime.date.today() - datetime.timedelta(days=40)
+    df = run_job('mbta-excess-trip-time', [TRIP_TIME_HEADER + trip_time_row(day)])
+
+    assert df.columns[0] == 'service_date' and len(df.columns) == 17
+    assert df['service_date'].tolist() == [day]
+    assert df[['day', 'halfhour', 'peak', 'route_id', 'dir_id']].iloc[0].tolist() == [
+        'Weekday', '23:30:00', 'OFF-PEAK', 'Red', 'SB']
+    assert df[['est_pax', 'weighted_trip_time']].iloc[0].tolist() == [390.2, 6375.2]
+
+
+def test_excess_trip_time_keeps_only_the_lookback_window(run_job, monkeypatch):
+    monkeypatch.setenv('LOOKBACK_DAYS', '30')
+    recent, old = (datetime.date.today() - datetime.timedelta(days=days) for days in (29, 31))
+    df = run_job('mbta-excess-trip-time', [TRIP_TIME_HEADER + trip_time_row(recent) + trip_time_row(old)])
+
+    assert df['service_date'].tolist() == [recent]
+
+
+def test_excess_trip_time_window_can_reach_the_whole_file(run_job, monkeypatch):
+    monkeypatch.setenv('LOOKBACK_DAYS', '4000')
+    df = run_job('mbta-excess-trip-time', [TRIP_TIME_HEADER + trip_time_row(datetime.date(2022, 1, 1))])
+
+    assert df['service_date'].tolist() == [datetime.date(2022, 1, 1)]
+
+
+def test_excess_trip_time_nothing_in_the_window_fails_the_job(run_job):
+    with pytest.raises(SystemExit) as exit_info:
+        run_job('mbta-excess-trip-time', [TRIP_TIME_HEADER + trip_time_row(datetime.date(2022, 1, 1))])
+
+    assert exit_info.value.code == 1
+
+
 # ── mbta-ferry-trips ──────────────────────────────────────────────────────────
 
 def ferry_page(rows, more):

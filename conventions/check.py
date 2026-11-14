@@ -10,7 +10,8 @@ Layout:
   banners    section banners exactly 80 columns wide
 Wording:
   ellipsis   "…" in prose, never three periods
-  spelling   American spelling (color, canceled)
+  spelling   American spelling (color, canceled), except on a line marked
+             "spelling: as published": a name a source publishes
 Punctuation, by what each piece of prose is for:
   titles     a file's first line, and the text inside a ═ box: one line, no
              period; a file's title block ends with a blank line
@@ -65,6 +66,10 @@ BRITISH = re.compile(
     r'grey|whilst|amongst|programme|artefact)\w*',
     re.IGNORECASE,
 )
+
+# Marks a line that names something as its source publishes it (a column a
+# source spells "cancelled"), which the spelling rule skips.
+AS_PUBLISHED = 'spelling: as published'
 
 # The repo's root, and this file's path in it: it lists the spellings it looks
 # for, so it skips itself.
@@ -472,7 +477,7 @@ def check(path, targets):
             problems.append(f'{where} runs to {len(line)} columns (limit {limit(line, prose[n])})')
         if (n in prose or is_markdown) and '...' in line:
             problems.append(f'{where} "..." in prose; use "…"')
-        for match in (BRITISH.finditer(line) if path != SELF else ()):
+        for match in (BRITISH.finditer(line) if path != SELF and AS_PUBLISHED not in line else ()):
             problems.append(f'{where} British spelling "{match.group(0)}"')
     if is_code:
         check_punctuation(path, text, lines, problems)

@@ -130,6 +130,28 @@ sources:
             warn_after: {count: 8, period: day}
             error_after: {count: 15, period: day}
 
+      - name: mbta_excess_trip_time
+        description: >
+          The MBTA's estimate of riders' trip times against a baseline on the
+          Red, Orange, and Blue Lines, from 2022-01-01; the last 120 days of
+          service every run (decision 0019). Grain: service date × half hour ×
+          line × direction × ingest run.
+
+      - name: mbta_commuter_rail_reliability
+        description: >
+          Commuter rail trains measured, on time, and canceled per day, line,
+          and peak or off-peak period, from 2016-01-01, rows as published (a
+          line's branches can share a day and period); the last 120 days of
+          service every run (decision 0019). Grain: row of the file × ingest
+          run.
+
+      - name: mbta_customer_satisfaction
+        description: >
+          The MBTA's monthly rider survey, from 2016-02: per question,
+          respondents and the share giving each of seven answers; the whole
+          file every run (decision 0019). Grain: survey × question × ingest
+          run.
+
       - name: noaa_weather
         description: >
           NOAA GHCN-Daily values for Boston Logan in source units (tenths of °C,

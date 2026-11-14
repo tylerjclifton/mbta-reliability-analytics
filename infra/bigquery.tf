@@ -206,6 +206,79 @@ locals {
       ]
     }
 
+    # Trip times as published: minutes and riders within each threshold are
+    # totals over the group's estimated riders (decision 0019).
+    mbta_excess_trip_time = {
+      description = "The MBTA's estimate of riders' trip times (wait plus travel) against a baseline on the Red, Orange, and Blue Lines (MBTA ArcGIS open data), from 2022-01-01; the last 120 days of service re-pulled every run (decision 0019). Grain: service date × half hour × line × direction × ingest run."
+      clustering  = ["service_date", "route_id"]
+      columns = [
+        { name = "service_date", type = "DATE", description = "MBTA service date (3 AM to 2:59 AM)" },
+        { name = "day", type = "STRING", description = "Day type: Weekday, Saturday, Sunday, or Holiday" },
+        { name = "halfhour", type = "STRING", description = "Start of the half hour, Eastern (HH:MM:SS)" },
+        { name = "peak", type = "STRING", description = "Service period: AM PEAK, PM PEAK, or OFF-PEAK" },
+        { name = "route_id", type = "STRING", description = "Line: Red, Orange, or Blue" },
+        { name = "dir_id", type = "STRING", description = "Direction: NB, SB, EB, or WB" },
+        { name = "est_pax", type = "FLOAT", description = "Estimated riders" },
+        { name = "weighted_bl_trip_time", type = "FLOAT", description = "Baseline trip minutes, summed over the riders" },
+        { name = "weighted_bl_wait_time", type = "FLOAT", description = "Baseline wait minutes, summed over the riders" },
+        { name = "weighted_bl_travel_time", type = "FLOAT", description = "Baseline travel minutes, summed over the riders" },
+        { name = "weighted_trip_time", type = "FLOAT", description = "Actual trip minutes, summed over the riders" },
+        { name = "weighted_wait_time", type = "FLOAT", description = "Actual wait minutes, summed over the riders" },
+        { name = "weighted_travel_time", type = "FLOAT", description = "Actual travel minutes, summed over the riders" },
+        { name = "five_min_thresh", type = "FLOAT", description = "Riders who arrived within 5 minutes of the baseline" },
+        { name = "twenty_min_thresh", type = "FLOAT", description = "Riders who arrived within 20 minutes of the baseline" },
+        { name = "twenty_pct_thresh", type = "FLOAT", description = "Riders whose trip ran no more than 20% over the baseline" },
+        { name = "thirty_pct_thresh", type = "FLOAT", description = "Riders whose trip ran no more than 30% over the baseline" },
+      ]
+    }
+
+    # Rows as published: a line can have several rows for one day and period
+    # (its branches), so no column is unique (decision 0019).
+    mbta_commuter_rail_reliability = {
+      description = "Commuter rail trains measured, on time, and canceled per day, line, and peak or off-peak period (MBTA ArcGIS open data), from 2016-01-01; the last 120 days of service re-pulled every run (decision 0019). Grain: row of the file × ingest run."
+      clustering  = ["service_date", "gtfs_route_id"]
+      columns = [
+        { name = "service_date", type = "DATE", description = "MBTA service date" },
+        { name = "gtfs_route_id", type = "STRING", description = "Line's GTFS route (e.g. CR-Newburyport)" },
+        { name = "gtfs_route_short_name", type = "STRING", description = "GTFS short name as published (NA)" },
+        { name = "gtfs_route_long_name", type = "STRING", description = "Line or branch name as published (e.g. Rockport Line)" },
+        { name = "gtfs_route_desc", type = "STRING", description = "GTFS route description as published (Commuter Rail)" },
+        { name = "route_category", type = "STRING", description = "Route category as published (NA)" },
+        { name = "mode_type", type = "STRING", description = "Mode as published (Commuter Rail)" },
+        { name = "peak_offpeak_ind", type = "STRING", description = "PEAK or OFF_PEAK" },
+        { name = "metric_type", type = "STRING", description = "Measure as published (Headway / Schedule Adherence)" },
+        { name = "otp_numerator", type = "INTEGER", description = "Trains on time" },
+        { name = "otp_denominator", type = "INTEGER", description = "Trains measured" },
+        { name = "canceled_numerator", type = "INTEGER", description = "Trains canceled" },
+      ]
+    }
+
+    # The survey as published: wide, seven answers from most negative to most
+    # positive (decision 0019).
+    mbta_customer_satisfaction = {
+      description = "The MBTA's monthly rider survey (MBTA ArcGIS open data), from 2016-02: per question, respondents and the share giving each answer; the whole file every run (decision 0019). Grain: survey × question × ingest run."
+      clustering  = ["survey_date"]
+      columns = [
+        { name = "survey_date", type = "DATE", description = "Survey month, as its first day" },
+        { name = "question_description", type = "STRING", description = "The question as asked" },
+        { name = "response_total", type = "INTEGER", description = "Respondents" },
+        { name = "response_1_text", type = "STRING", description = "Answer 1 of 7, from most negative to most positive" },
+        { name = "response_1_percent", type = "FLOAT", description = "Share giving answer 1, from 0 to 1" },
+        { name = "response_2_text", type = "STRING", description = "Answer 2 of 7, from most negative to most positive" },
+        { name = "response_2_percent", type = "FLOAT", description = "Share giving answer 2, from 0 to 1" },
+        { name = "response_3_text", type = "STRING", description = "Answer 3 of 7, from most negative to most positive" },
+        { name = "response_3_percent", type = "FLOAT", description = "Share giving answer 3, from 0 to 1" },
+        { name = "response_4_text", type = "STRING", description = "Answer 4 of 7, from most negative to most positive" },
+        { name = "response_4_percent", type = "FLOAT", description = "Share giving answer 4, from 0 to 1" },
+        { name = "response_5_text", type = "STRING", description = "Answer 5 of 7, from most negative to most positive" },
+        { name = "response_5_percent", type = "FLOAT", description = "Share giving answer 5, from 0 to 1" },
+        { name = "response_6_text", type = "STRING", description = "Answer 6 of 7, from most negative to most positive" },
+        { name = "response_6_percent", type = "FLOAT", description = "Share giving answer 6, from 0 to 1" },
+        { name = "response_7_text", type = "STRING", description = "Answer 7 of 7, from most negative to most positive" },
+        { name = "response_7_percent", type = "FLOAT", description = "Share giving answer 7, from 0 to 1" },
+      ]
+    }
+
     noaa_weather = {
       description = "NOAA GHCN-Daily values for Boston Logan (USW00014739) in source units; recent window re-pulled every run. Grain: observation date × ingest run."
       clustering  = ["observation_date"]

@@ -18,7 +18,10 @@ locals {
 
   # One entry per ingest job. Key = job folder under ingest/ = bronze table
   # name with "-" for "_" (e.g. mbta-alerts → bronze.mbta_alerts). A null
-  # schedule means the job runs only on demand (docs/runbook.md).
+  # schedule means the job runs only on demand (docs/runbook.md). Two optional
+  # fields, for renames (runbook, "Rename a bronze table"): `table` points a
+  # job at a table of another name, and `deletion_protection = false` lets
+  # the next apply destroy the job.
   ingest_jobs = {
     "lamp-alerts" = {
       schedule          = var.lamp_ingestion_schedule
@@ -86,13 +89,6 @@ locals {
       timeout           = "900s" # The layer's two years, paged; or the yearly archive
       env               = {}
     }
-    # Retiring: the jobs renamed on 2026-11-14 (e.g. mbta-ridership →
-    # mbta-gated-entries). Unscheduled, with deletion protection off so the
-    # next apply can destroy them, and pointed at their renamed tables so the
-    # table lookup below holds; removed in the following commit.
-    "mbta-ridership"               = { table = "mbta_gated_entries", schedule = null, uses_mbta_api_key = false, memory = "512Mi", timeout = "600s", env = {}, deletion_protection = false }
-    "mbta-mode-ridership"          = { table = "mbta_monthly_ridership", schedule = null, uses_mbta_api_key = false, memory = "512Mi", timeout = "600s", env = {}, deletion_protection = false }
-    "mbta-commuter-rail-ridership" = { table = "mbta_commuter_rail_boardings", schedule = null, uses_mbta_api_key = false, memory = "512Mi", timeout = "600s", env = {}, deletion_protection = false }
     "noaa-weather" = {
       schedule          = var.weather_ingestion_schedule
       uses_mbta_api_key = false
@@ -114,7 +110,8 @@ resource "google_cloud_run_v2_job" "ingest" {
   name     = "ingest-${each.key}"
   location = var.location
 
-  # On unless a job is being retired (above).
+  # On, unless a job sets deletion_protection = false to be retired: Terraform
+  # can't destroy a protected job (docs/runbook.md, "Rename a bronze table").
   deletion_protection = try(each.value.deletion_protection, true)
 
   # Cloud Run checks secret access when the job is updated, so the ingest
@@ -149,6 +146,8 @@ resource "google_cloud_run_v2_job" "ingest" {
           name  = "BQ_DATASET_ID"
           value = google_bigquery_dataset.bronze.dataset_id
         }
+        # The job's own table, unless it names another (`table`). Looked up,
+        # not just named, so a plan fails if the table doesn't exist.
         env {
           name  = "BQ_TABLE_ID"
           value = google_bigquery_table.bronze[try(each.value.table, replace(each.key, "-", "_"))].table_id

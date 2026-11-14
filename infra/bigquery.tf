@@ -303,24 +303,6 @@ resource "google_bigquery_table" "bronze" {
   }
 }
 
-# Adopt the three ridership tables renamed in BigQuery on 2026-11-14, named
-# for what they count (docs/runbook.md, "Rename a bronze table"). Removed once
-# applied.
-import {
-  to = google_bigquery_table.bronze["mbta_gated_entries"]
-  id = "projects/${var.project_id}/datasets/bronze/tables/mbta_gated_entries"
-}
-
-import {
-  to = google_bigquery_table.bronze["mbta_monthly_ridership"]
-  id = "projects/${var.project_id}/datasets/bronze/tables/mbta_monthly_ridership"
-}
-
-import {
-  to = google_bigquery_table.bronze["mbta_commuter_rail_boardings"]
-  id = "projects/${var.project_id}/datasets/bronze/tables/mbta_commuter_rail_boardings"
-}
-
 # The same tables and schemas in dev_bronze, for local ingest runs. Frozen
 # (_legacy) tables are left out, since nothing writes them. A run's rows
 # expire with their ingest-day partition; the tables themselves stay.

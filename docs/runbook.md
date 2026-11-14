@@ -155,5 +155,7 @@ Terraform can rename a table only by replacing it, which would lose its history,
    }
    ```
 
-   Each job's `BQ_TABLE_ID` is looked up from its name (`ingest-<source>-<entity>` writes `<source>_<entity>`, in `infra/cloud-run-jobs.tf`). If a live table's new name doesn't match its job, the plan fails to find the table. The job then needs renaming too, or an override of its own.
+   Each job's `BQ_TABLE_ID` is looked up from its name (`ingest-<source>-<entity>` writes `<source>_<entity>`, in `infra/cloud-run-jobs.tf`). If a live table's new name doesn't match its job, the plan fails to find the table. Either set the job's `table` to the new name, or rename the job too.
+
+   **Renaming a job takes two pushes.** Every Cloud Run job has deletion protection on, and Terraform can't destroy a job whose state still says so (2026-11-14: the ridership rename's first apply stopped there). So the first push adds the new job and keeps the old one, unscheduled, with `deletion_protection = false` and `table` set to the renamed table. Once it's applied, the second push removes the old job, along with the `import` blocks.
 4. Plan locally: it must show 1 import and 0 to destroy. Push, and remove the `import` block in a follow-up commit once it's applied.

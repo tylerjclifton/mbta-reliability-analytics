@@ -17,9 +17,10 @@ Layout:
                           MBTA's posted end times miss (trailing 12 months)
   5. Disruption by year — delays by length and out-of-service hours, each
                           full year of alert history
-  6. Ridership          — per-line tiles (latest month), monthly ridership
-                          (2 years or all history), days that moved
-                          ridership, ridership by alert effect, day of week
+  6. Ridership          — per-line tiles (latest month), ridership by month
+                          (2 years or all history) or by day (a year at a
+                          time), days that moved ridership, ridership by
+                          alert effect, day of week
   7. Weather            — rain, snow, and temperature vs. typical ridership
   8. Footer             — sources, cadence, method notes
 
@@ -30,7 +31,8 @@ Time windows: every section covers the trailing 12 months, stated in its
 subtitle. Five exceptions, also labeled: the ridership tiles show the latest
 published month (each tile names it) against the same month a year earlier
 and in 2019; monthly ridership shows the last 2 years (to compare each month
-with a year earlier) or, switched, all history; days that moved ridership are
+with a year earlier) or, switched, all history or one year day by day; days
+that moved ridership are
 chosen days from all history; disruption by year uses every full year of
 alert history; and weather uses all available days (snowstorms are too rare
 for a single winter).
@@ -1341,30 +1343,74 @@ monthly = (full_months.groupby(['line_name', 'month'])['gated_entries']
 monthly['trend'] = monthly.groupby('line_name')['daily_avg'].transform(lambda s: s.rolling(12, min_periods=12).mean())
 monthly['month_start'] = monthly['month'].dt.start_time
 
-RECENT_RANGE, ALL_RANGE = '2 years', f'Since {archive_year}'
+RECENT_RANGE, ALL_RANGE, DAILY_RANGE = '2 years', f'Since {archive_year}', 'Daily'
 # A few events big enough to move a whole month, each a hairline with a label
 # above the plot: (date, label, anchor, shift in pixels, row). The anchor,
 # shift, and second row keep neighbors from colliding at phone width, where
 # Omicron and the Orange Line shutdown sit 7 months (~9 px) apart. One-day
-# events, however big, barely move a monthly average; they're in "Days that
-# moved ridership" below.
+# events, however big, barely move a monthly average; they're in the daily
+# view and in "Days that moved ridership" below.
 RIDERSHIP_EVENTS = [('2015-02-01', 'Record snow', 'center', -12, 0), ('2020-03-01', 'COVID', 'right', 0, 0),
                     ('2022-01-01', 'Omicron wave', 'center', 0, 1),
                     ('2022-08-19', 'Orange Line shutdown', 'left', 0, 0)]
 # Height of a row of event labels, in pixels.
 EVENT_ROW_PX = 15
 
-with st.container(key='card_monthly'):
-    ridership_range = st.segmented_control(
-        'Range', [RECENT_RANGE, ALL_RANGE], default=RECENT_RANGE,
-        key='ridership_range', label_visibility='collapsed',
-    ) or RECENT_RANGE  # Clicking the selected option clears it; fall back to the default
-    show_all = ridership_range == ALL_RANGE
-    card_title('Monthly ridership',
-               f'Average entries per day · each month (faint) and trailing 12 months (bold), since {archive_year}'
-               if show_all else 'Average entries per day · each month, last 2 years')
-    shown = monthly if show_all else monthly[monthly['month'] > latest_month - 24]
+# One-day events: (date, what happened, kind, short label for the daily view).
+# Add a day as a line here. Kinds:
+#   crowd    a crowd riding in, measured in "Days that moved ridership"
+#   snow     a storm keeping riders home, measured there too, with its snowfall
+#            from the weather data
+#   context  marked in the daily view only: its day can't be measured fairly
+#            (the BLM march came as reopening lifted every day that week)
+RIDERSHIP_DAYS = [
+    ('2015-02-04', 'Patriots parade', 'crowd', 'Patriots parade'),
+    ('2017-02-07', 'Patriots parade', 'crowd', 'Patriots parade'),
+    ('2019-02-05', 'Patriots parade', 'crowd', 'Patriots parade'),
+    ('2018-10-31', 'Red Sox parade', 'crowd', 'Red Sox parade'),
+    ('2024-06-21', 'Celtics parade', 'crowd', 'Celtics parade'),
+    ('2017-01-21', "Women's March", 'crowd', "Women's March"),
+    ('2025-04-05', 'Hands Off rally', 'crowd', 'Hands Off'),
+    ('2025-06-14', 'No Kings and Pride parade', 'crowd', 'No Kings, Pride'),
+    ('2025-10-18', 'No Kings protest', 'crowd', 'No Kings'),
+    ('2026-03-28', 'No Kings protest', 'crowd', 'No Kings'),
+    ('2026-07-11', 'Tall ships, Sail Boston', 'crowd', 'Tall ships'),
+    ('2015-01-27', 'Blizzard, MBTA closed', 'snow', 'Blizzard'),
+    ('2018-03-13', "Nor'easter", 'snow', "Nor'easter"),
+    ('2026-02-23', 'Snowstorm', 'snow', 'Snowstorm'),
+    ('2020-05-31', 'BLM march', 'context', 'BLM march'),
+]
+EVENT_DAYS = (pd.DataFrame(RIDERSHIP_DAYS, columns=['date', 'label', 'kind', 'short'])
+              .assign(date=lambda d: pd.to_datetime(d['date'])))
+# Days apart two daily-view labels can sit on one row: about a label's width
+# at phone width, where a year spans ~190 px.
+EVENT_GAP_DAYS = 150
 
+
+def add_event_lines(fig, events, first, last):
+    """
+    Mark `events` (date, label, and anchor/shift/row as RIDERSHIP_EVENTS has
+    them) between `first` and `last` with a hairline and a muted label above
+    the plot. Returns how many rows of labels it used.
+    """
+    rows = 0
+    for when, label, anchor, shift, row in events:
+        if first <= when <= last:
+            fig.add_vline(x=when, line=dict(color=GRID, width=1))
+            fig.add_annotation(text=label, x=when, xref='x', y=1, yref='paper', yanchor='bottom',
+                               xanchor=anchor, xshift=shift, yshift=row * EVENT_ROW_PX, showarrow=False,
+                               font=dict(color=MUTED, size=11))
+            rows = max(rows, row + 1)
+    return rows
+
+
+def monthly_figure(show_all):
+    """
+    Average entries per day, by month: the last 2 years, or (`show_all`)
+    every month, faint, under its trailing 12-month average, with the events
+    that moved whole months marked.
+    """
+    shown = monthly if show_all else monthly[monthly['month'] > latest_month - 24]
     fig = go.Figure()
     ends = []
     for line in selected_lines:
@@ -1395,12 +1441,6 @@ with st.container(key='card_monthly'):
     top = shown['daily_avg'].max()
     label_line_ends(fig, ends, top)
     style(fig, height=360)
-    # The end labels, names only, live in the right margin. No values: the 2
-    # years' last month is the tiles' above, the trend isn't, and the hover
-    # has both; a value would cost the plot a third of its width on a phone.
-    label_rows = max(row for *_, row in RIDERSHIP_EVENTS) + 1
-    fig.update_layout(margin=dict(l=4, r=84, t=13 + label_rows * EVENT_ROW_PX if show_all else 8, b=4),
-                      hovermode='x unified')
     # A fixed range: left to autorange, Plotly stretches the axis to fit the end
     # labels, which squeezes the lines on a phone. Ticks
     # spaced to stay legible there.
@@ -1411,28 +1451,96 @@ with st.container(key='card_monthly'):
                      tick0=f'{latest_month.year}-01-01', gridcolor='rgba(0,0,0,0)', tickangle=0,
                      showspikes=True, spikemode='across', spikethickness=1, spikecolor=AXIS, spikedash='solid')
     count_axis(fig, top)
-    if show_all:
-        for when, label, anchor, shift, row in RIDERSHIP_EVENTS:
-            when = pd.Timestamp(when)
-            if first_month <= when <= last_month:
-                fig.add_vline(x=when, line=dict(color=GRID, width=1))
-                fig.add_annotation(text=label, x=when, xref='x', y=1, yref='paper', yanchor='bottom',
-                                   xanchor=anchor, xshift=shift, yshift=row * EVENT_ROW_PX, showarrow=False,
-                                   font=dict(color=MUTED, size=11))
-    show(fig)
+    rows = add_event_lines(fig, [(pd.Timestamp(when), *rest) for when, *rest in RIDERSHIP_EVENTS],
+                           first_month, last_month) if show_all else 0
+    # The end labels, names only, live in the right margin. No values: the 2
+    # years' last month is the tiles' above, the trend isn't, and the hover
+    # has both; a value would cost the plot a third of its width on a phone.
+    fig.update_layout(margin=dict(l=4, r=84, t=13 + rows * EVENT_ROW_PX if rows else 8, b=4), hovermode='x unified')
+    return fig
+
+
+def daily_figure(year):
+    """
+    Entries every day of `year` (faint), under a centered 7-day average (bold)
+    that evens out the weekday pattern, with EVENT_DAYS marked. Days without
+    data (a fare-free line's) stay gaps.
+    """
+    first = pd.Timestamp(year=year, month=1, day=1)
+    last = min(pd.Timestamp(year=year, month=12, day=31), ridership_through)
+    span = pd.date_range(first, last)
+    fig = go.Figure()
+    ends = []
+    for line in selected_lines:
+        entries = (ridership[ridership['line_name'] == line].set_index('service_date')['gated_entries']
+                   .reindex(span))
+        if entries.isna().all():
+            continue
+        average = entries.rolling(7, center=True, min_periods=4).mean()
+        fig.add_trace(go.Scatter(
+            x=span, y=entries, name=line, mode='lines', connectgaps=False,
+            line=dict(color=LINE_COLORS[line], width=1), opacity=0.35,
+            customdata=average, hovertemplate=f'{line}: %{{y:,.0f}} · 7-day avg %{{customdata:,.0f}}<extra></extra>',
+        ))
+        fig.add_trace(go.Scatter(x=span, y=average, mode='lines', showlegend=False, hoverinfo='skip',
+                                 line=dict(color=LINE_COLORS[line], width=2.5)))
+        # A dot on each event day, at that day's entries, so the spike shows
+        # even where a year of faint days blurs together on a phone.
+        marked = EVENT_DAYS[EVENT_DAYS['date'].isin(entries.dropna().index)]
+        fig.add_trace(go.Scatter(
+            x=marked['date'], y=entries.reindex(marked['date']), mode='markers', showlegend=False,
+            marker=dict(color=LINE_COLORS[line], size=8, line=dict(color=INK, width=1.5)),
+            text=marked['label'], hovertemplate=f'%{{text}} · {line}: %{{y:,.0f}}<extra></extra>',
+        ))
+        end = average.last_valid_index()
+        ends.append((line, end, average[end], line))
+    top = ridership.loc[ridership['service_date'].between(first, last), 'gated_entries'].max()
+    label_line_ends(fig, ends, top)
+    style(fig, height=360)
+    pad = (last - first) * 0.01
+    fig.update_xaxes(range=[first - pad, last + pad], tickformat='%b', dtick='M2', tick0=first,
+                     hoverformat='%a, %b %-d, %Y', gridcolor='rgba(0,0,0,0)', tickangle=0, showspikes=True,
+                     spikemode='across', spikethickness=1, spikecolor=AXIS, spikedash='solid')
+    count_axis(fig, top)
+    # Each event on the first row with room for it; labels near the year's
+    # ends lean inward so they stay on the chart.
+    events, row_ends = [], []
+    for when, short in EVENT_DAYS.loc[EVENT_DAYS['date'].between(first, last), ['date', 'short']].sort_values(
+            'date').itertuples(index=False):
+        row = next((r for r, end in enumerate(row_ends) if (when - end).days >= EVENT_GAP_DAYS), len(row_ends))
+        row_ends[row:row + 1] = [when]
+        where = (when - first) / (last - first)
+        events.append((when, short, 'left' if where < 0.25 else 'right' if where > 0.75 else 'center', 0, row))
+    rows = add_event_lines(fig, events, first, last)
+    fig.update_layout(margin=dict(l=4, r=84, t=13 + rows * EVENT_ROW_PX if rows else 8, b=4), hovermode='x unified')
+    return fig
+
+
+with st.container(key='card_monthly'):
+    ridership_range = st.segmented_control(
+        'Range', [RECENT_RANGE, ALL_RANGE, DAILY_RANGE], default=RECENT_RANGE,
+        key='ridership_range', label_visibility='collapsed',
+    ) or RECENT_RANGE  # Clicking the selected option clears it; fall back to the default
+    if ridership_range == DAILY_RANGE:
+        # One year at a time: every day since 2014 would be ~24 days a pixel
+        # on a phone. The picker sits outside the chart, so it can't trap
+        # page scrolling.
+        year = st.select_slider('Year', list(range(archive_year, ridership_through.year + 1)),
+                                value=ridership_through.year, key='ridership_year', label_visibility='collapsed')
+        through = f', through {ridership_through:%b %-d}' if ridership_through.year == year else ''
+        card_title(f'Daily ridership, {year}',
+                   f'Entries each day (faint) and 7-day average (bold){through} · big days marked')
+        show(daily_figure(year))
+    else:
+        show_all = ridership_range == ALL_RANGE
+        card_title('Monthly ridership',
+                   f'Average entries per day · each month (faint) and trailing 12 months (bold), since {archive_year}'
+                   if show_all else 'Average entries per day · each month, last 2 years')
+        show(monthly_figure(show_all))
 
 # ── Days that moved ridership ─────────────────────────────────────────────────
-# One-day events, each against the same weekday in the weeks around it
-# (helpers.day_vs_nearby): (date, what happened, is a snow day). Add a day as
-# a line here. Snow days show their snowfall, from the weather data.
-RIDERSHIP_DAYS = [
-    ('2015-02-04', 'Patriots parade', False), ('2017-02-07', 'Patriots parade', False),
-    ('2019-02-05', 'Patriots parade', False), ('2018-10-31', 'Red Sox parade', False),
-    ('2024-06-21', 'Celtics parade', False), ('2017-01-21', "Women's March", False),
-    ('2015-01-27', 'Blizzard, MBTA closed', True), ('2018-03-13', "Nor'easter", True),
-    ('2026-02-23', 'Snowstorm', True),
-]
-
+# Each crowd and snow day in EVENT_DAYS against the same weekday in the weeks
+# around it (helpers.day_vs_nearby).
 with st.container(key='card_days'):
     card_title('Days that moved ridership',
                'Entries that day vs the same weekday in the 4 weeks either side · holidays left out')
@@ -1441,8 +1549,7 @@ with st.container(key='card_days'):
     daily = by_day.loc[by_day['count'] == len(selected_lines), 'sum']
     holidays = ridership.loc[ridership['is_holiday'], 'service_date'].unique()
     snow = ridership.groupby('service_date')['snowfall_in'].first()
-    days = (pd.DataFrame(RIDERSHIP_DAYS, columns=['date', 'label', 'is_snow'])
-            .assign(date=lambda d: pd.to_datetime(d['date'])))
+    days = EVENT_DAYS[EVENT_DAYS['kind'] != 'context']
     days = days.assign(pct=day_vs_nearby(daily, days['date'], holidays).to_numpy(),
                        entries=daily.reindex(days['date']).to_numpy(),
                        snow=snow.reindex(days['date']).to_numpy()).dropna(subset=['pct'])
@@ -1450,13 +1557,13 @@ with st.container(key='card_days'):
         st.markdown('<div class="empty">None of these days are in the selected lines\' data.</div>',
                     unsafe_allow_html=True)
     else:
-        # Biggest spikes on top, deepest drops at the bottom.
+        # Biggest spikes on top, deepest drops at the bottom. Two-line names,
+        # so labels stay short at phone width: what, then when (and how much
+        # snow).
         days = days.sort_values('pct', ascending=False)
-        # Two lines, so labels stay short at phone width: what, then when
-        # (and how much snow).
-        names = [f"{label}<br>{date:%b %-d, %Y}{f' · {inches:g}″ snow' if is_snow and inches > 0 else ''}"
-                 for label, date, inches, is_snow in zip(days['label'], days['date'], days['snow'].fillna(0),
-                                                         days['is_snow'], strict=True)]
+        names = [f"{label}<br>{date:%b %-d, %Y}{f' · {inches:g}″ snow' if kind == 'snow' and inches > 0 else ''}"
+                 for label, date, inches, kind in zip(days['label'], days['date'], days['snow'].fillna(0),
+                                                      days['kind'], strict=True)]
         fig = go.Figure(go.Bar(
             x=days['pct'], y=names, orientation='h',
             marker=dict(color=ACCENT, cornerradius=4),
@@ -1481,11 +1588,17 @@ with st.container(key='card_days'):
         fig.update_layout(margin_r=56)
         fig.update_yaxes(autorange='reversed', gridcolor='rgba(0,0,0,0)', tickfont=dict(color=INK_2, size=12))
         show(fig)
-        # The busiest day on record, named when it's one of the days above.
+        # The records, named when the day is one of the days above. The
+        # busiest month is a different thing: ordinary days were busiest in
+        # 2014, but the record single days are later parades.
         record = daily.idxmax()
         named = dict(zip(days['date'], days['label'], strict=True)).get(record)
-        st.caption(f'Busiest day on record: {record:%a, %b %-d, %Y}'
-                   + (f', the {named}' if named else '') + f', with {fmt_count(daily[record])} entries.')
+        by_month = monthly.groupby('month')['daily_avg'].agg(['sum', 'count'])
+        month_totals = by_month.loc[by_month['count'] == len(selected_lines), 'sum']
+        busiest_month = month_totals.idxmax()
+        st.caption(f'Busiest day on record: {record:%a, %b %-d, %Y}' + (f', the {named}' if named else '')
+                   + f', {fmt_count(daily[record])} entries. Busiest month: {busiest_month.strftime("%b %Y")}, '
+                   f'{fmt_count(month_totals[busiest_month])} a day.')
 
 impact_col, dow_col = st.columns(2, gap='medium')
 
@@ -1681,7 +1794,8 @@ st.markdown(f"""
   <b>Ridership</b> · Gated entries, as averages per day, weekends and holidays included. {BASELINE_YEAR} is the last
   full year before the pandemic. Days a line was fare-free (the Blue Line, Jul 5 – Aug 4, 2024) are left out: with
   the gates open, entries didn't count riders. Days that moved ridership compare a day with the median of the same
-  weekday in the four weeks either side, holidays left out.<br>
+  weekday in the four weeks either side, holidays left out; the daily view's bold line is a centered 7-day average,
+  which evens out the weekdays.<br>
   <b>Comparisons</b> · Like for like: same line and month, adjusted for day of week, with the ~10 federal holidays a
   year left out, since a holiday isn't a typical day. Durations and baselines are medians, so one shutdown can't skew
   them. Weather bars are the median day in each band vs normal-weather days. Alert-effect bars are the median day

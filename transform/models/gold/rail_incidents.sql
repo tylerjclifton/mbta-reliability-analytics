@@ -111,7 +111,23 @@ WITH
 
 -- 4. Station count: NULL when no alert's stop list is known, else the count.
 SELECT
-    i.* EXCEPT (ingested_at),
+    i.incident_id,
+    i.route_id,
+    i.route_name,
+    i.line_name,
+    i.route_type,
+    i.incident_cause,
+    i.incident_effect,
+    i.incident_header,
+    i.incident_description,
+    i.incident_severity,
+    i.incident_start_at,
+    i.incident_end_at,
+    i.incident_start_date,
+    i.incident_end_date,
+    i.incident_duration_minutes,
+    i.alert_count,
+    i.is_in_feed,
     IF(st.has_stop_data, st.station_count, NULL) AS stations_affected,
     i.ingested_at
 FROM incidents AS i

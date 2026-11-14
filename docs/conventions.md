@@ -18,6 +18,7 @@ CI runs all four on every push; the commands to run them locally are in the READ
 - **Time zone:** `_date` columns are Eastern, the zone of MBTA service dates and NOAA's daily weather; timestamps are UTC.
 - **Sandboxes:** local work uses `dev_bronze`, `dev_silver`, and `dev_gold`, never the live datasets ([0012](decisions/0012-local-ingest-writes-dev-bronze.md)).
 - **Ingest jobs:** `ingest/<source>-<entity>/main.py` writes to `bronze.<source>_<entity>` and runs as the Cloud Run job `ingest-<source>-<entity>`.
+- **Columns by name:** a model's final select names every column, so a column added upstream goes nowhere until a model names it, and one dropped or renamed fails the build instead of reaching the dashboard. `*` is only for a model's first step (its source, taken whole), a middle step the next one narrows, tests, and `COUNT(*)`; sqlfluff's AM04 fails a final select whose columns it can't count. Writes and reads hold to the same rule: bronze loads take the table's own schema, and the dashboard's queries name their columns.
 - **Alert models** track `first_seen_at` / `last_seen_at` in place of the audit columns, since a row there merges many snapshots.
 - **Seeds:** facts no source publishes in a form a model can read (which days a line was fare-free) are small CSVs in `transform/seeds/`, named `<source>_<entity>`, documented in `seeds/_seeds.yml`, and loaded into silver.
 

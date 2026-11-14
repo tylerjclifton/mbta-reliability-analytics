@@ -86,6 +86,13 @@ locals {
       timeout           = "900s" # The layer's two years, paged; or the yearly archive
       env               = {}
     }
+    # Retiring: the jobs renamed on 2026-11-14 (e.g. mbta-ridership →
+    # mbta-gated-entries). Unscheduled, with deletion protection off so the
+    # next apply can destroy them, and pointed at their renamed tables so the
+    # table lookup below holds; removed in the following commit.
+    "mbta-ridership"               = { table = "mbta_gated_entries", schedule = null, uses_mbta_api_key = false, memory = "512Mi", timeout = "600s", env = {}, deletion_protection = false }
+    "mbta-mode-ridership"          = { table = "mbta_monthly_ridership", schedule = null, uses_mbta_api_key = false, memory = "512Mi", timeout = "600s", env = {}, deletion_protection = false }
+    "mbta-commuter-rail-ridership" = { table = "mbta_commuter_rail_boardings", schedule = null, uses_mbta_api_key = false, memory = "512Mi", timeout = "600s", env = {}, deletion_protection = false }
     "noaa-weather" = {
       schedule          = var.weather_ingestion_schedule
       uses_mbta_api_key = false
@@ -107,7 +114,8 @@ resource "google_cloud_run_v2_job" "ingest" {
   name     = "ingest-${each.key}"
   location = var.location
 
-  deletion_protection = true
+  # On unless a job is being retired (above).
+  deletion_protection = try(each.value.deletion_protection, true)
 
   # Cloud Run checks secret access when the job is updated, so the ingest
   # account's grant on the MBTA API key must exist first.
@@ -143,7 +151,7 @@ resource "google_cloud_run_v2_job" "ingest" {
         }
         env {
           name  = "BQ_TABLE_ID"
-          value = google_bigquery_table.bronze[replace(each.key, "-", "_")].table_id
+          value = google_bigquery_table.bronze[try(each.value.table, replace(each.key, "-", "_"))].table_id
         }
 
         # Job-specific settings.

@@ -6,13 +6,15 @@
 
   Alongside the incident count, each day gets its most severe service effect
   (shuttle buses, then a suspension, then a delay) and whether it was a calm
-  day, so the dashboard can compare ridership by effect against calm days.
+  day, so the dashboard can compare ridership by effect against calm days,
+  and whether the line was fare-free, when entries don't measure ridership.
 
   Steps:
     1. incident_counts — count distinct incidents in force per service date ×
                          line, the day's most severe effect, and whether it
                          was calm
-    2. final select    — ridership + incident count and effect + weather
+    2. final select    — ridership, fare-free flag, incident count and effect,
+                         weather
 #}
 
 WITH
@@ -56,6 +58,15 @@ SELECT
     d.service_date,
     d.line_name,
     d.gated_entries,
+    -- Fare-free: the gates stood open, so entries undercount riders
+    -- (silver.mbta_fare_free_periods); the dashboard leaves these days out.
+    EXISTS(
+        SELECT 1
+        FROM {{ ref('mbta_fare_free_periods') }} AS f
+        WHERE
+            f.line_name = d.line_name
+            AND d.service_date BETWEEN f.start_date AND f.end_date
+    )                           AS is_fare_free,
     ic.active_incident_count,
     ic.most_severe_effect,
     ic.is_calm_day,

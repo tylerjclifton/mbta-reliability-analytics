@@ -1,0 +1,40 @@
+version: 2
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Seeds — small reference tables kept by hand, loaded into silver
+#
+# Facts no source publishes in a form a model can read. Each is a CSV beside
+# this file, loaded by `dbt build`; edit the CSV and push to change one.
+# ══════════════════════════════════════════════════════════════════════════════
+
+seeds:
+
+  - name: mbta_fare_free_periods
+    description: >
+      One row per period the MBTA made a whole subway line free to ride. The
+      fare gates stand open, so gated entries fall to almost nothing without
+      ridership falling: 4–80 a day on the Blue Line from 2024-07-05 to 08-04,
+      against ~35,000 the days around it. gold.rail_ridership flags those days
+      so the dashboard leaves them out. Found in the alerts ("Blue Line
+      service is free to ride…"); the only such period since alert coverage
+      began in 2019-09, as of 2026-11.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [line_name, start_date]
+    columns:
+      - name: line_name
+        description: "{{ doc('line_name') }}"
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [Red Line, Orange Line, Blue Line, Green Line]
+      - name: start_date
+        description: First fare-free service date (Eastern).
+        data_tests: [not_null]
+      - name: end_date
+        description: Last fare-free service date (Eastern).
+        data_tests: [not_null]
+      - name: reason
+        description: Why the MBTA waived fares, in a few words.

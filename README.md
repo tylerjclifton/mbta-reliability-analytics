@@ -130,7 +130,7 @@ Silver models are named `<bronze table>__<step>`. `__base` is each source's clea
 | `rail_incident_periods` | incident × route × period | When each incident was in force, with the service dates it covers: hours out of service, which days had a shuttle, what's in force now |
 | `rail_stations` | station × line | Every rail station's coordinates, the map's backdrop |
 | `rail_shapes` | shape × route | Each rail route's official path, for drawing the lines on the map |
-| `rail_ridership` | service date × line | Gated entries, active incident count, the day's most severe alert effect, whether it was a calm day, and weather |
+| `rail_ridership` | service date × line | Gated entries, whether the line was fare-free, active incident count, the day's most severe alert effect, whether it was a calm day, and weather |
 | `rail_delay_estimates` | alert × line | Each subway delay's first posted end against its all-clear, from the LAMP archive |
 
 **Five silver models are tables, not views; everything else in silver is a view, recomputed every run** ([0010](docs/decisions/0010-silver-naming-and-materialization.md)):
@@ -268,6 +268,7 @@ transform/              dbt Core project
   models/bronze/        Source declarations + freshness thresholds
   models/silver/        __base cleaned copies + steps + data tests; unit tests for the alert rules
   models/gold/          Dashboard tables (rail_incidents, rail_incident_stations, rail_incident_periods, rail_stations, rail_shapes, rail_ridership, rail_delay_estimates) + tests
+  seeds/                Reference tables kept by hand (fare-free periods)
   macros/               generate_schema_name, keep_latest_version, last_processed_snapshot, null_if_epoch, null_if_failed_ghcn_qc, service_date
   tests/                Generic tests (unique_combination, accepted_range) + rail_shapes_cover_every_route
 serve/                  Streamlit dashboard (app.py; pure helpers in helpers.py, tested in tests/)

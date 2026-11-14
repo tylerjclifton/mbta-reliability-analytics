@@ -368,7 +368,7 @@ def slug(heading):
 
 
 def reference_targets(files):
-    """What prose may point at: paths, dbt models and sources, and decisions."""
+    """What prose may point at: paths, dbt models, seeds, and sources, and decisions."""
     paths = set(files)
     for f in files:
         parts = f.split('/')
@@ -377,8 +377,13 @@ def reference_targets(files):
     if '.gitignore' in files:
         ignored = {line.strip().strip('/') for line in open('.gitignore', encoding='utf-8')
                    if line.strip() and not line.startswith('#')}
-    schemas, names = set(), set()
+    schemas, names, seeds = set(), set(), set()
     for f in files:
+        # A seed's dataset is set in config, not by its folder, so its name
+        # counts under any schema.
+        seed = re.search(r'(?:^|/)seeds/(\w+)\.csv$', f)
+        if seed:
+            seeds.add(seed.group(1))
         match = re.search(r'(?:^|/)models/(\w+)/(\w+)\.sql$', f)
         if match:
             schemas.add(match.group(1))
@@ -390,7 +395,8 @@ def reference_targets(files):
                     schemas.add(block.group(1))
                     names.update((block.group(1), t) for t in re.findall(r'^      - name: (\w+)', block.group(2), re.M))
     decisions = {m.group(1) for f in files for m in [re.match(r'docs/decisions/(\d{4})-', f)] if m}
-    return {'paths': paths, 'ignored': ignored, 'schemas': schemas, 'names': names, 'decisions': decisions}
+    return {'paths': paths, 'ignored': ignored, 'schemas': schemas, 'names': names, 'seeds': seeds,
+            'decisions': decisions}
 
 
 def path_exists(token, path, targets):
@@ -436,7 +442,7 @@ def check_references(path, text, lines, prose, targets, problems):
         if n in fenced:
             continue
         for schema, name in MODEL.findall(re.sub(r'https?://\S+|\]\([^)]*\)', '', line)):
-            if schema in targets['schemas'] and (schema, name) not in targets['names']:
+            if schema in targets['schemas'] and (schema, name) not in targets['names'] and name not in targets['seeds']:
                 problems.append(f"{where} names a model or source that doesn't exist: {schema}.{name}")
         for number in DECISION.findall(line):
             if targets['decisions'] and number not in targets['decisions']:

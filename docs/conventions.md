@@ -19,6 +19,7 @@ CI runs all four on every push; the commands to run them locally are in the READ
 - **Sandboxes:** local work uses `dev_bronze`, `dev_silver`, and `dev_gold`, never the live datasets ([0012](decisions/0012-local-ingest-writes-dev-bronze.md)).
 - **Ingest jobs:** `ingest/<source>-<entity>/main.py` writes to `bronze.<source>_<entity>` and runs as the Cloud Run job `ingest-<source>-<entity>`.
 - **Alert models** track `first_seen_at` / `last_seen_at` in place of the audit columns, since a row there merges many snapshots.
+- **Seeds:** facts no source publishes in a form a model can read (which days a line was fare-free) are small CSVs in `transform/seeds/`, named `<source>_<entity>`, documented in `seeds/_seeds.yml`, and loaded into silver.
 
 ## Ingest scripts
 

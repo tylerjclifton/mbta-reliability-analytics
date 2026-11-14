@@ -13,6 +13,7 @@ profile: 'mbta_reliability_analytics'
 model-paths: ["models"]
 test-paths: ["tests"]
 macro-paths: ["macros"]
+seed-paths: ["seeds"]
 clean-targets: ["target", "dbt_packages"]
 
 # Project-wide variables.
@@ -78,3 +79,13 @@ models:
       rail_shapes:          {+tags: daily}
       rail_ridership:       {+tags: daily}
       rail_delay_estimates: {+tags: daily}
+
+# Seeds: small reference tables kept by hand in seeds/, loaded into silver
+# (docs/conventions.md). Only rail_ridership reads them, so they load with the
+# daily run.
+seeds:
+  mbta_reliability_analytics:
+    +schema: silver
+    +tags: daily
+    mbta_fare_free_periods:
+      +column_types: {line_name: string, start_date: date, end_date: date, reason: string}

@@ -272,6 +272,12 @@ models:
         description: "{{ doc('line_name') }}"
       - name: gated_entries
         description: "{{ doc('gated_entries') }}"
+      - name: is_fare_free
+        description: >
+          True on days the MBTA made the line free to ride
+          (mbta_fare_free_periods): the gates stood open, so gated_entries
+          undercounts riders, and the dashboard leaves the day out.
+        data_tests: [not_null]
       - name: active_incident_count
         description: Distinct incidents on any of the line's routes active at some point that service date.
       - name: most_severe_effect

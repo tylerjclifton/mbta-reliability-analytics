@@ -227,6 +227,101 @@ models:
               arguments:
                 min_value: 0
 
+  - name: transit_ridership
+    description: >
+      One row per month × day type × service: the MBTA's monthly riders on
+      every service that doesn't overlap another, each grouped into its mode —
+      the dashboard's "Riding the MBTA" section. Boardings, a transfer counting
+      twice; never compared with gated entries (decision 0018).
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [month_start, day_type, service]
+    columns:
+      - name: month_start
+        description: First day of the month.
+        data_tests: [not_null]
+      - name: day_type
+        description: Weekday, Saturday, Sunday, or Total (the three together).
+        data_tests: [not_null]
+      - name: day_count
+        description: Days of that type in the month.
+      - name: service
+        description: Mode or line as published (e.g. Bus, Red Line, Ferry).
+        data_tests: [not_null]
+      - name: mode
+        description: >
+          The service's mode, named for what it holds: "Red, Orange, Blue",
+          "Green, Mattapan", "Bus, Silver Line", Commuter Rail, Ferry, The RIDE.
+        data_tests:
+          # A service the MBTA adds would land in a mode of its own; flag it.
+          - accepted_values:
+              arguments:
+                values: ['Red, Orange, Blue', 'Green, Mattapan', 'Bus, Silver Line', Commuter Rail, Ferry, The RIDE]
+              config:
+                severity: warn
+      - name: riders_total
+        description: Boardings over the month's days of that type.
+      - name: riders_per_day
+        description: Boardings per day of that type.
+      - name: ingested_at
+        description: "{{ doc('ingested_at') }}"
+
+  - name: commuter_rail_boardings
+    description: >
+      One row per service date × line: the MBTA's estimated commuter rail
+      boardings, from 2020-06-22, for the dashboard's daily commuter rail views
+      (decision 0018).
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [service_date, line_name]
+    columns:
+      - name: service_date
+        description: "{{ doc('service_date') }}"
+        data_tests: [not_null]
+      - name: line_name
+        description: Commuter rail line.
+        data_tests: [not_null]
+      - name: estimated_boardings
+        description: Estimated boardings on the line that day.
+      - name: ingested_at
+        description: "{{ doc('ingested_at') }}"
+
+  - name: ferry_performance
+    description: >
+      One row per month × ferry route: riders, legs, days of service, and the
+      share of measured legs on time (departing within 5 minutes of schedule,
+      the MBTA's own measure; see model header).
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [month_start, route_name]
+    columns:
+      - name: month_start
+        description: First day of the month.
+        data_tests: [not_null]
+      - name: route_name
+        description: The route's place (e.g. Charlestown, Hingham/Hull).
+        data_tests: [not_null]
+      - name: legs
+        description: Trip legs run.
+      - name: riders
+        description: Riders boarding, over every leg.
+      - name: service_days
+        description: Days the route ran that month.
+      - name: measured_legs
+        description: Legs with a known, plausible departure time.
+      - name: on_time_legs
+        description: Measured legs departing no more than 5 minutes after schedule.
+      - name: on_time_share
+        description: on_time_legs / measured_legs; NULL with none measured.
+        data_tests:
+          - accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 1
+
   - name: rail_stations
     description: >
       One row per station × line: every rail station's name and coordinates,

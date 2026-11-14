@@ -33,3 +33,4 @@ Against bronze, 2026-10-29 to 11-01: LAMP held all 997 alerts bronze saw, and of
 | Before **2027-08-03** | tylerclifton.com renews; confirm auto-renew ([setup](setup.md#things-that-live-outside-the-repo)) |
 | ~2029-10 | Python 3.13 support ends |
 | ~2030 (mid) | A full rebuild of the alert tables exceeds the 50 GiB per-query limit (estimate and growth rate in [0011](decisions/0011-capture-every-mode.md)). Hourly runs are unaffected; before any `--full-refresh`, raise `maximum_bytes_billed` in `transform/profiles.yml` |
+| ~2030 (mid) | A full rebuild of `silver.mbta_ferry_trips__base` writes one partition per service day, past BigQuery's 4,000 per job (2,493 days through March 2026). Weekly runs replace about a year of days and are unaffected; before any `--full-refresh`, partition it by month, reading whole months from bronze so a partial month isn't overwritten |

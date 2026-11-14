@@ -304,6 +304,114 @@ models:
       - name: ingested_by
         description: "{{ doc('ingested_by') }}"
 
+  - name: mbta_monthly_ridership__base
+    description: >
+      One row per month × day type × mode or line — the MBTA's monthly
+      ridership figures, every mode, as of the latest pull, subtotals included
+      (decision 0018). Boardings, a transfer counting twice.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [month_start, day_type, mode_or_line]
+    columns:
+      - name: month_start
+        description: First day of the month.
+        data_tests: [not_null]
+      - name: day_type
+        description: Weekday, Saturday, Sunday, or Total (the three together).
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [Weekday, Saturday, Sunday, Total]
+      - name: day_count
+        description: Days of that type in the month.
+      - name: mode_or_line
+        description: >
+          Mode or line as published; Heavy Rail, Light Rail, and All Bus are
+          subtotals of others.
+        data_tests: [not_null]
+      - name: riders_total
+        description: Boardings over the month's days of that type.
+        data_tests:
+          - accepted_range:
+              arguments:
+                min_value: 0
+      - name: riders_per_day
+        description: Boardings per day of that type.
+      - name: ingested_at
+        description: "{{ doc('ingested_at') }}"
+      - name: ingested_by
+        description: "{{ doc('ingested_by') }}"
+
+  - name: mbta_commuter_rail_boardings__base
+    description: >
+      One row per service date × line — the MBTA's estimated commuter rail
+      boardings, as of the latest pull (decision 0018).
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [service_date, line_name]
+    columns:
+      - name: service_date
+        description: "{{ doc('service_date') }}"
+        data_tests: [not_null]
+      - name: line_name
+        description: Commuter rail line (e.g. Fitchburg, Providence/Stoughton).
+        data_tests: [not_null]
+      - name: estimated_boardings
+        description: Estimated boardings on the line that day.
+        data_tests:
+          - accepted_range:
+              arguments:
+                min_value: 0
+      - name: ingested_at
+        description: "{{ doc('ingested_at') }}"
+      - name: ingested_by
+        description: "{{ doc('ingested_by') }}"
+
+  - name: mbta_ferry_trips__base
+    description: >
+      One row per ferry trip leg as of its latest pull, typed. Incremental
+      table that overwrites the service days each new load covers (see model
+      header; decision 0018).
+    columns:
+      - name: service_date
+        description: "{{ doc('service_date') }}"
+        data_tests: [not_null]
+      - name: route_id
+        description: Ferry route (e.g. F4).
+        data_tests: [not_null]
+      - name: route_name
+        description: Route ID and place as published (e.g. F4-Charlestown).
+      - name: trip_id
+        description: Trip ID; NULL in older years.
+      - name: leg_id
+        description: Leg ID (the source's stop_id); NULL in older years.
+      - name: scheduled_departure_at
+        description: Scheduled departure (UTC).
+      - name: actual_departure_at
+        description: Actual departure (UTC); NULL when the MBTA has none.
+      - name: scheduled_arrival_at
+        description: Scheduled arrival (UTC).
+      - name: actual_arrival_at
+        description: Actual arrival (UTC); NULL when the MBTA has none.
+      - name: riders_on
+        description: Riders boarding.
+        data_tests:
+          - accepted_range:
+              arguments:
+                min_value: 0
+      - name: riders_aboard
+        description: Riders aboard after boarding.
+      - name: riders_off
+        description: Riders leaving (published negative; made positive).
+      - name: ingested_at
+        description: The load the service day's legs came from (UTC); the table's incremental marker.
+        data_tests: [not_null]
+      - name: ingested_by
+        description: "{{ doc('ingested_by') }}"
+
   # ── Steps ───────────────────────────────────────────────────────────────────
 
   - name: mbta_alerts__by_route

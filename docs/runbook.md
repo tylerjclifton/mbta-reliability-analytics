@@ -55,7 +55,7 @@ gcloud run jobs execute ingest-lamp-alerts --region us-east1 --wait --update-env
 
 ### Rebuild an incremental silver table
 
-The two incremental silver tables skip what they've already processed: `silver.mbta_alerts__base` reads only new snapshots, and `silver.lamp_alerts__base` reads bronze only when there's a new LAMP load. If their logic changes in a way that needs history reprocessed, rebuild them from bronze. A rebuild costs cents, but rebuilding the snapshot table reads every alert snapshot, so it outgrows the 50 GiB per-query limit around mid-2030 ([roadmap](roadmap.md#dated-upkeep)).
+The three incremental silver tables skip what they've already processed: `silver.mbta_alerts__base` reads only new snapshots, `silver.lamp_alerts__base` reads bronze only when there's a new LAMP load, and `silver.mbta_ferry_trips__base` reads only new ferry loads. If their logic changes in a way that needs history reprocessed, rebuild them from bronze. A rebuild costs cents, but rebuilding the snapshot table reads every alert snapshot, so it outgrows the 50 GiB per-query limit around mid-2030 ([roadmap](roadmap.md#dated-upkeep)).
 
 ```bash
 cd transform

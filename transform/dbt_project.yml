@@ -50,7 +50,7 @@ vars:
 
 # Model configuration: one folder per layer, each built into its own dataset.
 # Silver models are views and gold models are tables, with the exceptions in
-# decision 0010: silver's two incremental tables set theirs in their own
+# decision 0010: silver's three incremental tables set theirs in their own
 # configs, and the alert models below are tables rebuilt every run, since many
 # tests and models read them and a view reruns its whole query for each. Bronze
 # is read as sources only (models/bronze/_bronze__sources.yml).
@@ -72,6 +72,9 @@ models:
       mbta_shapes__base:       {+tags: daily}
       mbta_gated_entries__base:    {+tags: daily}
       noaa_weather__base:      {+tags: daily}
+      mbta_monthly_ridership__base:       {+tags: daily}
+      mbta_commuter_rail_boardings__base: {+tags: daily}
+      mbta_ferry_trips__base:             {+tags: daily}
     gold:
       +schema: gold
       +materialized: table
@@ -79,6 +82,9 @@ models:
       rail_shapes:          {+tags: daily}
       rail_ridership:       {+tags: daily}
       rail_delay_estimates: {+tags: daily}
+      transit_ridership:       {+tags: daily}
+      commuter_rail_boardings: {+tags: daily}
+      ferry_performance:       {+tags: daily}
 
 # Seeds: small reference tables kept by hand in seeds/, loaded into silver
 # (docs/conventions.md). Only rail_ridership reads them, so they load with the

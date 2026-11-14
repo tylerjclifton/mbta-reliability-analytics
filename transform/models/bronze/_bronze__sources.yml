@@ -102,24 +102,33 @@ sources:
           Monthly riders on every mode and line as the MBTA reports them to the
           National Transit Database: unlinked trips, subtotals included
           (decision 0018). Grain: month × day type × mode or line × ingest run.
-        # No freshness check until the table is seeded (docs/runbook.md, "Add
-        # a new source").
+        config:
+          freshness:
+            # Weekly job.
+            warn_after: {count: 8, period: day}
+            error_after: {count: 15, period: day}
 
       - name: mbta_commuter_rail_boardings
         description: >
           The MBTA's estimated commuter rail boardings per day and line, from
           2020-06-22; the whole file every run (decision 0018). Grain:
           service date × line × ingest run.
-        # No freshness check until the table is seeded (docs/runbook.md, "Add
-        # a new source").
+        config:
+          freshness:
+            # Weekly job.
+            warn_after: {count: 8, period: day}
+            error_after: {count: 15, period: day}
 
       - name: mbta_ferry_trips
         description: >
           Every ferry trip leg, with riders on and off and the scheduled and
           actual times, as published (decision 0018). Grain: trip leg × ingest
           run.
-        # No freshness check until the table is seeded (docs/runbook.md, "Add
-        # a new source").
+        config:
+          freshness:
+            # Weekly job.
+            warn_after: {count: 8, period: day}
+            error_after: {count: 15, period: day}
 
       - name: noaa_weather
         description: >

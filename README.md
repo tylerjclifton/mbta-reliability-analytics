@@ -134,6 +134,9 @@ Silver models are named `<bronze table>__<step>`. `__base` is each source's clea
 | `mbta_stops__base` | stop × route | Every station and platform, mapped to its station, with coordinates |
 | `mbta_shapes__base` | shape × route | The path of each rail route's patterns, from the latest snapshot only |
 | `mbta_gated_entries__base` | service date × line | The latest published entries, so MBTA revisions win |
+| `mbta_monthly_ridership__base` | month × day type × mode or line | The latest published figures, subtotals included as published |
+| `mbta_commuter_rail_boardings__base` | service date × line | The latest published estimates |
+| `mbta_ferry_trips__base` | trip leg | Every leg as of its latest pull: actual times parsed from Eastern local text, rider counts as numbers, "NA" as NULL (incremental table) |
 | `noaa_weather__base` | observation date | Weather in °F and inches, failed quality checks removed, latest value |
 
 | Gold table | Grain | Contents |
@@ -145,9 +148,12 @@ Silver models are named `<bronze table>__<step>`. `__base` is each source's clea
 | `rail_shapes` | shape × route | Each rail route's official path, for drawing the lines on the map |
 | `rail_ridership` | service date × line | Gated entries, whether the line was fare-free, active incident count, the day's most severe alert effect, whether it was a calm day, and weather |
 | `rail_delay_estimates` | alert × line | Each subway delay's first posted end against its all-clear, from the LAMP archive |
+| `transit_ridership` | month × day type × service | Monthly riders on every service, each grouped into its mode, published subtotals left out so nothing counts twice |
+| `commuter_rail_boardings` | service date × line | Estimated commuter rail boardings, for the daily commuter rail views |
+| `ferry_performance` | month × ferry route | Legs, riders, days of service, and the share of departures on time (no more than 5 minutes late, the MBTA's measure) |
 
-**Five silver models are tables, not views; everything else in silver is a view, recomputed every run** ([0010](docs/decisions/0010-silver-naming-and-materialization.md)):
-- **Incremental tables:** `mbta_alerts__base` and `lamp_alerts__base`, each source's cleaned copy. Alert snapshots add ~15 GB/year to bronze (the whole feed, every mode; [0011](docs/decisions/0011-capture-every-mode.md)), and a view would re-read all of it for every model and test that uses alerts, outgrowing the free query tier within a year. The snapshot table reads only snapshots added since the last run, and the LAMP table reads bronze only after a new load, so cost stays flat; `dbt build --full-refresh` rebuilds them from bronze. Both parse their source into the same typed columns once, and the steps after them read those.
+**Six silver models are tables, not views; everything else in silver is a view, recomputed every run** ([0010](docs/decisions/0010-silver-naming-and-materialization.md)):
+- **Incremental tables:** `mbta_alerts__base`, `lamp_alerts__base`, and `mbta_ferry_trips__base`, each source's cleaned copy. Alert snapshots add ~15 GB/year to bronze (the whole feed, every mode; [0011](docs/decisions/0011-capture-every-mode.md)), and a view would re-read all of it for every model and test that uses alerts, outgrowing the free query tier within a year. The snapshot table reads only snapshots added since the last run, and the LAMP table reads bronze only after a new load, so cost stays flat; `dbt build --full-refresh` rebuilds them from bronze. Both alert tables parse their source into the same typed columns once, and the steps after them read those. The ferry table reads only loads added since the last run and replaces the service days they cover: each weekly run re-pulls a year of legs, ~2.8 million rows a year that a view would re-read every time.
 - **Tables rebuilt every run:** `mbta_alerts__resolved`, `mbta_alerts__grouped`, and `mbta_alerts__by_station`. Many tests and gold models read them, and a view reruns its whole query for each reader; as tables, their logic runs once per run.
 
 **Alert history: two sources.** Alerts seen since full-JSON capture began (2026-10-24, `alerts_raw_capture_start` in `dbt_project.yml`) come from the project's own snapshots: `bronze.mbta_alerts` holds each alert's full JSON as returned, for the whole feed (every mode since 2026-10-28), and silver keeps only rail ([0011](docs/decisions/0011-capture-every-mode.md)). Every other alert comes from the MBTA's LAMP archive (`bronze.lamp_alerts`, topped up weekly), from 2019-09-05 on: those that ended before then, and the short alerts that closed between two snapshots since ([0016](docs/decisions/0016-alerts-before-capture-from-lamp.md)). LAMP holds the same alerts with their stops and the MBTA's own close times, and it's more complete than the project's earlier pipeline, which missed many short alerts. That pipeline's shaped snapshots stay frozen in `bronze.mbta_alerts_legacy`; no model reads them.
@@ -283,9 +289,9 @@ transform/              dbt Core project
   run.py                Job entrypoint: dbt build + freshness, failure and warning reports
   models/bronze/        Source declarations + freshness thresholds
   models/silver/        __base cleaned copies + steps + data tests; unit tests for the alert rules
-  models/gold/          Dashboard tables (rail_incidents, rail_incident_stations, rail_incident_periods, rail_stations, rail_shapes, rail_ridership, rail_delay_estimates) + tests
+  models/gold/          Dashboard tables (rail_incidents, rail_incident_stations, rail_incident_periods, rail_stations, rail_shapes, rail_ridership, rail_delay_estimates, transit_ridership, commuter_rail_boardings, ferry_performance) + tests
   seeds/                Reference tables kept by hand (fare-free periods)
-  macros/               generate_schema_name, keep_latest_version, last_processed_snapshot, null_if_epoch, null_if_failed_ghcn_qc, service_date
+  macros/               generate_schema_name, keep_latest_version, last_processed_snapshot, null_if_epoch, null_if_failed_ghcn_qc, service_date, eastern_time_from_text
   tests/                Generic tests (unique_combination, accepted_range) + rail_shapes_cover_every_route
 serve/                  Streamlit dashboard (app.py; pure helpers in helpers.py, tested in tests/)
 scripts/build-image.sh  Build + push a component's image (used by CI/CD)

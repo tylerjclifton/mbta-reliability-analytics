@@ -129,7 +129,7 @@ models:
           - not_null
           - accepted_values:
               arguments:
-                # Anchor reused by mbta_ridership__base.line_name below.
+                # Anchor reused by mbta_gated_entries__base.line_name below.
                 values: &rail_lines ['Red Line', 'Orange Line', 'Blue Line', 'Green Line']
       - name: route_description
         description: MBTA route description (e.g. "Rapid Transit").
@@ -234,7 +234,7 @@ models:
       - name: ingested_by
         description: "{{ doc('ingested_by') }}"
 
-  - name: mbta_ridership__base
+  - name: mbta_gated_entries__base
     description: One row per service date × line — the latest published gated-entry count.
     data_tests:
       - unique_combination:

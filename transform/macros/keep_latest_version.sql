@@ -7,7 +7,7 @@
     this to collapse those versions down to the latest one.
 
     Usage — placed after FROM/WHERE in a query over a bronze table:
-      SELECT * FROM {{ source('bronze', 'mbta_ridership') }}
+      SELECT * FROM {{ source('bronze', 'mbta_gated_entries') }}
       {{ keep_latest_version(['service_date', 'route_or_line']) }}
 
     Compiles to:

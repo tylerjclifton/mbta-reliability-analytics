@@ -141,7 +141,7 @@ locals {
       ]
     }
 
-    mbta_ridership = {
+    mbta_gated_entries = {
       description = "Gated station entries per day and line from MBTA ArcGIS open data: the layer's last two years every run, and days before 2024-10-01 from its yearly archive (decision 0015). Grain: service date × line × ingest run."
       clustering  = ["service_date", "route_or_line"]
       columns = [
@@ -153,7 +153,7 @@ locals {
 
     # Every mode, monthly, as published: unlinked trips, not gated entries, and
     # some rows are subtotals of others (decision 0018).
-    mbta_mode_ridership = {
+    mbta_monthly_ridership = {
       description = "Monthly riders on every MBTA mode and line, as the MBTA reports them to the National Transit Database (MBTA ArcGIS open data), from 2018-07; the whole layer every run, subtotals included (decision 0018). Grain: month × day type × mode or line × ingest run."
       clustering  = ["month_of_service", "route_or_line"]
       columns = [
@@ -167,7 +167,7 @@ locals {
     }
 
     # Commuter rail's daily estimates, as published (decision 0018).
-    mbta_commuter_rail_ridership = {
+    mbta_commuter_rail_boardings = {
       description = "The MBTA's estimated commuter rail boardings per day and line (MBTA ArcGIS open data), from 2020-06-22; the whole file every run (decision 0018). Grain: service date × line × ingest run."
       clustering  = ["service_date", "line"]
       columns = [
@@ -301,6 +301,24 @@ resource "google_bigquery_table" "bronze" {
   lifecycle {
     prevent_destroy = true
   }
+}
+
+# Adopt the three ridership tables renamed in BigQuery on 2026-11-14, named
+# for what they count (docs/runbook.md, "Rename a bronze table"). Removed once
+# applied.
+import {
+  to = google_bigquery_table.bronze["mbta_gated_entries"]
+  id = "projects/${var.project_id}/datasets/bronze/tables/mbta_gated_entries"
+}
+
+import {
+  to = google_bigquery_table.bronze["mbta_monthly_ridership"]
+  id = "projects/${var.project_id}/datasets/bronze/tables/mbta_monthly_ridership"
+}
+
+import {
+  to = google_bigquery_table.bronze["mbta_commuter_rail_boardings"]
+  id = "projects/${var.project_id}/datasets/bronze/tables/mbta_commuter_rail_boardings"
 }
 
 # The same tables and schemas in dev_bronze, for local ingest runs. Frozen

@@ -163,10 +163,10 @@ def test_alerts_empty_feed_writes_nothing(run_job):
     assert raw.empty
 
 
-# ── mbta-commuter-rail-ridership ──────────────────────────────────────────────
+# ── mbta-commuter-rail-boardings ──────────────────────────────────────────────
 
-def test_commuter_rail_ridership_renames_and_types_the_file(run_job):
-    df = run_job('mbta-commuter-rail-ridership', [
+def test_commuter_rail_boardings_renames_and_types_the_file(run_job):
+    df = run_job('mbta-commuter-rail-boardings', [
         'servicedate,line,estimated_boardings\n'
         '2024-06-21,Fitchburg,15012\n'
         '2024-06-21,Lowell,\n'                 # no estimate → NULL
@@ -179,9 +179,9 @@ def test_commuter_rail_ridership_renames_and_types_the_file(run_job):
     assert df['estimated_boardings'].isna().tolist() == [False, True]
 
 
-def test_commuter_rail_ridership_empty_file_fails_the_job(run_job):
+def test_commuter_rail_boardings_empty_file_fails_the_job(run_job):
     with pytest.raises(SystemExit) as exit_info:
-        run_job('mbta-commuter-rail-ridership', ['servicedate,line,estimated_boardings\n'])
+        run_job('mbta-commuter-rail-boardings', ['servicedate,line,estimated_boardings\n'])
 
     assert exit_info.value.code == 1
 
@@ -241,7 +241,7 @@ def test_ferry_trips_nothing_in_the_window_fails_the_job(run_job):
     assert exit_info.value.code == 1
 
 
-# ── mbta-mode-ridership ───────────────────────────────────────────────────────
+# ── mbta-monthly-ridership ────────────────────────────────────────────────────
 
 # The 1st of September 2026 at midnight Eastern, in UTC epoch ms.
 SEP_1_MS = int(datetime.datetime(2026, 9, 1, 4, tzinfo=datetime.timezone.utc).timestamp() * 1000)
@@ -258,8 +258,8 @@ def mode_page(rows, more):
     }
 
 
-def test_mode_ridership_keeps_every_row_subtotals_included(run_job):
-    df = run_job('mbta-mode-ridership', [
+def test_monthly_ridership_keeps_every_row_subtotals_included(run_job):
+    df = run_job('mbta-monthly-ridership', [
         mode_page([('Red Line', 'Weekday', 3630361), ('Heavy Rail', 'Weekday', 8058137)], more=True),
         mode_page([('Ferry', 'Total', 120000)], more=False),
     ])
@@ -268,23 +268,23 @@ def test_mode_ridership_keeps_every_row_subtotals_included(run_job):
     assert [request['params']['resultOffset'] for request in run_job.requests] == [0, 2]
 
 
-def test_mode_ridership_month_is_its_first_day_and_counts_stay_whole(run_job):
-    df = run_job('mbta-mode-ridership', [mode_page([('Bus', 'Weekday', 6000000)], more=False)])
+def test_monthly_ridership_month_is_its_first_day_and_counts_stay_whole(run_job):
+    df = run_job('mbta-monthly-ridership', [mode_page([('Bus', 'Weekday', 6000000)], more=False)])
 
     assert df['month_of_service'].tolist() == [datetime.date(2026, 9, 1)]
     assert df['ridership_total'].dtype == 'Int64'
 
 
-def test_mode_ridership_api_error_fails_the_job(run_job):
+def test_monthly_ridership_api_error_fails_the_job(run_job):
     with pytest.raises(SystemExit) as exit_info:
-        run_job('mbta-mode-ridership', [{'error': {'code': 400, 'message': 'bad query'}}])
+        run_job('mbta-monthly-ridership', [{'error': {'code': 400, 'message': 'bad query'}}])
 
     assert exit_info.value.code == 1
 
 
-def test_mode_ridership_empty_layer_fails_the_job(run_job):
+def test_monthly_ridership_empty_layer_fails_the_job(run_job):
     with pytest.raises(SystemExit) as exit_info:
-        run_job('mbta-mode-ridership', [mode_page([], more=False)])
+        run_job('mbta-monthly-ridership', [mode_page([], more=False)])
 
     assert exit_info.value.code == 1
 
@@ -425,7 +425,7 @@ def test_stops_empty_response_fails_the_job(run_job):
     assert exit_info.value.code == 1
 
 
-# ── mbta-ridership ────────────────────────────────────────────────────────────
+# ── mbta-gated-entries ────────────────────────────────────────────────────────
 
 def arcgis_page(rows, more):
     """One page of an ArcGIS statistics query."""
@@ -440,8 +440,8 @@ def arcgis_page(rows, more):
 SEP_30_MS = int(datetime.datetime(2026, 9, 30, 4, tzinfo=datetime.timezone.utc).timestamp() * 1000)
 
 
-def test_ridership_follows_pagination(run_job):
-    df = run_job('mbta-ridership', [
+def test_gated_entries_follows_pagination(run_job):
+    df = run_job('mbta-gated-entries', [
         arcgis_page([(SEP_30_MS, 'Red Line', 136013.4)], more=True),
         arcgis_page([(SEP_30_MS, 'Blue Line', 40112.0)], more=False),
     ])
@@ -450,12 +450,12 @@ def test_ridership_follows_pagination(run_job):
     assert [request['params']['resultOffset'] for request in run_job.requests] == [0, 1]
 
 
-def test_ridership_stops_paging_at_an_empty_page(run_job):
+def test_gated_entries_stops_paging_at_an_empty_page(run_job):
     """
     A page that adds nothing ends the loop, even if
     ArcGIS still says more remain.
     """
-    df = run_job('mbta-ridership', [
+    df = run_job('mbta-gated-entries', [
         arcgis_page([(SEP_30_MS, 'Red Line', 136013.4)], more=True),
         arcgis_page([], more=True),
     ])
@@ -464,23 +464,23 @@ def test_ridership_stops_paging_at_an_empty_page(run_job):
     assert df['route_or_line'].tolist() == ['Red Line']
 
 
-def test_ridership_epoch_ms_becomes_service_date(run_job):
-    df = run_job('mbta-ridership', [arcgis_page([(SEP_30_MS, 'Red Line', 1.5)], more=False)])
+def test_gated_entries_epoch_ms_becomes_service_date(run_job):
+    df = run_job('mbta-gated-entries', [arcgis_page([(SEP_30_MS, 'Red Line', 1.5)], more=False)])
 
     assert df['service_date'].tolist() == [datetime.date(2026, 9, 30)]
     assert df['gated_entries'].dtype == float
 
 
-def test_ridership_api_error_fails_the_job(run_job):
+def test_gated_entries_api_error_fails_the_job(run_job):
     with pytest.raises(SystemExit) as exit_info:
-        run_job('mbta-ridership', [{'error': {'code': 400, 'message': 'bad query'}}])
+        run_job('mbta-gated-entries', [{'error': {'code': 400, 'message': 'bad query'}}])
 
     assert exit_info.value.code == 1
 
 
-def test_ridership_empty_layer_fails_the_job(run_job):
+def test_gated_entries_empty_layer_fails_the_job(run_job):
     with pytest.raises(SystemExit) as exit_info:
-        run_job('mbta-ridership', [arcgis_page([], more=False)])
+        run_job('mbta-gated-entries', [arcgis_page([], more=False)])
 
     assert exit_info.value.code == 1
 
@@ -494,9 +494,9 @@ def archive_zip(files):
     return buffer.getvalue()
 
 
-def test_ridership_archive_sums_rail_days_before_the_layer(run_job, monkeypatch):
+def test_gated_entries_archive_sums_rail_days_before_the_layer(run_job, monkeypatch):
     monkeypatch.setenv('FROM_ARCHIVE', 'true')
-    df = run_job('mbta-ridership', [archive_zip({
+    df = run_job('mbta-gated-entries', [archive_zip({
         'GSE_by_year/GSE_2019.csv': (
             'service_date,time_period,stop_id,station_name,route_or_line,gated_entries\n'
             '2019-02-05,"(07:00:00)",place-dwnxg,Downtown Crossing,Red Line,100.5\n'
@@ -517,10 +517,10 @@ def test_ridership_archive_sums_rail_days_before_the_layer(run_job, monkeypatch)
     ]
 
 
-def test_ridership_archive_without_older_days_fails_the_job(run_job, monkeypatch):
+def test_gated_entries_archive_without_older_days_fails_the_job(run_job, monkeypatch):
     monkeypatch.setenv('FROM_ARCHIVE', 'true')
     with pytest.raises(SystemExit) as exit_info:
-        run_job('mbta-ridership', [archive_zip({
+        run_job('mbta-gated-entries', [archive_zip({
             'GSE_by_year/GSE_2025.csv': 'service_date,route_or_line,gated_entries\n2025-01-02,Red Line,5\n',
         })])
 

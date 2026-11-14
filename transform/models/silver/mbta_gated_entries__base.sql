@@ -1,5 +1,5 @@
 {#
-  silver.mbta_ridership__base — one row per service date × line
+  silver.mbta_gated_entries__base — one row per service date × line
 
   Every ingest run re-pulls the full ArcGIS history, so bronze holds one
   version of each day per run. Keeping the latest means any revisions the MBTA
@@ -15,7 +15,7 @@ WITH
     -- 1. Latest pull per service date × line.
     latest_versions AS (
         SELECT *
-        FROM {{ source('bronze', 'mbta_ridership') }}
+        FROM {{ source('bronze', 'mbta_gated_entries') }}
         {{ keep_latest_version(['service_date', 'route_or_line']) }}
     )
 

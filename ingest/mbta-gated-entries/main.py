@@ -1,5 +1,5 @@
 """
-MBTA ridership ingest — gated station entries on the rail lines
+MBTA gated entries ingest — subway fare-gate entries per day and line
 
 Source:     MBTA Gated Station Entries, an ArcGIS open data feature service
             holding only the last two years; older days drop off it, and
@@ -9,7 +9,7 @@ Cadence:    Weekly (the MBTA publishes in irregular batches, often several
             appeared on 2026-10-20)
 Each run:   Pulls everything the layer holds, not a recent window, so numbers
             the MBTA revises after the fact are captured
-Writes to:  bronze.mbta_ridership (append) — one row per service date × line
+Writes to:  bronze.mbta_gated_entries (append) — one row per service date × line
             per run
 Backfill:   FROM_ARCHIVE=true, set at execution time, loads the days before
             the layer's window from the MBTA's yearly archive of the same data

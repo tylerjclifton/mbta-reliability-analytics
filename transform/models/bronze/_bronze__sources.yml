@@ -85,7 +85,7 @@ sources:
             # Yearly job.
             error_after: {count: 400, period: day}
 
-      - name: mbta_ridership
+      - name: mbta_gated_entries
         description: >
           Gated station entries per day and line from MBTA ArcGIS open data:
           the layer's last two years every run, and days before 2024-10-01 from
@@ -97,7 +97,7 @@ sources:
             warn_after: {count: 8, period: day}
             error_after: {count: 15, period: day}
 
-      - name: mbta_mode_ridership
+      - name: mbta_monthly_ridership
         description: >
           Monthly riders on every mode and line as the MBTA reports them to the
           National Transit Database: unlinked trips, subtotals included
@@ -105,7 +105,7 @@ sources:
         # No freshness check until the table is seeded (docs/runbook.md, "Add
         # a new source").
 
-      - name: mbta_commuter_rail_ridership
+      - name: mbta_commuter_rail_boardings
         description: >
           The MBTA's estimated commuter rail boardings per day and line, from
           2020-06-22; the whole file every run (decision 0018). Grain:

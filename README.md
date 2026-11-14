@@ -41,6 +41,8 @@ Each kind of data has one live source, and history from an archive where the liv
 | Weather | NOAA GHCN-Daily, daily | Same source, re-pulled further back once | None | 2014-01-01 |
 | Routes, stops, line shapes | MBTA API | Not kept: the MBTA archives every past schedule ([0011](docs/decisions/0011-capture-every-mode.md)) | — | Current only |
 
+Ridership is measured three ways, each for what only it can show: subway gated entries (daily, the subway only), the MBTA's monthly figures (every mode, counted alike), and commuter rail's daily estimates. Each view uses one of them; a chart that compares modes uses the monthly figures for all of them, the subway included ([0018](docs/decisions/0018-ridership-for-every-mode.md)).
+
 Bronze overlaps a little on purpose, since it's append-only and never trimmed ([0001](docs/decisions/0001-append-only-bronze.md)): LAMP's load and the API both hold late October 2026, and the frozen `mbta_alerts_legacy` table repeats June–October 2026. Silver takes each alert from one source only. Repeated snapshots (every alert each 15 minutes, two years of ridership each week) are how revisions and end times are captured; bronze bills compressed bytes, so they cost next to nothing ([0014](docs/decisions/0014-bronze-physical-storage-billing.md)).
 
 The dbt transform runs hourly at :35. The slow-changing models (silver shapes, ridership, and weather, and the gold station, shape, and ridership tables) are built and tested once a day instead, in a full run after the morning ingests ([0017](docs/decisions/0017-slow-changing-models-build-daily.md)).
@@ -109,9 +111,9 @@ Each layer is its own BigQuery dataset, with a dev sandbox beside it for local w
 | `mbta_stops` | stop × route × ingest run | Weekly snapshot of every rail station and its platforms, entrances, and nodes |
 | `mbta_shapes` | shape × route × ingest run | Weekly snapshot of the path of each rail route's patterns |
 | `mbta_routes` | route × ingest run | Yearly snapshot |
-| `mbta_ridership` | service date × line × ingest run | The layer's two years re-pulled weekly; days before 2024-10-01 from the yearly archive, loaded once |
-| `mbta_mode_ridership` | month × day type × mode or line × ingest run | The whole layer re-pulled weekly, subtotals included as published ([0018](docs/decisions/0018-ridership-for-every-mode.md)) |
-| `mbta_commuter_rail_ridership` | service date × line × ingest run | The whole file re-pulled weekly ([0018](docs/decisions/0018-ridership-for-every-mode.md)) |
+| `mbta_gated_entries` | service date × line × ingest run | The layer's two years re-pulled weekly; days before 2024-10-01 from the yearly archive, loaded once |
+| `mbta_monthly_ridership` | month × day type × mode or line × ingest run | The whole layer re-pulled weekly, subtotals included as published ([0018](docs/decisions/0018-ridership-for-every-mode.md)) |
+| `mbta_commuter_rail_boardings` | service date × line × ingest run | The whole file re-pulled weekly ([0018](docs/decisions/0018-ridership-for-every-mode.md)) |
 | `mbta_ferry_trips` | trip leg × ingest run | The last year of service re-pulled weekly; the whole layer, 2018-11 on, loaded once ([0018](docs/decisions/0018-ridership-for-every-mode.md)) |
 | `noaa_weather` | observation date × ingest run | Last 10 days re-pulled daily (NOAA revises recent days) |
 | `lamp_alerts` | alert × version × informed entity × active period × ingest run | The whole archive once, then each week the rows LAMP modified in the last two weeks ([0016](docs/decisions/0016-alerts-before-capture-from-lamp.md)) |
@@ -131,7 +133,7 @@ Silver models are named `<bronze table>__<step>`. `__base` is each source's clea
 | `mbta_routes__base` | route | Each rail route and the line it belongs to |
 | `mbta_stops__base` | stop × route | Every station and platform, mapped to its station, with coordinates |
 | `mbta_shapes__base` | shape × route | The path of each rail route's patterns, from the latest snapshot only |
-| `mbta_ridership__base` | service date × line | The latest published entries, so MBTA revisions win |
+| `mbta_gated_entries__base` | service date × line | The latest published entries, so MBTA revisions win |
 | `noaa_weather__base` | observation date | Weather in °F and inches, failed quality checks removed, latest value |
 
 | Gold table | Grain | Contents |
@@ -271,9 +273,9 @@ ingest/                 One shared image for every ingest job
   mbta-routes/          MBTA route metadata snapshots (yearly)
   mbta-stops/           MBTA station and platform snapshots (weekly)
   mbta-shapes/          MBTA line shape snapshots (weekly)
-  mbta-ridership/       ArcGIS gated entries, the layer's two years (weekly); yearly archive on demand
-  mbta-mode-ridership/  ArcGIS monthly riders on every mode and line (weekly)
-  mbta-commuter-rail-ridership/  ArcGIS daily commuter rail boardings by line (weekly)
+  mbta-gated-entries/       ArcGIS gated entries, the layer's two years (weekly); yearly archive on demand
+  mbta-monthly-ridership/  ArcGIS monthly riders on every mode and line (weekly)
+  mbta-commuter-rail-boardings/  ArcGIS daily commuter rail boardings by line (weekly)
   mbta-ferry-trips/     ArcGIS ferry trip legs, the last year (weekly); the whole layer on demand
   noaa-weather/         NOAA GHCN-Daily for Boston Logan (daily)
   lamp-alerts/          The MBTA's LAMP alerts archive, the last two weeks' changes (weekly)

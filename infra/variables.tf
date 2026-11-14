@@ -56,8 +56,8 @@ variable "weather_ingestion_schedule" {
   default     = "0 6 * * *"
 }
 
-variable "ridership_ingestion_schedule" {
-  description = "Cron for MBTA ridership ingestion. Weekly (Mondays 6AM ET): the MBTA publishes in irregular batches weeks to months late, so new data is picked up within a week of whenever it lands."
+variable "gated_entries_ingestion_schedule" {
+  description = "Cron for MBTA gated entries ingestion. Weekly (Mondays 6AM ET): the MBTA publishes in irregular batches weeks to months late, so new data is picked up within a week of whenever it lands."
   type        = string
   default     = "0 6 * * 1"
 }
@@ -80,14 +80,14 @@ variable "lamp_ingestion_schedule" {
   default     = "0 7 * * 1"
 }
 
-variable "mode_ridership_ingestion_schedule" {
-  description = "Cron for MBTA mode ridership ingestion. Weekly (Mondays 7:15AM ET): the MBTA adds each month weeks after it ends."
+variable "monthly_ridership_ingestion_schedule" {
+  description = "Cron for MBTA monthly ridership ingestion. Weekly (Mondays 7:15AM ET): the MBTA adds each month weeks after it ends."
   type        = string
   default     = "15 7 * * 1"
 }
 
-variable "commuter_rail_ridership_ingestion_schedule" {
-  description = "Cron for MBTA commuter rail ridership ingestion. Weekly (Mondays 7:20AM ET): the MBTA replaces its daily estimates irregularly, months late."
+variable "commuter_rail_boardings_ingestion_schedule" {
+  description = "Cron for MBTA commuter rail boardings ingestion. Weekly (Mondays 7:20AM ET): the MBTA replaces its daily estimates irregularly, months late."
   type        = string
   default     = "20 7 * * 1"
 }

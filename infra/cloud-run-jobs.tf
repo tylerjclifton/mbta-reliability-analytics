@@ -55,8 +55,8 @@ locals {
       timeout           = "600s" # Seven requests, one per route
       env               = {}
     }
-    "mbta-commuter-rail-ridership" = {
-      schedule          = var.commuter_rail_ridership_ingestion_schedule
+    "mbta-commuter-rail-boardings" = {
+      schedule          = var.commuter_rail_boardings_ingestion_schedule
       uses_mbta_api_key = false
       memory            = "512Mi"
       timeout           = "600s" # One file, under 1 MB
@@ -72,15 +72,15 @@ locals {
       # time to backfill: `--update-env-vars LOOKBACK_DAYS=4000`.
       env = {}
     }
-    "mbta-mode-ridership" = {
-      schedule          = var.mode_ridership_ingestion_schedule
+    "mbta-monthly-ridership" = {
+      schedule          = var.monthly_ridership_ingestion_schedule
       uses_mbta_api_key = false
       memory            = "512Mi"
       timeout           = "600s" # The whole layer, ~5,000 rows
       env               = {}
     }
-    "mbta-ridership" = {
-      schedule          = var.ridership_ingestion_schedule
+    "mbta-gated-entries" = {
+      schedule          = var.gated_entries_ingestion_schedule
       uses_mbta_api_key = false
       memory            = "1Gi"
       timeout           = "900s" # The layer's two years, paged; or the yearly archive

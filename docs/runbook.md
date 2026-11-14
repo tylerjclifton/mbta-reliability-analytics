@@ -31,7 +31,7 @@ gcloud run jobs execute ingest-noaa-weather --region us-east1 --update-env-vars 
 The ridership layer holds only its last two years. Days before 2024-10-01 come from the MBTA's yearly archive, loaded by the same job in archive mode ([0015](decisions/0015-ridership-history-from-archive.md)). It was loaded once, on 2026-11-03; re-run it only if the MBTA revises past years.
 
 ```bash
-gcloud run jobs execute ingest-mbta-ridership --region us-east1 --update-env-vars FROM_ARCHIVE=true --wait
+gcloud run jobs execute ingest-mbta-gated-entries --region us-east1 --update-env-vars FROM_ARCHIVE=true --wait
 ```
 
 ### Backfill ferry trips

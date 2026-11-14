@@ -70,7 +70,7 @@ models:
       mbta_alerts__grouped:    {+materialized: table}
       mbta_alerts__by_station: {+materialized: table}
       mbta_shapes__base:       {+tags: daily}
-      mbta_ridership__base:    {+tags: daily}
+      mbta_gated_entries__base:    {+tags: daily}
       noaa_weather__base:      {+tags: daily}
     gold:
       +schema: gold

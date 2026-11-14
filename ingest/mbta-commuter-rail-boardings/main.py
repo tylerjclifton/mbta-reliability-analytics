@@ -1,5 +1,5 @@
 """
-MBTA commuter rail ridership ingest — estimated boardings per day and line
+MBTA commuter rail boardings ingest — estimated boardings per day and line
 
 Source:     MBTA Commuter Rail Ridership by Service Date and Line, a CSV on
             the MBTA's ArcGIS open data portal: the MBTA's daily estimates of
@@ -8,12 +8,12 @@ Cadence:    Weekly (the MBTA replaces the file irregularly, months late: on
             2026-11-14 it ran through 2026-06-24)
 Each run:   Pulls the whole file (~25,000 rows, under 1 MB), so days the MBTA
             revises are captured
-Writes to:  bronze.mbta_commuter_rail_ridership (append) — one row per service
+Writes to:  bronze.mbta_commuter_rail_boardings (append) — one row per service
             date × line per run
 
 The figures are estimates, which the MBTA doesn't guarantee, and start after
 the pandemic began; monthly figures for every mode reach back to 2018
-(bronze.mbta_mode_ridership; decision 0018).
+(bronze.mbta_monthly_ridership; decision 0018).
 """
 
 # Import standard libraries

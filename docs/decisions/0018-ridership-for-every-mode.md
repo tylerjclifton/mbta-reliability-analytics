@@ -20,7 +20,7 @@ Options rejected:
 
 ## Decision
 - Two weekly ingest jobs:
-  - `ingest-mbta-mode-ridership` pulls the whole monthly layer each run (~5,000 rows) into `bronze.mbta_mode_ridership`, so revised months are captured.
+  - `ingest-mbta-monthly-ridership` pulls the whole monthly layer each run (~5,000 rows) into `bronze.mbta_monthly_ridership`, so revised months are captured.
   - `ingest-mbta-ferry-trips` re-pulls the last year of service each run (`LOOKBACK_DAYS`, default 365) into `bronze.mbta_ferry_trips`, so months published late or revised are captured without re-reading all ~400,000 rows. The whole layer was loaded once with `LOOKBACK_DAYS=4000`.
 - Bronze keeps both as published. The monthly subtotals stay, and silver keeps only the rows that don't overlap, so no rider is counted twice. The ferry's text values (actual times, rider counts, "NA" for missing, negative riders off) stay text, and silver types them.
 - Gated entries remain the subway's daily ridership. Riders by mode is a separate, monthly view, labeled as unlinked trips.
@@ -33,4 +33,5 @@ Options rejected:
 - Commuter rail daily ridership and lateness stay on the roadmap, to be taken up together.
 
 ## History
-- **2026-11-14:** daily commuter rail ridership was added after all, as `ingest-mbta-commuter-rail-ridership` into `bronze.mbta_commuter_rail_ridership` (the whole file, ~25,000 rows, each week). It's small, and it shows what the monthly figures can't: the busiest commuter rail day since 2020 is the 2024 Celtics parade (158K boardings against ~100K on a weekday), and the hybrid-work week (Tuesday and Wednesday ~105K, Monday and Friday ~94K in 2025). Commuter rail lateness stays on the roadmap.
+- **2026-11-14:** daily commuter rail ridership was added after all, as `ingest-mbta-commuter-rail-boardings` into `bronze.mbta_commuter_rail_boardings` (the whole file, ~25,000 rows, each week). It's small, and it shows what the monthly figures can't: the busiest commuter rail day since 2020 is the 2024 Celtics parade (158K boardings against ~100K on a weekday), and the hybrid-work week (Tuesday and Wednesday ~105K, Monday and Friday ~94K in 2025). Commuter rail lateness stays on the roadmap.
+- **2026-11-14:** the ridership tables were named for what they count, since the monthly figures include the subway and names by mode would overlap: `bronze.mbta_gated_entries` (was `mbta_ridership`), `bronze.mbta_monthly_ridership` (was `mbta_mode_ridership`), and `bronze.mbta_commuter_rail_boardings` (was `mbta_commuter_rail_ridership`); their jobs and silver models follow. The rule for using them, **one source per view**: subway-only views use gated entries, cross-mode views use the monthly figures for every mode (the subway included), and daily commuter rail views use its estimates. No chart mixes two.

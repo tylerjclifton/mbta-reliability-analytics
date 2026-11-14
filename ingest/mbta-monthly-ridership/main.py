@@ -1,5 +1,5 @@
 """
-MBTA mode ridership ingest — monthly riders on every mode and line
+MBTA monthly ridership ingest — monthly riders on every mode and line
 
 Source:     MBTA Monthly Ridership by Mode and Line, an ArcGIS open data
             feature service: what the MBTA reports to the National Transit
@@ -7,12 +7,12 @@ Source:     MBTA Monthly Ridership by Mode and Line, an ArcGIS open data
 Cadence:    Weekly (the MBTA adds each month weeks after it ends)
 Each run:   Pulls the whole layer (~5,000 rows), so months the MBTA revises
             after the fact are captured
-Writes to:  bronze.mbta_mode_ridership (append) — one row per month × day type
+Writes to:  bronze.mbta_monthly_ridership (append) — one row per month × day type
             × mode or line per run
 
 The layer counts unlinked trips (a ride with a transfer counts twice), on
 every mode, so its subway figures run higher than gated entries
-(bronze.mbta_ridership) and don't compare with them. Rows are kept as
+(bronze.mbta_gated_entries) and don't compare with them. Rows are kept as
 published, subtotals included: "Heavy Rail" is Red + Orange + Blue, "Light
 Rail" Green + Mattapan, "All Bus" Bus + Silver Line (+ the retired private
 carrier and trackless trolley routes), and day type "Total" the month's

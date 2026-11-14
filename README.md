@@ -147,6 +147,9 @@ Silver models are named `<bronze table>__<step>`. `__base` is each source's clea
 | `mbta_gated_entries__base` | service date × line | The latest published entries, so MBTA revisions win |
 | `mbta_monthly_ridership__base` | month × day type × mode or line | The latest published figures, subtotals included as published |
 | `mbta_commuter_rail_boardings__base` | service date × line | The latest published estimates |
+| `mbta_excess_trip_time__base` | service date × half hour × line × direction | Riders' trip times against a baseline, each day's latest pull, renamed and typed |
+| `mbta_commuter_rail_reliability__base` | row of the file | Trains measured, on time, and canceled, each day's latest pull; a line's branches are separate rows |
+| `mbta_customer_satisfaction__base` | survey × question | The latest published survey results, seven answers from most negative to most positive |
 | `mbta_ferry_trips__base` | trip leg | Every leg as of its latest pull: actual times parsed from Eastern local text, rider counts as numbers, "NA" as NULL (incremental table) |
 | `noaa_weather__base` | observation date | Weather in °F and inches, failed quality checks removed, latest value |
 
@@ -161,6 +164,9 @@ Silver models are named `<bronze table>__<step>`. `__base` is each source's clea
 | `rail_delay_estimates` | alert × line | Each subway delay's first posted end against its all-clear, from the LAMP archive |
 | `transit_ridership` | month × day type × service | Monthly riders on every service, each grouped into its mode, published subtotals left out so nothing counts twice |
 | `commuter_rail_boardings` | service date × line | Estimated commuter rail boardings, for the daily commuter rail views |
+| `rail_trip_times` | service date × line × service period | Riders' trip minutes against the baseline on the Red, Orange, and Blue Lines, as totals: extra minutes per trip, and riders within 5 minutes of normal |
+| `commuter_rail_reliability` | service date × line × peak or off-peak | Commuter rail trains measured, on time, and canceled, branches summed per line |
+| `transit_rider_satisfaction` | survey × question | The share of survey respondents answering positively, neutrally, and negatively |
 | `ferry_performance` | month × ferry route | Legs, riders, days of service, and the share of departures on time (no more than 5 minutes late, the MBTA's measure) |
 
 **Six silver models are tables, not views; everything else in silver is a view, recomputed every run** ([0010](docs/decisions/0010-silver-naming-and-materialization.md)):
@@ -303,7 +309,7 @@ transform/              dbt Core project
   run.py                Job entrypoint: dbt build + freshness, failure and warning reports
   models/bronze/        Source declarations + freshness thresholds
   models/silver/        __base cleaned copies + steps + data tests; unit tests for the alert rules
-  models/gold/          Dashboard tables (rail_incidents, rail_incident_stations, rail_incident_periods, rail_stations, rail_shapes, rail_ridership, rail_delay_estimates, transit_ridership, commuter_rail_boardings, ferry_performance) + tests
+  models/gold/          Dashboard tables (rail_incidents, rail_incident_stations, rail_incident_periods, rail_stations, rail_shapes, rail_ridership, rail_delay_estimates, transit_ridership, commuter_rail_boardings, ferry_performance, rail_trip_times, commuter_rail_reliability, transit_rider_satisfaction) + tests
   seeds/                Reference tables kept by hand (fare-free periods)
   macros/               generate_schema_name, keep_latest_version, last_processed_snapshot, null_if_epoch, null_if_failed_ghcn_qc, service_date, eastern_time_from_text
   tests/                Generic tests (unique_combination, accepted_range) + rail_shapes_cover_every_route

@@ -322,6 +322,127 @@ models:
                 min_value: 0
                 max_value: 1
 
+  - name: rail_trip_times
+    description: >
+      One row per service date × line × service period: riders' trip times on
+      the Red, Orange, and Blue Lines against a baseline, the MBTA's estimates,
+      as totals to add before dividing (see model header; decision 0019).
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [service_date, line_name, service_period]
+    columns:
+      - name: service_date
+        description: "{{ doc('service_date') }}"
+        data_tests: [not_null]
+      - name: line_name
+        description: Red Line, Orange Line, or Blue Line.
+        data_tests: [not_null]
+      - name: service_period
+        description: AM PEAK, PM PEAK, or OFF-PEAK.
+        data_tests: [not_null]
+      - name: day_type
+        description: Weekday, Saturday, Sunday, or Holiday.
+      - name: riders_estimated
+        description: The MBTA's estimate of riders.
+      - name: trip_minutes
+        description: Actual trip minutes (wait plus travel), summed over the riders.
+      - name: baseline_trip_minutes
+        description: Baseline trip minutes, summed over the riders.
+      - name: wait_minutes
+        description: Actual wait minutes, summed over the riders.
+      - name: baseline_wait_minutes
+        description: Baseline wait minutes, summed over the riders.
+      - name: travel_minutes
+        description: Actual travel minutes, summed over the riders.
+      - name: baseline_travel_minutes
+        description: Baseline travel minutes, summed over the riders.
+      - name: riders_within_5_minutes
+        description: Riders who arrived within 5 minutes of the baseline.
+      - name: riders_within_20_minutes
+        description: Riders who arrived within 20 minutes of the baseline.
+      - name: ingested_at
+        description: "{{ doc('ingested_at') }}"
+
+  - name: commuter_rail_reliability
+    description: >
+      One row per service date × line × peak or off-peak: commuter rail trains
+      measured, on time, and canceled, each line's branches summed (decision
+      0019).
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [service_date, route_id, is_peak]
+    columns:
+      - name: service_date
+        description: "{{ doc('service_date') }}"
+        data_tests: [not_null]
+      - name: route_id
+        description: The line's GTFS route (e.g. CR-Newburyport).
+        data_tests: [not_null]
+      - name: line_name
+        description: The line, named as the daily boardings name it (e.g. Newburyport/Rockport).
+        data_tests: [not_null]
+      - name: is_peak
+        description: True for the peak period, false for off-peak.
+        data_tests: [not_null]
+      - name: trains_measured
+        description: Trains measured for on-time performance.
+      - name: trains_on_time
+        description: Measured trains on time.
+        data_tests:
+          - accepted_range:
+              arguments:
+                min_value: 0
+      - name: trains_canceled
+        description: Trains canceled.
+      - name: ingested_at
+        description: "{{ doc('ingested_at') }}"
+
+  - name: transit_rider_satisfaction
+    description: >
+      One row per survey × question: the share of the MBTA's monthly survey
+      respondents answering positively (top three of seven), neutrally, and
+      negatively (decision 0019).
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [survey_month, question]
+    columns:
+      - name: survey_month
+        description: Survey month, as its first day.
+        data_tests: [not_null]
+      - name: question_label
+        description: What a positive answer means (e.g. Agree the MBTA is reliable).
+        data_tests:
+          - accepted_values:
+              arguments:
+                values:
+                  - Satisfied with the MBTA overall
+                  - Agree the MBTA is reliable
+                  - Satisfied with their last trip
+                  - Satisfied with its communication
+              config:
+                # A new question shows under its own text until it gets a label.
+                severity: warn
+      - name: question
+        description: The question as asked.
+      - name: respondents
+        description: Respondents to the question.
+      - name: positive_share
+        description: Share satisfied or agreeing (the top three answers), from 0 to 1.
+        data_tests:
+          - accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 1.05
+      - name: neutral_share
+        description: Share giving the middle answer.
+      - name: negative_share
+        description: Share dissatisfied or disagreeing (the bottom three answers).
+      - name: ingested_at
+        description: "{{ doc('ingested_at') }}"
+
   - name: rail_stations
     description: >
       One row per station × line: every rail station's name and coordinates,

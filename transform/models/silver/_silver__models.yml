@@ -412,6 +412,175 @@ models:
       - name: ingested_by
         description: "{{ doc('ingested_by') }}"
 
+  - name: mbta_excess_trip_time__base
+    description: >
+      One row per service date × half hour × line × direction — riders' trip
+      times on the Red, Orange, and Blue Lines against a baseline, the MBTA's
+      estimates, as of each day's latest pull (decision 0019). Minutes and
+      riders within each threshold are totals over the group's riders.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [service_date, half_hour_start, route_id, direction]
+    columns:
+      - name: service_date
+        description: "{{ doc('service_date') }}"
+        data_tests: [not_null]
+      - name: day_type
+        description: Weekday, Saturday, Sunday, or Holiday.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [Weekday, Saturday, Sunday, Holiday]
+      - name: half_hour_start
+        description: Start of the half hour, Eastern.
+        data_tests: [not_null]
+      - name: service_period
+        description: AM PEAK, PM PEAK, or OFF-PEAK (the MBTA's service delivery policy).
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [AM PEAK, PM PEAK, OFF-PEAK]
+      - name: route_id
+        description: "{{ doc('route_id') }}"
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [Red, Orange, Blue]
+              config:
+                # The MBTA plans to add the Green Line: news, not an error.
+                severity: warn
+      - name: direction
+        description: NB, SB, EB, or WB.
+      - name: riders_estimated
+        description: The MBTA's estimate of riders in the group.
+        data_tests:
+          - accepted_range:
+              arguments:
+                min_value: 0
+      - name: trip_minutes
+        description: Actual trip minutes (wait plus travel), summed over the riders.
+      - name: wait_minutes
+        description: Actual wait minutes, summed over the riders.
+      - name: travel_minutes
+        description: Actual travel minutes, summed over the riders.
+      - name: baseline_trip_minutes
+        description: Baseline trip minutes, summed over the riders.
+      - name: baseline_wait_minutes
+        description: Baseline wait minutes, summed over the riders.
+      - name: baseline_travel_minutes
+        description: Baseline travel minutes, summed over the riders.
+      - name: riders_within_5_minutes
+        description: Riders who arrived within 5 minutes of the baseline.
+      - name: riders_within_20_minutes
+        description: Riders who arrived within 20 minutes of the baseline.
+      - name: riders_within_20_percent
+        description: Riders whose trip ran no more than 20% over the baseline.
+      - name: riders_within_30_percent
+        description: Riders whose trip ran no more than 30% over the baseline.
+      - name: ingested_at
+        description: The load the service day's rows came from (UTC).
+        data_tests: [not_null]
+      - name: ingested_by
+        description: "{{ doc('ingested_by') }}"
+
+  - name: mbta_commuter_rail_reliability__base
+    description: >
+      One row per row of the file (a line or branch × service date × peak or
+      off-peak) — commuter rail trains measured, on time, and canceled, as of
+      each day's latest pull (decision 0019). Not unique: sum per line before
+      dividing.
+    columns:
+      - name: service_date
+        description: "{{ doc('service_date') }}"
+        data_tests: [not_null]
+      - name: route_id
+        description: The line's GTFS route (e.g. CR-Newburyport).
+        data_tests: [not_null]
+      - name: route_part_name
+        description: The line or branch as published (e.g. Rockport Line).
+      - name: is_peak
+        description: True for the peak period, false for off-peak.
+        data_tests: [not_null]
+      - name: trains_measured
+        description: Trains measured for on-time performance.
+        data_tests:
+          - accepted_range:
+              arguments:
+                min_value: 0
+      - name: trains_on_time
+        description: Measured trains on time.
+      - name: trains_canceled
+        description: Trains canceled.
+      - name: ingested_at
+        description: The load the service day's rows came from (UTC).
+        data_tests: [not_null]
+      - name: ingested_by
+        description: "{{ doc('ingested_by') }}"
+
+  - name: mbta_customer_satisfaction__base
+    description: >
+      One row per survey × question — the MBTA's monthly rider survey, as of
+      the latest pull, seven answers per question from most negative to most
+      positive (decision 0019).
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [survey_month, question]
+    columns:
+      - name: survey_month
+        description: Survey month, as its first day.
+        data_tests: [not_null]
+      - name: question
+        description: The question as asked.
+        data_tests: [not_null]
+      - name: respondents
+        description: Respondents to the question.
+      - name: answer_1
+        description: The most negative answer; gold.transit_rider_satisfaction counts on this order.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [Extremely Dissatisfied, Strongly Disagree]
+      - name: answer_1_share
+        description: Share of respondents giving answer 1, from 0 to 1.
+      - name: answer_2
+        description: Answer 2 of 7.
+      - name: answer_2_share
+        description: Share giving answer 2.
+      - name: answer_3
+        description: Answer 3 of 7.
+      - name: answer_3_share
+        description: Share giving answer 3.
+      - name: answer_4
+        description: The neutral answer.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [Neutral, Neither Agree nor Disagree]
+      - name: answer_4_share
+        description: Share giving answer 4.
+      - name: answer_5
+        description: Answer 5 of 7.
+      - name: answer_5_share
+        description: Share giving answer 5.
+      - name: answer_6
+        description: Answer 6 of 7.
+      - name: answer_6_share
+        description: Share giving answer 6.
+      - name: answer_7
+        description: The most positive answer.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [Extremely Satisfied, Strongly Agree]
+      - name: answer_7_share
+        description: Share giving answer 7.
+      - name: ingested_at
+        description: "{{ doc('ingested_at') }}"
+      - name: ingested_by
+        description: "{{ doc('ingested_by') }}"
+
   # ── Steps ───────────────────────────────────────────────────────────────────
 
   - name: mbta_alerts__by_route

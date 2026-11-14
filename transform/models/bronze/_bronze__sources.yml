@@ -136,6 +136,11 @@ sources:
           Red, Orange, and Blue Lines, from 2022-01-01; the last 120 days of
           service every run (decision 0019). Grain: service date × half hour ×
           line × direction × ingest run.
+        config:
+          freshness:
+            # Weekly job.
+            warn_after: {count: 8, period: day}
+            error_after: {count: 15, period: day}
 
       - name: mbta_commuter_rail_reliability
         description: >
@@ -144,6 +149,11 @@ sources:
           line's branches can share a day and period); the last 120 days of
           service every run (decision 0019). Grain: row of the file × ingest
           run.
+        config:
+          freshness:
+            # Weekly job.
+            warn_after: {count: 8, period: day}
+            error_after: {count: 15, period: day}
 
       - name: mbta_customer_satisfaction
         description: >
@@ -151,6 +161,11 @@ sources:
           respondents and the share giving each of seven answers; the whole
           file every run (decision 0019). Grain: survey × question × ingest
           run.
+        config:
+          freshness:
+            # Weekly job.
+            warn_after: {count: 8, period: day}
+            error_after: {count: 15, period: day}
 
       - name: noaa_weather
         description: >

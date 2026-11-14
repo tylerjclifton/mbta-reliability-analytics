@@ -12,6 +12,7 @@ import pytest
 
 # Import the helpers under test
 from helpers import (
+    day_vs_nearby,
     decode_polyline,
     effect_vs_calm,
     fmt_count,
@@ -220,6 +221,19 @@ def span(line, start, end):
 
 
 NOW = pd.Timestamp('2026-06-01 12:00', tz='America/New_York')
+
+
+def test_day_vs_nearby_compares_with_the_same_weekday_around_it():
+    # Tuesdays: 100 a day, except a parade (150), a holiday nearby (20, left
+    # out), and a storm (10, outvoted by the median).
+    tuesdays = pd.date_range('2025-01-07', periods=9, freq='7D')
+    daily = pd.Series([100, 100, 100, 20, 150, 100, 10, 100, 100], index=tuesdays, dtype=float)
+    parade, holiday = tuesdays[4], tuesdays[3]
+
+    out = day_vs_nearby(daily, [parade, '2030-01-01'], holidays=[holiday])
+
+    assert out[parade] == pytest.approx(50.0)
+    assert pd.isna(out[pd.Timestamp('2030-01-01')])   # no data to judge
 
 
 def test_hours_by_year_counts_overlapping_spans_once_per_line():

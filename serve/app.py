@@ -18,8 +18,8 @@ Layout:
   5. Disruption by year — delays by length and out-of-service hours, each
                           full year of alert history
   6. Ridership          — per-line tiles (latest month), monthly ridership
-                          (2 years or all history), ridership by alert
-                          effect, day of week
+                          (2 years or all history), days that moved
+                          ridership, ridership by alert effect, day of week
   7. Weather            — rain, snow, and temperature vs. typical ridership
   8. Footer             — sources, cadence, method notes
 
@@ -27,12 +27,13 @@ Sections 2–5 are about incidents, from right now to the long run; 6–7 about
 ridership and what moves it.
 
 Time windows: every section covers the trailing 12 months, stated in its
-subtitle. Four exceptions, also labeled: the ridership tiles show the latest
+subtitle. Five exceptions, also labeled: the ridership tiles show the latest
 published month (each tile names it) against the same month a year earlier
 and in 2019; monthly ridership shows the last 2 years (to compare each month
-with a year earlier) or, switched, all history; disruption by year uses every
-full year of alert history; and weather uses all available days (snowstorms
-are too rare for a single winter).
+with a year earlier) or, switched, all history; days that moved ridership are
+chosen days from all history; disruption by year uses every full year of
+alert history; and weather uses all available days (snowstorms are too rare
+for a single winter).
 
 Statistics: volumes are averages (entries per day, which add up); "typical"
 values are medians (durations, and every baseline a comparison is made
@@ -79,6 +80,7 @@ from pandas.tseries.holiday import USFederalHolidayCalendar
 # Import dashboard helpers
 from helpers import (
     TIMEZONE,
+    day_vs_nearby,
     decode_polyline,
     effect_vs_calm,
     esc,
@@ -610,13 +612,16 @@ def load_delay_estimates():
 def load_ridership():
     """
     gold.rail_ridership, one row per service date × line, plus each day's
-    "% vs typical" and whether it's a federal holiday.
+    "% vs typical" and whether it's a federal holiday. Fare-free days are left
+    out: the gates stood open, so their entries aren't ridership (the Blue
+    Line, Jul 5 – Aug 4, 2024, counted 4–80 a day).
     """
     df = get_client().query(f"""
         SELECT
             service_date, line_name, gated_entries, active_incident_count,
             most_severe_effect, is_calm_day, avg_temperature_f, precipitation_in, snowfall_in
         FROM `{PROJECT_ID}.{GOLD_DATASET}.rail_ridership`
+        WHERE NOT is_fare_free
     """).to_dataframe()
     df['service_date'] = pd.to_datetime(df['service_date'])
 
@@ -1337,11 +1342,17 @@ monthly['trend'] = monthly.groupby('line_name')['daily_avg'].transform(lambda s:
 monthly['month_start'] = monthly['month'].dt.start_time
 
 RECENT_RANGE, ALL_RANGE = '2 years', f'Since {archive_year}'
-# A few events that explain the long shape, each a hairline with a label above
-# the plot: (date, label, anchor, shift in pixels), so neighbors
-# don't collide at phone width.
-RIDERSHIP_EVENTS = [('2015-02-01', 'Record snow', 'center', -12), ('2020-03-01', 'COVID', 'right', 0),
-                    ('2022-08-19', 'Orange Line shutdown', 'left', 0)]
+# A few events big enough to move a whole month, each a hairline with a label
+# above the plot: (date, label, anchor, shift in pixels, row). The anchor,
+# shift, and second row keep neighbors from colliding at phone width, where
+# Omicron and the Orange Line shutdown sit 7 months (~9 px) apart. One-day
+# events, however big, barely move a monthly average; they're in "Days that
+# moved ridership" below.
+RIDERSHIP_EVENTS = [('2015-02-01', 'Record snow', 'center', -12, 0), ('2020-03-01', 'COVID', 'right', 0, 0),
+                    ('2022-01-01', 'Omicron wave', 'center', 0, 1),
+                    ('2022-08-19', 'Orange Line shutdown', 'left', 0, 0)]
+# Height of a row of event labels, in pixels.
+EVENT_ROW_PX = 15
 
 with st.container(key='card_monthly'):
     ridership_range = st.segmented_control(
@@ -1387,7 +1398,8 @@ with st.container(key='card_monthly'):
     # The end labels, names only, live in the right margin. No values: the 2
     # years' last month is the tiles' above, the trend isn't, and the hover
     # has both; a value would cost the plot a third of its width on a phone.
-    fig.update_layout(margin=dict(l=4, r=84, t=28 if show_all else 8, b=4),
+    label_rows = max(row for *_, row in RIDERSHIP_EVENTS) + 1
+    fig.update_layout(margin=dict(l=4, r=84, t=13 + label_rows * EVENT_ROW_PX if show_all else 8, b=4),
                       hovermode='x unified')
     # A fixed range: left to autorange, Plotly stretches the axis to fit the end
     # labels, which squeezes the lines on a phone. Ticks
@@ -1400,13 +1412,80 @@ with st.container(key='card_monthly'):
                      showspikes=True, spikemode='across', spikethickness=1, spikecolor=AXIS, spikedash='solid')
     count_axis(fig, top)
     if show_all:
-        for when, label, anchor, shift in RIDERSHIP_EVENTS:
+        for when, label, anchor, shift, row in RIDERSHIP_EVENTS:
             when = pd.Timestamp(when)
             if first_month <= when <= last_month:
                 fig.add_vline(x=when, line=dict(color=GRID, width=1))
                 fig.add_annotation(text=label, x=when, xref='x', y=1, yref='paper', yanchor='bottom',
-                                   xanchor=anchor, xshift=shift, showarrow=False, font=dict(color=MUTED, size=11))
+                                   xanchor=anchor, xshift=shift, yshift=row * EVENT_ROW_PX, showarrow=False,
+                                   font=dict(color=MUTED, size=11))
     show(fig)
+
+# ── Days that moved ridership ─────────────────────────────────────────────────
+# One-day events, each against the same weekday in the weeks around it
+# (helpers.day_vs_nearby): (date, what happened, is a snow day). Add a day as
+# a line here. Snow days show their snowfall, from the weather data.
+RIDERSHIP_DAYS = [
+    ('2015-02-04', 'Patriots parade', False), ('2017-02-07', 'Patriots parade', False),
+    ('2019-02-05', 'Patriots parade', False), ('2018-10-31', 'Red Sox parade', False),
+    ('2024-06-21', 'Celtics parade', False), ('2017-01-21', "Women's March", False),
+    ('2015-01-27', 'Blizzard, MBTA closed', True), ('2018-03-13', "Nor'easter", True),
+    ('2026-02-23', 'Snowstorm', True),
+]
+
+with st.container(key='card_days'):
+    card_title('Days that moved ridership',
+               'Entries that day vs the same weekday in the 4 weeks either side · holidays left out')
+    # Days every selected line reported (a fare-free line's days are out).
+    by_day = ridership.groupby('service_date')['gated_entries'].agg(['sum', 'count'])
+    daily = by_day.loc[by_day['count'] == len(selected_lines), 'sum']
+    holidays = ridership.loc[ridership['is_holiday'], 'service_date'].unique()
+    snow = ridership.groupby('service_date')['snowfall_in'].first()
+    days = (pd.DataFrame(RIDERSHIP_DAYS, columns=['date', 'label', 'is_snow'])
+            .assign(date=lambda d: pd.to_datetime(d['date'])))
+    days = days.assign(pct=day_vs_nearby(daily, days['date'], holidays).to_numpy(),
+                       entries=daily.reindex(days['date']).to_numpy(),
+                       snow=snow.reindex(days['date']).to_numpy()).dropna(subset=['pct'])
+    if days.empty:
+        st.markdown('<div class="empty">None of these days are in the selected lines\' data.</div>',
+                    unsafe_allow_html=True)
+    else:
+        # Biggest spikes on top, deepest drops at the bottom.
+        days = days.sort_values('pct', ascending=False)
+        # Two lines, so labels stay short at phone width: what, then when
+        # (and how much snow).
+        names = [f"{label}<br>{date:%b %-d, %Y}{f' · {inches:g}″ snow' if is_snow and inches > 0 else ''}"
+                 for label, date, inches, is_snow in zip(days['label'], days['date'], days['snow'].fillna(0),
+                                                         days['is_snow'], strict=True)]
+        fig = go.Figure(go.Bar(
+            x=days['pct'], y=names, orientation='h',
+            marker=dict(color=ACCENT, cornerradius=4),
+            # A drop's label inside its bar (every drop here is a long one), so
+            # it stays off the row names; a rise's just past its end.
+            text=[LABEL_GAP + fmt_pct(p, decimals=0) + LABEL_GAP for p in days['pct']],
+            textposition=['inside' if p < 0 else 'outside' for p in days['pct']],
+            insidetextanchor='end', insidetextfont=dict(color=INK, size=11), outsidetextfont=dict(color=INK_2, size=11),
+            constraintext='none', cliponaxis=False,
+            hovertext=[f'{label}, {date:%a %b %-d, %Y}<br>{fmt_count(n)} entries · {fmt_pct(p, decimals=0)} vs an '
+                       'ordinary day' for label, date, n, p in zip(days['label'], days['date'], days['entries'],
+                                                                 days['pct'], strict=True)],
+            hoverinfo='text',
+        ))
+        style(fig, height=max(200, 44 * len(days) + 30))
+        # 0 always in view. No tick labels: each bar carries its value, and a
+        # padded axis would show impossible ones (−120%). Short bars' labels
+        # sit past their end, in a fixed right margin.
+        low, high = min(days['pct'].min(), 0), max(days['pct'].max(), 0)
+        fig.update_xaxes(range=[low, high], showticklabels=False, showgrid=False, zeroline=True, zerolinecolor=AXIS,
+                         zerolinewidth=1)
+        fig.update_layout(margin_r=56)
+        fig.update_yaxes(autorange='reversed', gridcolor='rgba(0,0,0,0)', tickfont=dict(color=INK_2, size=12))
+        show(fig)
+        # The busiest day on record, named when it's one of the days above.
+        record = daily.idxmax()
+        named = dict(zip(days['date'], days['label'], strict=True)).get(record)
+        st.caption(f'Busiest day on record: {record:%a, %b %-d, %Y}'
+                   + (f', the {named}' if named else '') + f', with {fmt_count(daily[record])} entries.')
 
 impact_col, dow_col = st.columns(2, gap='medium')
 
@@ -1531,11 +1610,10 @@ def band_summary(df, column, bins, labels, baseline):
     to the `baseline` band (normal conditions), so the chart reads "heavy rain
     days run 3.6 points below dry days". Also returns the day count per band.
 
-    The median, not the mean: when a line is shut for most of a month, its
-    "typical" for that month is near zero, and its open days score in the
-    tens of thousands of percent. About 90 such days since 2014 (the Blue Line
-    in July 2024, the Orange Line around its 2022 shutdown) swung band means
-    by up to 80 points; the median ignores them.
+    The median, not the mean: when a line is shut for most of a month (the
+    Orange Line around its 2022 shutdown), its "typical" for that month is
+    near zero, and its open days score in the tens of thousands of percent,
+    enough to swing a band's mean by tens of points; the median ignores them.
     """
     banded = df.assign(band=pd.cut(df[column], bins=bins, labels=labels))
     summary = (banded.groupby('band', observed=False)
@@ -1601,7 +1679,9 @@ st.markdown(f"""
   An alert ends at the end time the MBTA posted or when the MBTA closed it, whichever comes first; if the close
   wasn't seen, when it left the MBTA's feed.<br>
   <b>Ridership</b> · Gated entries, as averages per day, weekends and holidays included. {BASELINE_YEAR} is the last
-  full year before the pandemic.<br>
+  full year before the pandemic. Days a line was fare-free (the Blue Line, Jul 5 – Aug 4, 2024) are left out: with
+  the gates open, entries didn't count riders. Days that moved ridership compare a day with the median of the same
+  weekday in the four weeks either side, holidays left out.<br>
   <b>Comparisons</b> · Like for like: same line and month, adjusted for day of week, with the ~10 federal holidays a
   year left out, since a holiday isn't a typical day. Durations and baselines are medians, so one shutdown can't skew
   them. Weather bars are the median day in each band vs normal-weather days. Alert-effect bars are the median day

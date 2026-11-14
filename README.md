@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/tylerjclifton/mbta-reliability-analytics/actions/workflows/ci.yml/badge.svg)](https://github.com/tylerjclifton/mbta-reliability-analytics/actions/workflows/ci.yml)
 
-A full-stack data engineering project tracking MBTA rail reliability, ridership, and weather across the Red, Orange, Blue, and Green Lines.
+A full-stack data engineering project tracking MBTA rail reliability, ridership, and weather across the Red, Orange, Blue, and Green Lines, and riders on every MBTA mode.
 
 **Live dashboard:** [tylerclifton.com](https://tylerclifton.com)
 
@@ -61,13 +61,15 @@ Dark theme; official MBTA line colors for every line-level visual, a neutral vio
 
 **Disruption by year** — delays per year by how long they lasted, and hours per year with part of each line out of service, suspended or on shuttle buses (the MBTA's labels for the two overlap; overlapping outages count once), for every full year of alert history plus the year in progress, dimmed
 
+**Riding the MBTA** — riders on every mode, from the MBTA's monthly figures: boardings per day by mode over the last 12 published months vs 2019 (one tile per mode); riders by mode month by month, switchable between boardings per day and each month as a share of the same month in 2019; weekdays, Saturdays, and Sundays against 2019 by mode (weekends came back further: the commute didn't); commuter rail by day of the week from its daily estimates, with its busiest day; and ferry riders and departures more than 5 minutes late, by route. The line buttons don't apply here
+
 **Ridership** — per-line tiles: the latest published month's average entries per day vs the same month a year earlier and in 2019, the last full year before the pandemic (each tile names its month); ridership over time, switchable between the last 2 years by month, all history since 2014 by month (each month plus a trailing 12-month average that evens out the seasons, with the events big enough to move a month marked: record snow, COVID, the Omicron wave, the Orange Line shutdown), and one year day by day (each day, a 7-day average, and the big days marked); ridership by alert effect (delay, suspension, shuttle) vs each line's calm days; day of week; and the days that moved ridership most (championship parades; protests from the Women's March to No Kings; the Sail Boston tall ships; the biggest snowstorms), each vs the same weekday in the weeks around it, with the busiest day and month on record
 
 **Weather** — ridership on rainy, snowy, and unusually cold/warm days vs normal-weather days, all on one scale
 
-Time windows: every section covers the trailing 12 months, except the ridership tiles (the latest published month), ridership over time (2 years by month, for year-over-year; all history by month; or one year by day), days that moved ridership (chosen days from all history), disruption by year (every full year of alert history), and weather (all history — storms are rare).
+Time windows: every section covers the trailing 12 months, except riding the MBTA (the last 12 months each source has published, against 2019; riders by mode shows every published month), the ridership tiles (the latest published month), ridership over time (2 years by month, for year-over-year; all history by month; or one year by day), days that moved ridership (chosen days from all history), disruption by year (every full year of alert history), and weather (all history — storms are rare).
 
-Days a line was fare-free are left out of every ridership view: with the gates open, entries don't count riders (the Blue Line, Jul 5 – Aug 4, 2024, during the Sumner Tunnel closure, counted 4–80 a day). They're kept by hand in a seed, `silver.mbta_fare_free_periods`, and flagged in `gold.rail_ridership`.
+Days a line was fare-free are left out of every gated-entries view: with the gates open, entries don't count riders (the Blue Line, Jul 5 – Aug 4, 2024, during the Sumner Tunnel closure, counted 4–80 a day). They're kept by hand in a seed, `silver.mbta_fare_free_periods`, and flagged in `gold.rail_ridership`.
 
 Statistics follow one rule everywhere. Volumes are averages: ridership is **average entries per day**, weekends and holidays included, because volumes add up. "Typical" values are medians: incident durations, and every baseline a comparison is made against, so a shutdown or a months-long incident can't skew them. Comparisons are like-for-like: same line, same month (so seasons and the long trend cancel), weekday-adjusted, with federal holidays left out.
 

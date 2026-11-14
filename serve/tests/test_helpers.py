@@ -24,6 +24,7 @@ from helpers import (
     join_routes,
     one_row_per_incident,
     pct_vs_calm,
+    riders_per_day_by_mode,
     run_end_labels,
     spread_labels,
     strip_route_prefix,
@@ -221,6 +222,25 @@ def span(line, start, end):
 
 
 NOW = pd.Timestamp('2026-06-01 12:00', tz='America/New_York')
+
+
+def test_riders_per_day_by_mode_sums_services_and_counts_days_once():
+    month = lambda m: pd.Timestamp(f'2025-{m:02d}-01')  # noqa: E731
+    bus = 'Bus, Silver Line'
+    rows = pd.DataFrame([
+        # Two services in one mode share the month's 31 days.
+        {'month_start': month(1), 'day_type': 'Total', 'day_count': 31, 'mode': bus, 'riders_total': 310},
+        {'month_start': month(1), 'day_type': 'Total', 'day_count': 31, 'mode': bus, 'riders_total': 310},
+        {'month_start': month(2), 'day_type': 'Total', 'day_count': 28, 'mode': bus, 'riders_total': 560},
+        # A mode with no February row counts only January.
+        {'month_start': month(1), 'day_type': 'Total', 'day_count': 31, 'mode': 'Ferry', 'riders_total': 62},
+        {'month_start': month(1), 'day_type': 'Weekday', 'day_count': 22, 'mode': 'Ferry', 'riders_total': 999},
+    ])
+
+    out = riders_per_day_by_mode(rows, 'Total', [month(1), month(2)])
+
+    assert out[bus] == pytest.approx((620 + 560) / (31 + 28))
+    assert out['Ferry'] == pytest.approx(2.0)
 
 
 def test_day_vs_nearby_compares_with_the_same_weekday_around_it():

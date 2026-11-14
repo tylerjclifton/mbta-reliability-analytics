@@ -162,6 +162,21 @@ def effect_vs_calm(days, effects, min_days):
     }).reset_index(drop=True)
 
 
+def riders_per_day_by_mode(rows, day_type, months):
+    """
+    Each mode's boardings per day over `months`, for one day type: its riders
+    over those months divided by their days of that type. Months a mode has no
+    row for (a mode that didn't run) count neither riders nor days. Expects
+    gold.transit_ridership's month_start, day_type, day_count, mode, and
+    riders_total; returns a Series by mode.
+    """
+    picked = rows[(rows['day_type'] == day_type) & rows['month_start'].isin(months)]
+    # A month's day count repeats on each of a mode's services; take it once.
+    by_month = picked.groupby(['mode', 'month_start']).agg(riders=('riders_total', 'sum'), days=('day_count', 'max'))
+    totals = by_month.groupby('mode').sum()
+    return totals['riders'] / totals['days']
+
+
 def day_vs_nearby(daily, dates, holidays, weeks=4):
     """
     How far each of `dates` ran from an ordinary day, in percent: its entries

@@ -163,6 +163,29 @@ def test_alerts_empty_feed_writes_nothing(run_job):
     assert raw.empty
 
 
+# ── mbta-commuter-rail-ridership ──────────────────────────────────────────────
+
+def test_commuter_rail_ridership_renames_and_types_the_file(run_job):
+    df = run_job('mbta-commuter-rail-ridership', [
+        'servicedate,line,estimated_boardings\n'
+        '2024-06-21,Fitchburg,15012\n'
+        '2024-06-21,Lowell,\n'                 # no estimate → NULL
+        ',Lowell,100\n',                       # no date → skipped
+    ])
+
+    assert list(df.columns) == ['service_date', 'line', 'estimated_boardings']
+    assert df['service_date'].tolist() == [datetime.date(2024, 6, 21)] * 2
+    assert df['estimated_boardings'].dtype == 'Int64'
+    assert df['estimated_boardings'].isna().tolist() == [False, True]
+
+
+def test_commuter_rail_ridership_empty_file_fails_the_job(run_job):
+    with pytest.raises(SystemExit) as exit_info:
+        run_job('mbta-commuter-rail-ridership', ['servicedate,line,estimated_boardings\n'])
+
+    assert exit_info.value.code == 1
+
+
 # ── mbta-ferry-trips ──────────────────────────────────────────────────────────
 
 def ferry_page(rows, more):

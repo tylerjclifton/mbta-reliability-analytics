@@ -166,6 +166,17 @@ locals {
       ]
     }
 
+    # Commuter rail's daily estimates, as published (decision 0018).
+    mbta_commuter_rail_ridership = {
+      description = "The MBTA's estimated commuter rail boardings per day and line (MBTA ArcGIS open data), from 2020-06-22; the whole file every run (decision 0018). Grain: service date × line × ingest run."
+      clustering  = ["service_date", "line"]
+      columns = [
+        { name = "service_date", type = "DATE", description = "MBTA service date" },
+        { name = "line", type = "STRING", description = "Commuter rail line as published (e.g. Fitchburg, Providence/Stoughton)" },
+        { name = "estimated_boardings", type = "INTEGER", description = "Estimated boardings on the line that day" },
+      ]
+    }
+
     # Ferry trip legs as published: actual times and rider counts are text, and
     # "NA" marks a missing value (decision 0018).
     mbta_ferry_trips = {

@@ -105,6 +105,14 @@ sources:
         # No freshness check until the table is seeded (docs/runbook.md, "Add
         # a new source").
 
+      - name: mbta_commuter_rail_ridership
+        description: >
+          The MBTA's estimated commuter rail boardings per day and line, from
+          2020-06-22; the whole file every run (decision 0018). Grain:
+          service date × line × ingest run.
+        # No freshness check until the table is seeded (docs/runbook.md, "Add
+        # a new source").
+
       - name: mbta_ferry_trips
         description: >
           Every ferry trip leg, with riders on and off and the scheduled and

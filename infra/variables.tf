@@ -86,6 +86,12 @@ variable "mode_ridership_ingestion_schedule" {
   default     = "15 7 * * 1"
 }
 
+variable "commuter_rail_ridership_ingestion_schedule" {
+  description = "Cron for MBTA commuter rail ridership ingestion. Weekly (Mondays 7:20AM ET): the MBTA replaces its daily estimates irregularly, months late."
+  type        = string
+  default     = "20 7 * * 1"
+}
+
 variable "ferry_ingestion_schedule" {
   description = "Cron for MBTA ferry trips ingestion. Weekly (Mondays 7:30AM ET): the MBTA updates ferry trips irregularly, months late, and each run re-pulls the last year."
   type        = string

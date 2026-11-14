@@ -31,3 +31,6 @@ Options rejected:
 - Bronze grows by ~265,000 rows a year from the monthly layer and up to ~2.8 million from the ferry's re-pulled year (~53,000 trip legs a year of service × 52 runs). Billed on compressed bytes, that costs cents ([0014](0014-bronze-physical-storage-billing.md)). Silver must read only each period's latest load, not every load.
 - Ferry data runs months behind; the dashboard says through when.
 - Commuter rail daily ridership and lateness stay on the roadmap, to be taken up together.
+
+## History
+- **2026-11-14:** daily commuter rail ridership was added after all, as `ingest-mbta-commuter-rail-ridership` into `bronze.mbta_commuter_rail_ridership` (the whole file, ~25,000 rows, each week). It's small, and it shows what the monthly figures can't: the busiest commuter rail day since 2020 is the 2024 Celtics parade (158K boardings against ~100K on a weekday), and the hybrid-work week (Tuesday and Wednesday ~105K, Monday and Friday ~94K in 2025). Commuter rail lateness stays on the roadmap.

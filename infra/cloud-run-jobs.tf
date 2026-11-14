@@ -55,6 +55,13 @@ locals {
       timeout           = "600s" # Seven requests, one per route
       env               = {}
     }
+    "mbta-commuter-rail-ridership" = {
+      schedule          = var.commuter_rail_ridership_ingestion_schedule
+      uses_mbta_api_key = false
+      memory            = "512Mi"
+      timeout           = "600s" # One file, under 1 MB
+      env               = {}
+    }
     "mbta-ferry-trips" = {
       schedule          = var.ferry_ingestion_schedule
       uses_mbta_api_key = false

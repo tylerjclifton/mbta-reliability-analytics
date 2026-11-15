@@ -1539,8 +1539,9 @@ ridership_year_start = ridership_through - pd.DateOffset(months=12) + pd.Timedel
 
 section(
     'Subway ridership',
-    f'Through {ridership_through:%b %Y}, the latest the MBTA has published. Figures are average entries per day, '
-    'weekends included.',
+    f'Fare-gate entries at subway stations, as averages per day with weekends included, through '
+    f'{ridership_through:%b %Y}, the latest the MBTA has published. Buses, commuter rail, ferries, and the Green '
+    "Line's street-level stops have no gates; every mode is in the last section.",
 )
 
 # Every day except federal holidays — for the comparisons (day of week, "% vs
@@ -2032,8 +2033,9 @@ transit_window_label = f'{transit_window[0]:%b %Y} – {transit_latest:%b %Y}'
 section(
     'Riders on every mode',
     f'{fmt_count(mode_now.sum())} boardings a day on every mode in the 12 months to {transit_latest:%b %Y}, '
-    f"{mode_now.sum() / mode_2019.sum() * 100:.0f}% of {BASELINE_YEAR}. From the MBTA's monthly figures, where a ride "
-    "with a transfer counts twice; the line buttons above don't apply here.",
+    f"{mode_now.sum() / mode_2019.sum() * 100:.0f}% of {BASELINE_YEAR}. From the MBTA's monthly figures, which count "
+    'every boarding (a ride with a transfer counts twice), so the subway runs higher here than in its gate entries '
+    "above; the line buttons don't apply.",
 )
 
 kpi_tiles([dict(label=mode, value=fmt_count(mode_now[mode]),
@@ -2198,12 +2200,12 @@ st.markdown(f"""
   <b>Delays riders feel</b> · Extra minutes per trip are the MBTA's estimates: each rider's trip, waiting and riding,
   against its baseline for that line, half hour, and direction, averaged over riders. The survey's positive share
   is its top three answers of seven (satisfied, or agreeing).<br>
-  <b>Subway ridership</b> · Gated entries, as averages per day, weekends and holidays included. {BASELINE_YEAR} is the
-  last full year before the pandemic. Days a line was fare-free (the Blue Line, Jul 5 – Aug 4, 2024) are left out:
-  with the gates open, entries didn't count riders. Days that moved ridership compare a day with the median of the
-  same weekday in the four weeks either side, holidays left out, in entries rather than percent, since a percent would
-  inflate recent days against lower ridership; the daily view's bold line is a centered 7-day average, which evens out
-  the weekdays.<br>
+  <b>Subway ridership</b> · Fare-gate entries on the four subway lines, as averages per day, weekends and holidays
+  included. {BASELINE_YEAR} is the last full year before the pandemic. Days a line was fare-free (the Blue Line, Jul 5
+  – Aug 4, 2024) are left out: with the gates open, entries didn't count riders. Days that moved ridership compare a
+  day with the median of the same weekday in the four weeks either side, holidays left out, in entries rather than
+  percent, since a percent would inflate recent days against lower ridership; the daily view's bold line is a centered
+  7-day average, which evens out the weekdays.<br>
   <b>Riders on every mode</b> · The MBTA's monthly figures count boardings, a ride with a transfer counting twice, on
   every mode alike, so modes are compared only with them, never with gated entries. {BASELINE_YEAR} comparisons set
   the last 12 published months against all of {BASELINE_YEAR}, so the seasons match. Commuter rail boardings are the

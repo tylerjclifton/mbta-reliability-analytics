@@ -15,6 +15,7 @@ CI runs all four on every push; the commands to run them locally are in the READ
 
 ## Data
 
+- **"Rail" means the subway:** the four subway lines, Red, Orange, Blue, and Green, in names (`rail_*` gold tables, `RAIL_ROUTES`) and prose alike. Commuter rail is always named in full.
 - **Time zone:** `_date` columns are Eastern, the zone of MBTA service dates and NOAA's daily weather; timestamps are UTC.
 - **Sandboxes:** local work uses `dev_bronze`, `dev_silver`, and `dev_gold`, never the live datasets ([0012](decisions/0012-local-ingest-writes-dev-bronze.md)).
 - **Ingest jobs:** `ingest/<source>-<entity>/main.py` writes to `bronze.<source>_<entity>` and runs as the Cloud Run job `ingest-<source>-<entity>`.

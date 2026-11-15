@@ -22,7 +22,7 @@ Ingests data from thirteen sources on an automated schedule, transforms it throu
 | MBTA Shapes API | The path each rail line follows, for the map | Weekly — Mondays 6:45AM ET | Every shape of each rail route (snapshot) |
 | NOAA GHCN-Daily | Daily temperature, precipitation, snowfall at Boston Logan | Daily — 6AM ET | Last 10 days (NOAA revises recent days) |
 | MBTA LAMP archive | Every alert since 2018 (the MBTA's own archive of the alerts feed) | Weekly — Mondays 7AM ET | The rows LAMP modified in the last two weeks (the whole archive was loaded once); supplies alerts the snapshots never saw ([0016](docs/decisions/0016-alerts-before-capture-from-lamp.md)) |
-| MBTA ArcGIS Open Data | Gated station entries by line | Weekly — Mondays 6AM ET | Everything the layer holds, its last two years (catches revisions); 2014 – 2024-09 loaded once from the MBTA's yearly archive ([0015](docs/decisions/0015-ridership-history-from-archive.md)) |
+| MBTA ArcGIS Open Data | Fare-gate entries per day on the four subway lines (Red, Orange, Blue, Green): no buses, commuter rail, ferries, or the Green Line's street-level stops, which have no gates | Weekly — Mondays 6AM ET | Everything the layer holds, its last two years (catches revisions); 2014 – 2024-09 loaded once from the MBTA's yearly archive ([0015](docs/decisions/0015-ridership-history-from-archive.md)) |
 | MBTA ArcGIS Open Data | Monthly riders on every mode and line (subway, Mattapan trolley, bus and Silver Line, commuter rail, ferry, The RIDE), as reported to the National Transit Database | Weekly — Mondays 7:15AM ET | The whole layer, 2018-07 on (catches revisions) ([0018](docs/decisions/0018-ridership-for-every-mode.md)) |
 | MBTA ArcGIS Open Data | Estimated commuter rail boardings per day and line | Weekly — Mondays 7:20AM ET | The whole file, 2020-06-22 on (catches revisions) ([0018](docs/decisions/0018-ridership-for-every-mode.md)) |
 | MBTA ArcGIS Open Data | Every ferry trip leg: riders on and off, scheduled and actual times | Weekly — Mondays 7:30AM ET | The last year of service (the MBTA publishes months late); the whole layer, 2018-11 on, loaded once ([0018](docs/decisions/0018-ridership-for-every-mode.md)) |
@@ -37,7 +37,7 @@ Each kind of data has one live source, and history from an archive where the liv
 | Data | Live source | History | Seam | History starts |
 |---|---|---|---|---|
 | Alerts | MBTA API, every 15 minutes | MBTA LAMP archive, topped up weekly | Alerts the snapshots saw (2026-10-24 on, full-JSON capture) come from the API; all others from LAMP: the history before, and short alerts the snapshots missed since | 2019-09-05 |
-| Ridership | ArcGIS layer (its last two years), weekly | MBTA yearly archive, loaded once into the same table | 2024-10-01 | 2014-01-01 |
+| Subway ridership (gate entries) | ArcGIS layer (its last two years), weekly | MBTA yearly archive, loaded once into the same table | 2024-10-01 | 2014-01-01 |
 | Riders by mode | ArcGIS layer (all of it), weekly | Same source | None | 2018-07-01 |
 | Commuter rail riders, daily | ArcGIS file (all of it), weekly | Same source | None | 2020-06-22 |
 | Ferry trips | ArcGIS layer (its last year), weekly | Same source, loaded whole once | None | 2018-11-01 |
@@ -48,6 +48,8 @@ Each kind of data has one live source, and history from an archive where the liv
 | Routes, stops, line shapes | MBTA API | Not kept: the MBTA archives every past schedule ([0011](docs/decisions/0011-capture-every-mode.md)) | — | Current only |
 
 Ridership is measured three ways, each for what only it can show: subway gated entries (daily, the subway only), the MBTA's monthly figures (every mode, counted alike), and commuter rail's daily estimates. Each view uses one of them; a chart that compares modes uses the monthly figures for all of them, the subway included ([0018](docs/decisions/0018-ridership-for-every-mode.md)).
+
+**"Rail" means the subway.** In names (`rail_*` gold tables, `RAIL_ROUTES`) and on the dashboard, rail is the four subway lines: Red, Orange, Blue, and Green (the Green Line's B, C, D, and E branches). Commuter rail is always named in full, and the Mattapan trolley and the Silver Line count with every other mode.
 
 Bronze overlaps a little on purpose, since it's append-only and never trimmed ([0001](docs/decisions/0001-append-only-bronze.md)): LAMP's load and the API both hold late October 2026, and the frozen `mbta_alerts_legacy` table repeats June–October 2026. Silver takes each alert from one source only. Repeated snapshots (every alert each 15 minutes, two years of ridership each week) are how revisions and end times are captured; bronze bills compressed bytes, so they cost next to nothing ([0014](docs/decisions/0014-bronze-physical-storage-billing.md)).
 
@@ -121,7 +123,7 @@ Each layer is its own BigQuery dataset, with a dev sandbox beside it for local w
 | `mbta_stops` | stop × route × ingest run | Weekly snapshot of every rail station and its platforms, entrances, and nodes |
 | `mbta_shapes` | shape × route × ingest run | Weekly snapshot of the path of each rail route's patterns |
 | `mbta_routes` | route × ingest run | Yearly snapshot |
-| `mbta_gated_entries` | service date × line × ingest run | The layer's two years re-pulled weekly; days before 2024-10-01 from the yearly archive, loaded once |
+| `mbta_gated_entries` | service date × line × ingest run | Fare-gate entries on the four subway lines. The layer's two years re-pulled weekly; days before 2024-10-01 from the yearly archive, loaded once |
 | `mbta_monthly_ridership` | month × day type × mode or line × ingest run | The whole layer re-pulled weekly, subtotals included as published ([0018](docs/decisions/0018-ridership-for-every-mode.md)) |
 | `mbta_commuter_rail_boardings` | service date × line × ingest run | The whole file re-pulled weekly ([0018](docs/decisions/0018-ridership-for-every-mode.md)) |
 | `mbta_ferry_trips` | trip leg × ingest run | The last year of service re-pulled weekly; the whole layer, 2018-11 on, loaded once ([0018](docs/decisions/0018-ridership-for-every-mode.md)) |

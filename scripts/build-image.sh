@@ -28,8 +28,12 @@ IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/${COMPONENT}:${TAG}"
 # Each component builds from its own folder (Dockerfile + requirements.txt).
 cd "$(dirname "$0")/../${COMPONENT}"
 
+# No provenance attestation: with one, each build pushes three registry
+# versions (an index, the image, the attestation), and the cleanup policy's
+# count of versions to keep (infra/artifact-registry.tf) would stop meaning
+# builds.
 echo "Building ${IMAGE}..."
-docker build --platform linux/amd64 -t "${IMAGE}" .
+docker build --platform linux/amd64 --provenance=false -t "${IMAGE}" .
 
 echo "Pushing ${IMAGE}..."
 docker push "${IMAGE}"

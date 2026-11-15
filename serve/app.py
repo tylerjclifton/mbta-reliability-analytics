@@ -6,8 +6,7 @@ Reads:      gold.rail_incidents, gold.rail_incident_stations,
             gold.rail_ridership, gold.rail_delay_estimates,
             gold.transit_ridership, gold.commuter_rail_boardings,
             gold.ferry_performance, gold.rail_trip_times,
-            gold.commuter_rail_reliability, gold.transit_rider_satisfaction
-            (cached for 15 minutes)
+            gold.transit_rider_satisfaction (cached for 15 minutes)
 Deployed:   Cloud Run service `serve` (infra/cloud-run-services.tf), public at
             tylerclifton.com
 
@@ -23,27 +22,27 @@ Layout:
   6. Delays riders feel — extra minutes per trip on the Red, Orange, and Blue
                           Lines, and what riders tell the MBTA's survey, each
                           month from 2022
-  7. Riding the MBTA   — every mode's riders against 2019 (tiles, by month,
+  7. Subway ridership   — per-line tiles (latest month), ridership by month
+                          (2 years or all history) or by day (any run of
+                          months), days that moved ridership, ridership by
+                          alert effect, day of week
+  8. Weather            — rain, snow, and temperature vs. typical ridership
+  9. Riders on every mode — every mode's riders against 2019 (tiles, by month,
                           weekdays vs weekends), commuter rail by day of the
-                          week and trains late by line, ferries by route
-  8. Ridership          — the subway: per-line tiles (latest month),
-                          ridership by month (2 years or all history) or by
-                          day (a year at a time), days that moved ridership,
-                          ridership by alert effect, day of week
-  9. Weather            — rain, snow, and temperature vs. typical ridership
+                          week, ferry riders by route
   10. Footer            — sources, cadence, method notes
 
-Sections 2–5 are about the subway's incidents, from right now to the long
-run; 6 about what riders felt of them; 7 about riders on every mode; 8–9
-about the subway's riders and what moves them.
+Sections 2–8 are the subway in depth: its incidents, from right now to the
+long run (2–5), what riders felt of them (6), and its riders and what moves
+them (7–8). Section 9 steps back to riders on every mode, riders only.
 
 Time windows: every section covers the trailing 12 months, stated in its
-subtitle (Riding the MBTA: each source's last 12 published months). Six
+subtitle (riders on every mode: each source's last 12 published months). Six
 exceptions, also labeled: delays riders feel runs month by month from 2022,
 when the MBTA's trip times begin; the ridership tiles show the latest
 published month (each tile names it) against the same month a year earlier
 and in 2019; monthly ridership shows the last 2 years (to compare each month
-with a year earlier) or, switched, all history or one year day by day; days
+with a year earlier) or, switched, all history or any months day by day; days
 that moved ridership are
 chosen days from all history; disruption by year uses every full year of
 alert history; and weather uses all available days (snowstorms are too rare
@@ -99,6 +98,7 @@ from helpers import (
     effect_vs_calm,
     esc,
     fmt_count,
+    fmt_count_change,
     fmt_day,
     fmt_duration,
     fmt_minutes,
@@ -150,11 +150,11 @@ LINE_COLORS = {
 }
 LINES = list(LINE_COLORS)
 
-# Every mode, largest first, for the "Riding the MBTA" section: the MBTA's own
-# mode colors where it has one (bus yellow, commuter rail purple, lightened to
-# read on the dark surface, ferry teal), Green for the Green Line and
-# Mattapan, a neutral for the three heavy rail lines together. Each is named
-# on the chart too.
+# Every mode, largest first, for the "Riders on every mode" section: the MBTA's
+# own mode colors where it has one (bus yellow, commuter rail purple,
+# lightened to read on the dark surface, ferry teal), Green for the Green Line
+# and Mattapan, a neutral for the three heavy rail lines together. Each is
+# named on the chart too.
 MODE_COLORS = {
     'Red, Orange, Blue': '#c4c7ce',
     'Bus, Silver Line':  '#FFC72C',
@@ -702,7 +702,7 @@ def load_commuter_rail_boardings():
 def load_ferry_performance():
     """gold.ferry_performance, one row per month × ferry route."""
     df = get_client().query(f"""
-        SELECT month_start, route_name, riders, service_days, measured_legs, on_time_legs
+        SELECT month_start, route_name, riders, service_days
         FROM `{PROJECT_ID}.{GOLD_DATASET}.ferry_performance`
     """).to_dataframe()
     df['month_start'] = pd.to_datetime(df['month_start'])
@@ -724,23 +724,6 @@ def load_trip_times():
         GROUP BY month_start, line_name
     """).to_dataframe()
     df[['month_start', 'through_date']] = df[['month_start', 'through_date']].apply(pd.to_datetime)
-    return df
-
-
-@st.cache_data(ttl=900, show_spinner=False)
-def load_commuter_rail_reliability():
-    """gold.commuter_rail_reliability summed per day × line (peak and off-peak together)."""
-    df = get_client().query(f"""
-        SELECT
-            service_date,
-            line_name,
-            SUM(trains_measured) AS trains_measured,
-            SUM(trains_on_time) AS trains_on_time,
-            SUM(trains_canceled) AS trains_canceled
-        FROM `{PROJECT_ID}.{GOLD_DATASET}.commuter_rail_reliability`
-        GROUP BY service_date, line_name
-    """).to_dataframe()
-    df['service_date'] = pd.to_datetime(df['service_date'])
     return df
 
 
@@ -774,7 +757,6 @@ transit_all = load_transit_ridership()
 commuter_rail_all = load_commuter_rail_boardings()
 ferry_all = load_ferry_performance()
 trip_times_all = load_trip_times()
-commuter_rail_reliability_all = load_commuter_rail_reliability()
 satisfaction_all = load_rider_satisfaction()
 loading.empty()
 st.session_state['loaded'] = True
@@ -1497,14 +1479,8 @@ with survey_col:
                    'each month.')
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 7. Riding the MBTA
+# 7. Subway ridership
 # ══════════════════════════════════════════════════════════════════════════════
-
-# Every mode, from the MBTA's monthly figures (gold.transit_ridership): they
-# count boardings, a ride with a transfer counting twice, so they're never set
-# beside the subway's gated entries (one source per view, decision 0018). The
-# line buttons don't apply; commuter rail and ferry cards use their own daily
-# and per-trip data.
 
 # Non-breaking spaces keep "Sep 2026" and "▲ 12.6%" whole when tiles wrap.
 NBSP = '\u00a0'
@@ -1540,203 +1516,8 @@ RIDERSHIP_DAYS = [
 EVENT_DAYS = (pd.DataFrame(RIDERSHIP_DAYS, columns=['date', 'label', 'kind', 'short'])
               .assign(date=lambda d: pd.to_datetime(d['date'])))
 
-# The last 12 published months, against 2019, the last full year before the
-# pandemic: twelve consecutive months hold each calendar month once, so the
-# seasons match.
-transit_latest = transit_all['month_start'].max()
-transit_window = pd.date_range(end=transit_latest, periods=12, freq='MS')
-transit_2019 = pd.date_range(f'{BASELINE_YEAR}-01-01', periods=12, freq='MS')
-mode_now = riders_per_day_by_mode(transit_all, 'Total', transit_window).reindex(MODES)
-mode_2019 = riders_per_day_by_mode(transit_all, 'Total', transit_2019).reindex(MODES)
-transit_window_label = f'{transit_window[0]:%b %Y} – {transit_latest:%b %Y}'
-
-section(
-    'Riding the MBTA',
-    f'{fmt_count(mode_now.sum())} boardings a day on every mode in the 12 months to {transit_latest:%b %Y}, '
-    f"{mode_now.sum() / mode_2019.sum() * 100:.0f}% of {BASELINE_YEAR}. From the MBTA's monthly figures, where a ride "
-    "with a transfer counts twice; the line buttons above don't apply here.",
-)
-
-kpi_tiles([dict(label=mode, value=fmt_count(mode_now[mode]),
-                sub=f'per{NBSP}day · {mode_now[mode] / mode_2019[mode] * 100:.0f}% of{NBSP}{BASELINE_YEAR}',
-                color=MODE_COLORS[mode])
-           for mode in MODES if pd.notna(mode_now[mode])], layout='thirds')
-
-# ── Riders by mode, month by month ────────────────────────────────────────────
-PER_DAY_VIEW, VS_2019_VIEW = 'Riders per day', f'% of {BASELINE_YEAR}'
-
-with st.container(key='card_modes'):
-    mode_view = st.segmented_control(
-        'Measure', [PER_DAY_VIEW, VS_2019_VIEW], default=PER_DAY_VIEW,
-        key='mode_view', label_visibility='collapsed',
-    ) or PER_DAY_VIEW  # Clicking the selected option clears it; fall back to the default
-    vs_2019 = mode_view == VS_2019_VIEW
-    card_title('Riders by mode',
-               f'Each month vs the same month in {BASELINE_YEAR}, so the seasons cancel'
-               if vs_2019 else 'Boardings per day, each month')
-    # Each mode's boardings per day, month by month.
-    monthly_modes = (transit_all[transit_all['day_type'] == 'Total']
-                     .groupby(['mode', 'month_start']).agg(riders=('riders_total', 'sum'), days=('day_count', 'max')))
-    monthly_modes = (monthly_modes['riders'] / monthly_modes['days']).rename('per_day').reset_index()
-    if vs_2019:
-        same_month = monthly_modes[monthly_modes['month_start'].dt.year == BASELINE_YEAR].assign(
-            calendar_month=lambda d: d['month_start'].dt.month).set_index(['mode', 'calendar_month'])['per_day']
-        keys = pd.MultiIndex.from_arrays([monthly_modes['mode'], monthly_modes['month_start'].dt.month])
-        monthly_modes['per_day'] = monthly_modes['per_day'] / same_month.reindex(keys).to_numpy() * 100
-        # From the year after the baseline: 2019 against itself is a flat 100%.
-        monthly_modes = monthly_modes[monthly_modes['month_start'].dt.year > BASELINE_YEAR]
-
-    fig = go.Figure()
-    ends = []
-    for mode in MODES:
-        m = monthly_modes[monthly_modes['mode'] == mode].dropna(subset=['per_day'])
-        if m.empty:
-            continue
-        fig.add_trace(go.Scatter(
-            x=m['month_start'], y=m['per_day'], name=mode, mode='lines',
-            line=dict(color=MODE_COLORS[mode], width=2.5),
-            hovertemplate=f'{mode}: %{{y:,.0f}}' + ('%' if vs_2019 else ' per day') + '<extra></extra>',
-        ))
-        ends.append((mode, m['month_start'].iloc[-1], m['per_day'].iloc[-1], mode))
-    top = monthly_modes['per_day'].max()
-    label_line_ends(fig, ends, top, colors=MODE_COLORS)
-    style(fig, height=380)
-    # End labels, names only, in a right margin wide enough for the longest.
-    fig.update_layout(margin=dict(l=4, r=124, t=8, b=4), hovermode='x unified')
-    first, last = monthly_modes['month_start'].min(), monthly_modes['month_start'].max()
-    pad = (last - first) * 0.01
-    # Every other year, so the labels fit beside the end labels at phone width.
-    fig.update_xaxes(range=[first - pad, last + pad], tickformat='%Y', dtick='M24', tick0='2019-01-01',
-                     gridcolor='rgba(0,0,0,0)', tickangle=0, showspikes=True, spikemode='across',
-                     spikethickness=1, spikecolor=AXIS, spikedash='solid')
-    if vs_2019:
-        fig.update_yaxes(range=[0, top * 1.05], ticksuffix='%')
-        fig.add_hline(y=100, line=dict(color=AXIS, width=1))
-    else:
-        count_axis(fig, top)
-    show(fig)
-
-weekend_col, commuter_col = st.columns(2, gap='medium')
-
-# ── Weekdays and weekends against 2019 ────────────────────────────────────────
-# Each mode's last 12 months by day type against 2019's.
-DAY_TYPES = {'Weekday': ('Weekdays', 'circle', INK_2), 'Saturday': ('Saturdays', 'circle', ACCENT),
-             'Sunday': ('Sundays', 'diamond', '#c4bdf5')}
-
-with weekend_col:
-    with st.container(key='card_weekends'):
-        card_title('Weekdays and weekends',
-                   f'{transit_window_label} vs {BASELINE_YEAR} · each mode by day of the week')
-        fig = go.Figure()
-        for day_type, (label, symbol, color) in DAY_TYPES.items():
-            share = (riders_per_day_by_mode(transit_all, day_type, transit_window)
-                     / riders_per_day_by_mode(transit_all, day_type, transit_2019) * 100).reindex(MODES).dropna()
-            fig.add_trace(go.Scatter(
-                x=share.values, y=share.index, mode='markers', name=label,
-                marker=dict(symbol=symbol, size=11, color=color, line=dict(color=CARD, width=1.5)),
-                hovertemplate=f'%{{y}} · {label}: %{{x:.0f}}% of {BASELINE_YEAR}<extra></extra>',
-            ))
-        style(fig, height=max(240, 40 * len(MODES) + 70), legend=True)
-        fig.add_vline(x=100, line=dict(color=AXIS, width=1))
-        fig.update_xaxes(ticksuffix='%', rangemode='tozero')
-        fig.update_yaxes(autorange='reversed', gridcolor='rgba(0,0,0,0)', tickfont=dict(color=INK_2, size=12))
-        show(fig)
-        st.caption(f'100% = {BASELINE_YEAR}. Weekends came back further than weekdays on most modes: '
-                   "the trips that didn't return are the commute. Commuter rail's weekend riders more than "
-                   "doubled, a rise its operator, Keolis, reports too. The ferry's 2019 figures don't split "
-                   'out weekends.')
-
-# ── Commuter rail, day by day ─────────────────────────────────────────────────
-with commuter_col:
-    with st.container(key='card_commuter_rail'):
-        # The last 12 months the MBTA has published, by day of the week, with
-        # federal holidays left out as in the subway's day-of-week chart.
-        cr_daily = commuter_rail_all.groupby('service_date')['estimated_boardings'].sum()
-        cr_through = cr_daily.index.max()
-        cr_recent = cr_daily[cr_daily.index > cr_through - pd.DateOffset(months=12)]
-        cr_holidays = USFederalHolidayCalendar().holidays(cr_recent.index.min(), cr_recent.index.max())
-        cr_recent = cr_recent[~cr_recent.index.isin(cr_holidays)]
-        by_weekday = cr_recent.groupby(cr_recent.index.day_of_week).mean().reindex(range(7))
-        card_title('Commuter rail by day of the week',
-                   f'Estimated boardings per day, 12 months to {cr_through:%b %-d, %Y} · holidays left out')
-        fig = go.Figure(go.Bar(
-            x=[WEEKDAYS[i][:3] for i in by_weekday.index], y=by_weekday.values,
-            marker=dict(color=MODE_COLORS['Commuter Rail'], cornerradius=4),
-            text=[fmt_count(n) for n in by_weekday.values], textposition='outside', cliponaxis=False,
-            textfont=dict(color=INK_2, size=11),
-            hovertemplate='%{x}: %{y:,.0f} boardings per day<extra></extra>',
-        ))
-        style(fig, height=280)
-        count_axis(fig, by_weekday.max() * 1.15)
-        fig.update_xaxes(gridcolor='rgba(0,0,0,0)', tickfont=dict(color=INK_2, size=12))
-        show(fig)
-        # The busiest day since the estimates began, named when it's one of
-        # the days the subway's card measures.
-        cr_record = cr_daily.idxmax()
-        cr_named = dict(zip(EVENT_DAYS['date'], EVENT_DAYS['label'], strict=True)).get(cr_record)
-        st.caption(f'Busiest day since the estimates began in {cr_daily.index.min():%b %Y}: '
-                   f'{cr_record:%a, %b %-d, %Y}' + (f', the {cr_named}' if cr_named else '')
-                   + f", {fmt_count(cr_daily[cr_record])} boardings. Estimates, which the MBTA doesn't guarantee.")
-
-commuter_late_col, ferry_col = st.columns(2, gap='medium')
-
-# ── Commuter rail trains late ─────────────────────────────────────────────────
-# The last 12 months the MBTA has published, line by line. Late is a measured
-# train not on time, by the MBTA's measure; canceled trains are counted apart.
-cr_reliability_through = commuter_rail_reliability_all['service_date'].max()
-cr_reliability_recent = commuter_rail_reliability_all[
-    commuter_rail_reliability_all['service_date'] > cr_reliability_through - pd.DateOffset(months=12)]
-cr_lines = cr_reliability_recent.groupby('line_name')[['trains_measured', 'trains_on_time', 'trains_canceled']].sum()
-
-with commuter_late_col:
-    with st.container(key='card_commuter_rail_late'):
-        card_title('Commuter rail trains late',
-                   f"Share of trains, 12 months to {cr_reliability_through:%b %-d, %Y} · the MBTA's on-time measure")
-        late = (100 - cr_lines['trains_on_time'] / cr_lines['trains_measured'] * 100).sort_values(ascending=False)
-        show(ranked_bars(late.index.tolist(), late.tolist(), [f'{p:.0f}%' for p in late],
-                         [f"{line}<br>{p:.1f}% of {cr_lines.loc[line, 'trains_measured']:,} trains late · "
-                          f"{cr_lines.loc[line, 'trains_canceled']:,} canceled" for line, p in late.items()],
-                         colors=MODE_COLORS['Commuter Rail']))
-        # Every line, a year at a time: 2019, and the last full year.
-        cr_years = commuter_rail_reliability_all.groupby(commuter_rail_reliability_all['service_date'].dt.year)[
-            ['trains_measured', 'trains_on_time']].sum()
-        cr_late_by_year = 100 - cr_years['trains_on_time'] / cr_years['trains_measured'] * 100
-        cr_last_full = cr_reliability_through.year - 1
-        st.caption(f'Every line: {cr_late_by_year[BASELINE_YEAR]:.0f}% of trains late in {BASELINE_YEAR}, '
-                   f'{cr_late_by_year[cr_last_full]:.0f}% in {cr_last_full}.')
-
-# ── Ferries ───────────────────────────────────────────────────────────────────
-# The last 12 months of trips the MBTA has published, route by route: riders,
-# and the share of departures late, the MBTA's measure, which is small on
-# every route.
-ferry_through = ferry_all['month_start'].max()
-ferry_recent = ferry_all[ferry_all['month_start'] > ferry_through - pd.DateOffset(months=12)]
-ferry_routes = ferry_recent.groupby('route_name')[['riders', 'service_days', 'measured_legs', 'on_time_legs']].sum()
-ferry_window_label = f'{ferry_recent["month_start"].min():%b %Y} – {ferry_through:%b %Y}'
-
-with ferry_col:
-    with st.container(key='card_ferries'):
-        card_title('Ferries by route',
-                   f'Boardings per day it ran, {ferry_window_label} · and the share of departures more than 5 '
-                   'minutes late')
-        per_day = (ferry_routes['riders'] / ferry_routes['service_days']).sort_values(ascending=False)
-        ferry_late = 100 - ferry_routes['on_time_legs'] / ferry_routes['measured_legs'] * 100
-        fig = ranked_bars(per_day.index.tolist(), per_day.tolist(),
-                          [f'{fmt_count(n)} · {ferry_late[route]:.1f}% late' for route, n in per_day.items()],
-                          [f'{route}<br>{n:,.0f} boardings per day it ran<br>{ferry_late[route]:.1f}% of '
-                           'departures late' for route, n in per_day.items()],
-                          colors=MODE_COLORS['Ferry'])
-        # Room for the longer labels.
-        fig.update_layout(margin=dict(l=4, r=120, t=8, b=4))
-        show(fig)
-        st.caption('Seasonal routes are counted over their season.')
-
-# ══════════════════════════════════════════════════════════════════════════════
-# 8. Ridership
-# ══════════════════════════════════════════════════════════════════════════════
-
 if ridership.empty:
-    section('Ridership')
+    section('Subway ridership')
     st.markdown('<div class="empty">No ridership data available yet.</div>', unsafe_allow_html=True)
     st.stop()
 
@@ -1757,7 +1538,7 @@ archive_year = ridership_all['service_date'].min().year
 ridership_year_start = ridership_through - pd.DateOffset(months=12) + pd.Timedelta(days=1)
 
 section(
-    'Ridership',
+    'Subway ridership',
     f'Through {ridership_through:%b %Y}, the latest the MBTA has published. Figures are average entries per day, '
     'weekends included.',
 )
@@ -1809,21 +1590,20 @@ monthly['trend'] = monthly.groupby('line_name')['daily_avg'].transform(lambda s:
 monthly['month_start'] = monthly['month'].dt.start_time
 
 RECENT_RANGE, ALL_RANGE, DAILY_RANGE = '2 years', f'Since {archive_year}', 'Daily'
-# A few events big enough to move a whole month, each a hairline with a label
-# above the plot: (date, label, anchor, shift in pixels, row). The anchor,
-# shift, and second row keep neighbors from colliding at phone width, where
-# Omicron and the Orange Line shutdown sit 7 months (~9 px) apart. One-day
-# events, however big, barely move a monthly average; they're in the daily
-# view and in "Days that moved ridership" below.
-RIDERSHIP_EVENTS = [('2015-02-01', 'Record snow', 'center', -12, 0), ('2020-03-01', 'COVID', 'right', 0, 0),
-                    ('2022-01-01', 'Omicron wave', 'center', 0, 1),
-                    ('2022-08-19', 'Orange Line shutdown', 'left', 0, 0)]
+# Events that moved ridership month after month, each a hairline with a label
+# above the plot: (date, label, anchor, shift in pixels, row). Only COVID: a
+# storm or a shutdown moves a month or two, which reads as noise across all
+# history. One-day events are in the daily view and in "Days that moved
+# ridership" below.
+RIDERSHIP_EVENTS = [('2020-03-01', 'COVID', 'right', 0, 0)]
 # Height of a row of event labels, in pixels.
 EVENT_ROW_PX = 15
 
-# Days apart two daily-view labels can sit on one row: about a label's width
-# at phone width, where a year spans ~190 px.
-EVENT_GAP_DAYS = 150
+# How far apart two daily-view labels can sit on one row, as a share of the
+# span shown: about a label's width at phone width (150 days of a year
+# shown). Past 2 years, days are too close to label; their dots keep hovers.
+EVENT_GAP_SHARE = 0.41
+EVENT_LABEL_MAX_DAYS = 2 * 366
 
 
 def add_event_lines(fig, events, first, last):
@@ -1899,14 +1679,12 @@ def monthly_figure(show_all):
     return fig
 
 
-def daily_figure(year):
+def daily_figure(first, last):
     """
-    Entries every day of `year` (faint), under a centered 7-day average (bold)
-    that evens out the weekday pattern, with EVENT_DAYS marked. Days without
-    data (a fare-free line's) stay gaps.
+    Entries every day from `first` to `last` (faint), under a centered 7-day
+    average (bold) that evens out the weekday pattern, with EVENT_DAYS marked.
+    Days without data (a fare-free line's) stay gaps.
     """
-    first = pd.Timestamp(year=year, month=1, day=1)
-    last = min(pd.Timestamp(year=year, month=12, day=31), ridership_through)
     span = pd.date_range(first, last)
     fig = go.Figure()
     ends = []
@@ -1936,20 +1714,27 @@ def daily_figure(year):
     top = ridership.loc[ridership['service_date'].between(first, last), 'gated_entries'].max()
     label_line_ends(fig, ends, top)
     style(fig, height=360)
+    # Ticks spaced for phone width: months over a year or so, then years.
+    days = (last - first).days
+    tickformat, dtick = ('%b', 'M2') if days <= 366 else ('%b %Y', 'M6') if days <= 2 * 366 else (
+        '%Y', 'M12' if days <= 6 * 366 else 'M24')
     pad = (last - first) * 0.01
-    fig.update_xaxes(range=[first - pad, last + pad], tickformat='%b', dtick='M2', tick0=first,
-                     hoverformat='%a, %b %-d, %Y', gridcolor='rgba(0,0,0,0)', tickangle=0, showspikes=True,
-                     spikemode='across', spikethickness=1, spikecolor=AXIS, spikedash='solid')
+    fig.update_xaxes(range=[first - pad, last + pad], tickformat=tickformat, dtick=dtick,
+                     tick0=f'{first.year}-01-01', hoverformat='%a, %b %-d, %Y', gridcolor='rgba(0,0,0,0)',
+                     tickangle=0, showspikes=True, spikemode='across', spikethickness=1, spikecolor=AXIS,
+                     spikedash='solid')
     count_axis(fig, top)
-    # Each event on the first row with room for it; labels near the year's
+    # Each event on the first row with room for it; labels near the span's
     # ends lean inward so they stay on the chart.
     events, row_ends = [], []
-    for when, short in EVENT_DAYS.loc[EVENT_DAYS['date'].between(first, last), ['date', 'short']].sort_values(
-            'date').itertuples(index=False):
-        row = next((r for r, end in enumerate(row_ends) if (when - end).days >= EVENT_GAP_DAYS), len(row_ends))
-        row_ends[row:row + 1] = [when]
-        where = (when - first) / (last - first)
-        events.append((when, short, 'left' if where < 0.25 else 'right' if where > 0.75 else 'center', 0, row))
+    if days <= EVENT_LABEL_MAX_DAYS:
+        for when, short in EVENT_DAYS.loc[EVENT_DAYS['date'].between(first, last), ['date', 'short']].sort_values(
+                'date').itertuples(index=False):
+            row = next((r for r, end in enumerate(row_ends) if (when - end).days >= EVENT_GAP_SHARE * days),
+                       len(row_ends))
+            row_ends[row:row + 1] = [when]
+            where = (when - first) / (last - first)
+            events.append((when, short, 'left' if where < 0.25 else 'right' if where > 0.75 else 'center', 0, row))
     rows = add_event_lines(fig, events, first, last)
     fig.update_layout(margin=dict(l=4, r=84, t=13 + rows * EVENT_ROW_PX if rows else 8, b=4), hovermode='x unified')
     return fig
@@ -1961,15 +1746,20 @@ with st.container(key='card_monthly'):
         key='ridership_range', label_visibility='collapsed',
     ) or RECENT_RANGE  # Clicking the selected option clears it; fall back to the default
     if ridership_range == DAILY_RANGE:
-        # One year at a time: every day since 2014 would be ~24 days a pixel
-        # on a phone. The picker sits outside the chart, so it can't trap
-        # page scrolling.
-        year = st.select_slider('Year', list(range(archive_year, ridership_through.year + 1)),
-                                value=ridership_through.year, key='ridership_year', label_visibility='collapsed')
-        through = f', through {ridership_through:%b %-d}' if ridership_through.year == year else ''
-        card_title(f'Daily ridership, {year}',
+        # Any run of whole months, the last 12 to start. The picker sits
+        # outside the chart, so it can't trap page scrolling.
+        months = pd.period_range(f'{archive_year}-01', ridership_through.to_period('M'), freq='M')
+        month_labels = [f'{m:%b %Y}' for m in months]
+        start_label, end_label = st.select_slider(
+            'Months', month_labels, value=(month_labels[-12], month_labels[-1]), key='ridership_months',
+            label_visibility='collapsed')
+        first = months[month_labels.index(start_label)].start_time
+        last = min(months[month_labels.index(end_label)].end_time.normalize(), ridership_through)
+        through = f', through {ridership_through:%b %-d}' if last == ridership_through else ''
+        card_title(f'Daily ridership, {start_label} – {end_label}' if start_label != end_label
+                   else f'Daily ridership, {start_label}',
                    f'Entries each day (faint) and 7-day average (bold){through} · big days marked')
-        show(daily_figure(year))
+        show(daily_figure(first, last))
     else:
         show_all = ridership_range == ALL_RANGE
         card_title('Monthly ridership',
@@ -1979,19 +1769,19 @@ with st.container(key='card_monthly'):
 
 # ── Days that moved ridership ─────────────────────────────────────────────────
 # Each crowd and snow day in EVENT_DAYS against the same weekday in the weeks
-# around it (helpers.day_vs_nearby).
+# around it, in entries, not percent (helpers.day_vs_nearby says why).
 with st.container(key='card_days'):
     card_title('Days that moved ridership',
-               'Entries that day vs the same weekday in the 4 weeks either side · holidays left out')
+               'Entries above or below the same weekday in the 4 weeks either side · holidays left out')
     # Days every selected line reported (a fare-free line's days are out).
     by_day = ridership.groupby('service_date')['gated_entries'].agg(['sum', 'count'])
     daily = by_day.loc[by_day['count'] == len(selected_lines), 'sum']
     holidays = ridership.loc[ridership['is_holiday'], 'service_date'].unique()
     snow = ridership.groupby('service_date')['snowfall_in'].first()
     days = EVENT_DAYS[EVENT_DAYS['kind'] != 'context']
-    days = days.assign(pct=day_vs_nearby(daily, days['date'], holidays).to_numpy(),
+    days = days.assign(change=day_vs_nearby(daily, days['date'], holidays).to_numpy(),
                        entries=daily.reindex(days['date']).to_numpy(),
-                       snow=snow.reindex(days['date']).to_numpy()).dropna(subset=['pct'])
+                       snow=snow.reindex(days['date']).to_numpy()).dropna(subset=['change'])
     if days.empty:
         st.markdown('<div class="empty">None of these days are in the selected lines\' data.</div>',
                     unsafe_allow_html=True)
@@ -1999,29 +1789,36 @@ with st.container(key='card_days'):
         # Biggest spikes on top, deepest drops at the bottom. Two-line names,
         # so labels stay short at phone width: what, then when (and how much
         # snow).
-        days = days.sort_values('pct', ascending=False)
+        days = days.sort_values('change', ascending=False)
         names = [f"{label}<br>{date:%b %-d, %Y}{f' · {inches:g}″ snow' if kind == 'snow' and inches > 0 else ''}"
                  for label, date, inches, kind in zip(days['label'], days['date'], days['snow'].fillna(0),
                                                       days['kind'], strict=True)]
         fig = go.Figure(go.Bar(
-            x=days['pct'], y=names, orientation='h',
+            x=days['change'], y=names, orientation='h',
             marker=dict(color=ACCENT, cornerradius=4),
-            # A drop's label inside its bar (every drop here is a long one), so
-            # it stays off the row names; a rise's just past its end.
-            text=[LABEL_GAP + fmt_pct(p, decimals=0) + LABEL_GAP for p in days['pct']],
-            textposition=['inside' if p < 0 else 'outside' for p in days['pct']],
-            insidetextanchor='end', insidetextfont=dict(color=INK, size=11), outsidetextfont=dict(color=INK_2, size=11),
-            constraintext='none', cliponaxis=False,
-            hovertext=[f'{label}, {date:%a %b %-d, %Y}<br>{fmt_count(n)} entries · {fmt_pct(p, decimals=0)} vs an '
-                       'ordinary day' for label, date, n, p in zip(days['label'], days['date'], days['entries'],
-                                                                 days['pct'], strict=True)],
+            # A rise's label just past its bar's end; a drop's is drawn below,
+            # by its base.
+            text=[LABEL_GAP + fmt_count_change(n) if n > 0 else '' for n in days['change']],
+            textposition='outside', outsidetextfont=dict(color=INK_2, size=11), constraintext='none',
+            cliponaxis=False,
+            hovertext=[f'{label}, {date:%a %b %-d, %Y}<br>{fmt_count(n)} entries · {fmt_count(n - c)} on an '
+                       f'ordinary day ({fmt_count_change(c)})'
+                       for label, date, n, c in zip(days['label'], days['date'], days['entries'], days['change'],
+                                                    strict=True)],
             hoverinfo='text',
         ))
+        # A drop's label just right of zero, beside its bar's base: past its
+        # far end, it would need room the row names take at phone width.
+        drops = days['change'] < 0
+        fig.add_trace(go.Scatter(
+            x=[0] * drops.sum(), y=[name for name, drop in zip(names, drops, strict=True) if drop], mode='text',
+            text=[LABEL_GAP + fmt_count_change(n) for n in days.loc[drops, 'change']], textposition='middle right',
+            textfont=dict(color=INK_2, size=11), hoverinfo='skip', showlegend=False, cliponaxis=False,
+        ))
         style(fig, height=max(200, 44 * len(days) + 30))
-        # 0 always in view. No tick labels: each bar carries its value, and a
-        # padded axis would show impossible ones (−120%). Short bars' labels
-        # sit past their end, in a fixed right margin.
-        low, high = min(days['pct'].min(), 0), max(days['pct'].max(), 0)
+        # 0 always in view. No tick labels: each bar carries its value, in a
+        # fixed right margin when it runs past the plot.
+        low, high = min(days['change'].min(), 0), max(days['change'].max(), 0)
         fig.update_xaxes(range=[low, high], showticklabels=False, showgrid=False, zeroline=True, zerolinecolor=AXIS,
                          zerolinewidth=1)
         fig.update_layout(margin_r=56)
@@ -2144,7 +1941,7 @@ with dow_col:
         show(fig)
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 9. Weather
+# 8. Weather
 # ══════════════════════════════════════════════════════════════════════════════
 
 section(
@@ -2212,6 +2009,170 @@ with temp_col:
         st.caption('Degrees °F, on the daily mean: (high + low) / 2')
 
 # ══════════════════════════════════════════════════════════════════════════════
+# 9. Riders on every mode
+# ══════════════════════════════════════════════════════════════════════════════
+
+# Riders on every mode, from the MBTA's monthly figures
+# (gold.transit_ridership): they count boardings, a ride with a transfer
+# counting twice, so they're never set beside the subway's gated entries (one
+# source per view, decision 0018). Riders only: the subway sections above
+# cover reliability. The line buttons don't apply; the commuter rail and ferry
+# cards use their own daily and per-trip data.
+
+# The last 12 published months, against 2019, the last full year before the
+# pandemic: twelve consecutive months hold each calendar month once, so the
+# seasons match.
+transit_latest = transit_all['month_start'].max()
+transit_window = pd.date_range(end=transit_latest, periods=12, freq='MS')
+transit_2019 = pd.date_range(f'{BASELINE_YEAR}-01-01', periods=12, freq='MS')
+mode_now = riders_per_day_by_mode(transit_all, 'Total', transit_window).reindex(MODES)
+mode_2019 = riders_per_day_by_mode(transit_all, 'Total', transit_2019).reindex(MODES)
+transit_window_label = f'{transit_window[0]:%b %Y} – {transit_latest:%b %Y}'
+
+section(
+    'Riders on every mode',
+    f'{fmt_count(mode_now.sum())} boardings a day on every mode in the 12 months to {transit_latest:%b %Y}, '
+    f"{mode_now.sum() / mode_2019.sum() * 100:.0f}% of {BASELINE_YEAR}. From the MBTA's monthly figures, where a ride "
+    "with a transfer counts twice; the line buttons above don't apply here.",
+)
+
+kpi_tiles([dict(label=mode, value=fmt_count(mode_now[mode]),
+                sub=f'per{NBSP}day · {mode_now[mode] / mode_2019[mode] * 100:.0f}% of{NBSP}{BASELINE_YEAR}',
+                color=MODE_COLORS[mode])
+           for mode in MODES if pd.notna(mode_now[mode])], layout='thirds')
+
+# ── Riders by mode, month by month ────────────────────────────────────────────
+PER_DAY_VIEW, VS_2019_VIEW = 'Riders per day', f'% of {BASELINE_YEAR}'
+
+with st.container(key='card_modes'):
+    mode_view = st.segmented_control(
+        'Measure', [PER_DAY_VIEW, VS_2019_VIEW], default=PER_DAY_VIEW,
+        key='mode_view', label_visibility='collapsed',
+    ) or PER_DAY_VIEW  # Clicking the selected option clears it; fall back to the default
+    vs_2019 = mode_view == VS_2019_VIEW
+    card_title('Riders by mode',
+               f'Each month vs the same month in {BASELINE_YEAR}, so the seasons cancel'
+               if vs_2019 else 'Boardings per day, each month')
+    # Each mode's boardings per day, month by month.
+    monthly_modes = (transit_all[transit_all['day_type'] == 'Total']
+                     .groupby(['mode', 'month_start']).agg(riders=('riders_total', 'sum'), days=('day_count', 'max')))
+    monthly_modes = (monthly_modes['riders'] / monthly_modes['days']).rename('per_day').reset_index()
+    if vs_2019:
+        same_month = monthly_modes[monthly_modes['month_start'].dt.year == BASELINE_YEAR].assign(
+            calendar_month=lambda d: d['month_start'].dt.month).set_index(['mode', 'calendar_month'])['per_day']
+        keys = pd.MultiIndex.from_arrays([monthly_modes['mode'], monthly_modes['month_start'].dt.month])
+        monthly_modes['per_day'] = monthly_modes['per_day'] / same_month.reindex(keys).to_numpy() * 100
+        # From the year after the baseline: 2019 against itself is a flat 100%.
+        monthly_modes = monthly_modes[monthly_modes['month_start'].dt.year > BASELINE_YEAR]
+
+    fig = go.Figure()
+    ends = []
+    for mode in MODES:
+        m = monthly_modes[monthly_modes['mode'] == mode].dropna(subset=['per_day'])
+        if m.empty:
+            continue
+        fig.add_trace(go.Scatter(
+            x=m['month_start'], y=m['per_day'], name=mode, mode='lines',
+            line=dict(color=MODE_COLORS[mode], width=2.5),
+            hovertemplate=f'{mode}: %{{y:,.0f}}' + ('%' if vs_2019 else ' per day') + '<extra></extra>',
+        ))
+        ends.append((mode, m['month_start'].iloc[-1], m['per_day'].iloc[-1], mode))
+    top = monthly_modes['per_day'].max()
+    label_line_ends(fig, ends, top, colors=MODE_COLORS)
+    style(fig, height=380)
+    # End labels, names only, in a right margin wide enough for the longest.
+    fig.update_layout(margin=dict(l=4, r=124, t=8, b=4), hovermode='x unified')
+    first, last = monthly_modes['month_start'].min(), monthly_modes['month_start'].max()
+    pad = (last - first) * 0.01
+    # Every other year, so the labels fit beside the end labels at phone width.
+    fig.update_xaxes(range=[first - pad, last + pad], tickformat='%Y', dtick='M24', tick0='2019-01-01',
+                     gridcolor='rgba(0,0,0,0)', tickangle=0, showspikes=True, spikemode='across',
+                     spikethickness=1, spikecolor=AXIS, spikedash='solid')
+    if vs_2019:
+        fig.update_yaxes(range=[0, top * 1.05], ticksuffix='%')
+        fig.add_hline(y=100, line=dict(color=AXIS, width=1))
+    else:
+        count_axis(fig, top)
+    show(fig)
+
+# ── Weekdays and weekends against 2019 ────────────────────────────────────────
+# Each mode's last 12 months by day type against 2019's.
+DAY_TYPES = {'Weekday': ('Weekdays', 'circle', INK_2), 'Saturday': ('Saturdays', 'circle', ACCENT),
+             'Sunday': ('Sundays', 'diamond', '#c4bdf5')}
+
+with st.container(key='card_weekends'):
+    card_title('Weekdays and weekends',
+               f'{transit_window_label} vs {BASELINE_YEAR} · each mode by day of the week')
+    fig = go.Figure()
+    for day_type, (label, symbol, color) in DAY_TYPES.items():
+        share = (riders_per_day_by_mode(transit_all, day_type, transit_window)
+                 / riders_per_day_by_mode(transit_all, day_type, transit_2019) * 100).reindex(MODES).dropna()
+        fig.add_trace(go.Scatter(
+            x=share.values, y=share.index, mode='markers', name=label,
+            marker=dict(symbol=symbol, size=11, color=color, line=dict(color=CARD, width=1.5)),
+            hovertemplate=f'%{{y}} · {label}: %{{x:.0f}}% of {BASELINE_YEAR}<extra></extra>',
+        ))
+    style(fig, height=max(240, 40 * len(MODES) + 70), legend=True)
+    fig.add_vline(x=100, line=dict(color=AXIS, width=1))
+    fig.update_xaxes(ticksuffix='%', rangemode='tozero')
+    fig.update_yaxes(autorange='reversed', gridcolor='rgba(0,0,0,0)', tickfont=dict(color=INK_2, size=12))
+    show(fig)
+    st.caption(f'100% = {BASELINE_YEAR}. Weekends came back further than weekdays on most modes: '
+               "the trips that didn't return are the commute. Commuter rail's weekend riders more than "
+               "doubled, a rise its operator, Keolis, reports too. The ferry's 2019 figures don't split "
+               'out weekends.')
+
+commuter_col, ferry_col = st.columns(2, gap='medium')
+
+# ── Commuter rail, day by day ─────────────────────────────────────────────────
+with commuter_col:
+    with st.container(key='card_commuter_rail'):
+        # The last 12 months the MBTA has published, by day of the week, with
+        # federal holidays left out as in the subway's day-of-week chart.
+        cr_daily = commuter_rail_all.groupby('service_date')['estimated_boardings'].sum()
+        cr_through = cr_daily.index.max()
+        cr_recent = cr_daily[cr_daily.index > cr_through - pd.DateOffset(months=12)]
+        cr_holidays = USFederalHolidayCalendar().holidays(cr_recent.index.min(), cr_recent.index.max())
+        cr_recent = cr_recent[~cr_recent.index.isin(cr_holidays)]
+        by_weekday = cr_recent.groupby(cr_recent.index.day_of_week).mean().reindex(range(7))
+        card_title('Commuter rail by day of the week',
+                   f'Estimated boardings per day, 12 months to {cr_through:%b %-d, %Y} · holidays left out')
+        fig = go.Figure(go.Bar(
+            x=[WEEKDAYS[i][:3] for i in by_weekday.index], y=by_weekday.values,
+            marker=dict(color=MODE_COLORS['Commuter Rail'], cornerradius=4),
+            text=[fmt_count(n) for n in by_weekday.values], textposition='outside', cliponaxis=False,
+            textfont=dict(color=INK_2, size=11),
+            hovertemplate='%{x}: %{y:,.0f} boardings per day<extra></extra>',
+        ))
+        style(fig, height=280)
+        count_axis(fig, by_weekday.max() * 1.15)
+        fig.update_xaxes(gridcolor='rgba(0,0,0,0)', tickfont=dict(color=INK_2, size=12))
+        show(fig)
+        # The busiest day since the estimates began, named when it's one of
+        # the days the subway's card measures.
+        cr_record = cr_daily.idxmax()
+        cr_named = dict(zip(EVENT_DAYS['date'], EVENT_DAYS['label'], strict=True)).get(cr_record)
+        st.caption(f'Busiest day since the estimates began in {cr_daily.index.min():%b %Y}: '
+                   f'{cr_record:%a, %b %-d, %Y}' + (f', the {cr_named}' if cr_named else '')
+                   + f", {fmt_count(cr_daily[cr_record])} boardings. Estimates, which the MBTA doesn't guarantee.")
+
+# ── Ferries ───────────────────────────────────────────────────────────────────
+# The last 12 months of trips the MBTA has published, route by route.
+ferry_through = ferry_all['month_start'].max()
+ferry_recent = ferry_all[ferry_all['month_start'] > ferry_through - pd.DateOffset(months=12)]
+ferry_routes = ferry_recent.groupby('route_name')[['riders', 'service_days']].sum()
+ferry_window_label = f'{ferry_recent["month_start"].min():%b %Y} – {ferry_through:%b %Y}'
+
+with ferry_col:
+    with st.container(key='card_ferries'):
+        card_title('Ferry riders by route',
+                   f'Boardings per day it ran, {ferry_window_label} · seasonal routes over their season')
+        per_day = (ferry_routes['riders'] / ferry_routes['service_days']).sort_values(ascending=False)
+        show(ranked_bars(per_day.index.tolist(), per_day.tolist(), [fmt_count(n) for n in per_day],
+                         [f'{route}<br>{n:,.0f} boardings per day it ran' for route, n in per_day.items()],
+                         colors=MODE_COLORS['Ferry']))
+
+# ══════════════════════════════════════════════════════════════════════════════
 # 10. Footer
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -2224,29 +2185,29 @@ st.markdown(f"""
   <b>Sources</b> · MBTA V3 API (alerts since Oct 2026, routes, stops, line shapes) · MBTA LAMP archive (the
   alerts the API's snapshots missed, from Sep 2019; topped up weekly) · MBTA Gated Station Entries (ArcGIS Open
   Data, with its yearly archive from 2014) · MBTA Monthly Ridership by Mode and Line, Commuter Rail Ridership by
-  Service Date and Line, Ferry Daily Ridership by Trip, Heavy Rail Excess Trip Time, Commuter Rail Reliability, and
-  Service Customer Satisfaction (ArcGIS Open Data) · NOAA GHCN-Daily, Boston Logan
+  Service Date and Line, Ferry Daily Ridership by Trip, Heavy Rail Excess Trip Time, and Service Customer
+  Satisfaction (ArcGIS Open Data) · NOAA GHCN-Daily, Boston Logan
   (USW00014739)<br>
   <b>Refresh</b> · Page data hourly, from alerts checked every 15 minutes · Weather daily
-  (NOAA posts ~3 days behind) · Ridership, trip times, reliability, and the survey weekly (MBTA posts in batches,
-  weeks to months behind)<br>
+  (NOAA posts ~3 days behind) · Ridership, trip times, and the survey weekly (MBTA posts in batches, weeks to
+  months behind)<br>
   <b>Incidents</b> · An incident groups the alerts the MBTA posts for one event (same route, cause, effect, and
   station, posted in close succession). Notices and facility issues (elevators, escalators, parking) are excluded.
   An alert ends at the end time the MBTA posted or when the MBTA closed it, whichever comes first; if the close
   wasn't seen, when it left the MBTA's feed.<br>
-  <b>Ridership</b> · Gated entries, as averages per day, weekends and holidays included. {BASELINE_YEAR} is the last
-  full year before the pandemic. Days a line was fare-free (the Blue Line, Jul 5 – Aug 4, 2024) are left out: with
-  the gates open, entries didn't count riders. Days that moved ridership compare a day with the median of the same
-  weekday in the four weeks either side, holidays left out; the daily view's bold line is a centered 7-day average,
-  which evens out the weekdays.<br>
   <b>Delays riders feel</b> · Extra minutes per trip are the MBTA's estimates: each rider's trip, waiting and riding,
   against its baseline for that line, half hour, and direction, averaged over riders. The survey's positive share
   is its top three answers of seven (satisfied, or agreeing).<br>
-  <b>Riding the MBTA</b> · The MBTA's monthly figures count boardings, a ride with a transfer counting twice, on every
-  mode alike, so modes are compared only with them, never with gated entries. {BASELINE_YEAR} comparisons set the
-  last 12 published months against all of {BASELINE_YEAR}, so the seasons match. Commuter rail boardings are the
-  MBTA's daily estimates. A ferry departure is late more than 5 minutes after schedule, the MBTA's own measure;
-  commuter rail on time is also the MBTA's measure, from its reliability file.<br>
+  <b>Subway ridership</b> · Gated entries, as averages per day, weekends and holidays included. {BASELINE_YEAR} is the
+  last full year before the pandemic. Days a line was fare-free (the Blue Line, Jul 5 – Aug 4, 2024) are left out:
+  with the gates open, entries didn't count riders. Days that moved ridership compare a day with the median of the
+  same weekday in the four weeks either side, holidays left out, in entries rather than percent, since a percent would
+  inflate recent days against lower ridership; the daily view's bold line is a centered 7-day average, which evens out
+  the weekdays.<br>
+  <b>Riders on every mode</b> · The MBTA's monthly figures count boardings, a ride with a transfer counting twice, on
+  every mode alike, so modes are compared only with them, never with gated entries. {BASELINE_YEAR} comparisons set
+  the last 12 published months against all of {BASELINE_YEAR}, so the seasons match. Commuter rail boardings are the
+  MBTA's daily estimates, and ferry riders count every trip leg.<br>
   <b>Comparisons</b> · Like for like: same line and month, adjusted for day of week, with the ~10 federal holidays a
   year left out, since a holiday isn't a typical day. Durations and baselines are medians, so one shutdown can't skew
   them. Weather bars are the median day in each band vs normal-weather days. Alert-effect bars are the median day

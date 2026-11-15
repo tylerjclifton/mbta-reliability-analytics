@@ -34,3 +34,6 @@ Options rejected:
 - The dashboard can set what riders say beside what the measures show.
 - Bronze grows by about 1 million rows a year from excess trip time (~18,000 rows a run × 52), 200,000 from commuter rail reliability, and 26,000 from the survey. Billed on compressed bytes, that costs cents ([0014](0014-bronze-physical-storage-billing.md)).
 - A file the MBTA stops updating for 120 days fails its job, which alerts.
+
+## History
+- **2026-11-15:** the dashboard shows riders only for modes other than the subway, so its last section, "Riders on every mode", stays one subject; the subway sections above it carry reliability. The commuter rail trains-late card and the ferry's late shares came off. Commuter rail reliability keeps loading, ready for a commuter rail view, and `gold.ferry_performance` keeps its on-time share.

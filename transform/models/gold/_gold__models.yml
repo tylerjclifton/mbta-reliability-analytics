@@ -231,8 +231,8 @@ models:
     description: >
       One row per month × day type × service: the MBTA's monthly riders on
       every service that doesn't overlap another, each grouped into its mode —
-      the dashboard's "Riding the MBTA" section. Boardings, a transfer counting
-      twice; never compared with gated entries (decision 0018).
+      the dashboard's "Riders on every mode" section. Boardings, a transfer
+      counting twice; never compared with gated entries (decision 0018).
     data_tests:
       - unique_combination:
           arguments:

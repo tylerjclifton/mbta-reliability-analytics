@@ -61,6 +61,13 @@ def fmt_pct(x, decimals=1):
     return f'{x:+.{decimals}f}%'.replace('-', '−')
 
 
+def fmt_count_change(n):
+    """A signed count with a true minus sign, as fmt_count shortens it: +212K · −1,284 · 0."""
+    if round(n) == 0:
+        return '0'
+    return ('+' if n > 0 else '−') + fmt_count(abs(n))
+
+
 def fmt_minutes(x):
     """Minutes to one decimal, with a true minus sign below zero: 2.3 · −0.2."""
     if round(x, 1) == 0:
@@ -186,8 +193,10 @@ def riders_per_day_by_mode(rows, day_type, months):
 
 def day_vs_nearby(daily, dates, holidays, weeks=4):
     """
-    How far each of `dates` ran from an ordinary day, in percent: its entries
-    vs the median of the same weekday in the `weeks` weeks either side.
+    How far each of `dates` ran from an ordinary day, in entries: its entries
+    less the median of the same weekday in the `weeks` weeks either side. In
+    entries, not percent, so a crowd counts the same whatever the baseline: a
+    percent would inflate recent days, against lower post-pandemic ridership.
     Holidays and days with no data are left out of the comparison, and the
     median shrugs off a storm among the neighbors, so an ordinary day next to
     them can't pass for a spike. `daily` is entries by date (a Series on a
@@ -198,7 +207,7 @@ def day_vs_nearby(daily, dates, holidays, weeks=4):
     for date in map(pd.Timestamp, dates):
         nearby = [date + pd.Timedelta(weeks=k) for k in range(-weeks, weeks + 1) if k]
         baseline = daily.reindex([d for d in nearby if d not in holidays]).median()
-        out[date] = (daily.get(date, np.nan) / baseline - 1) * 100 if baseline else np.nan
+        out[date] = daily.get(date, np.nan) - baseline if baseline else np.nan
     return pd.Series(out, dtype=float)
 
 

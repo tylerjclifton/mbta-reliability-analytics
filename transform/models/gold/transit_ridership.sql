@@ -2,11 +2,12 @@
   gold.transit_ridership — one row per month × day type × service
 
   Monthly riders on every MBTA service, each grouped into its mode, for the
-  dashboard's "Riding the MBTA" section. Only rows that don't overlap are
+  dashboard's "Riders on every mode" section. Only rows that don't overlap are
   kept: the published subtotals (Heavy Rail = Red + Orange + Blue, Light Rail
-  = Green + Mattapan, All Bus = Bus + Silver Line + the retired private-carrier
-  and trackless-trolley routes) would count riders twice. Day type Total stays
-  beside Weekday, Saturday, and Sunday; a reader picks one or the other.
+  = Green + Mattapan, All Bus = Bus + Silver Line + the retired
+  private-carrier and trackless-trolley routes) would count riders twice. Day
+  type Total stays beside Weekday, Saturday, and Sunday; a reader picks one or
+  the other.
 
   Boardings, a ride with a transfer counting twice: compare modes with these
   figures only, never with gated entries (one source per view, decision 0018).

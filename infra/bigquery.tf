@@ -282,26 +282,7 @@ locals {
   # deletion protection off, for one apply; the next apply removes them
   # (runbook, "Retire a bronze table"). Only a table whose contents bronze
   # holds elsewhere is retired (decision 0020).
-  retiring_bronze_tables = {
-    mbta_alerts_legacy = {
-      description = "Being deleted (decision 0020): its months are in lamp_alerts. 15-minute snapshots of the MBTA alerts API (rail routes only) as the old ingest shaped them, 2026-06-07 to 2026-10-24; mbta_alerts replaced it (decision 0002). Grain: alert × route × ingest run."
-      clustering  = ["alert_id", "route"]
-      columns = [
-        { name = "alert_id", type = "STRING", description = "MBTA alert ID" },
-        { name = "route", type = "STRING", description = "MBTA route ID the alert applies to (e.g. Red, Green-B)" },
-        { name = "active_period_start", type = "TIMESTAMP", description = "Start of the alert's first active period; epoch when unset" },
-        { name = "active_period_end", type = "TIMESTAMP", description = "End of the alert's first active period; NULL or epoch when unset" },
-        { name = "duration_certainty", type = "STRING", description = "MBTA duration certainty enum (KNOWN, ESTIMATED, UNKNOWN)" },
-        { name = "header", type = "STRING", description = "Short alert text" },
-        { name = "description", type = "STRING", description = "Long alert text" },
-        { name = "cause", type = "STRING", description = "MBTA cause enum (e.g. SIGNAL_PROBLEM)" },
-        { name = "effect", type = "STRING", description = "MBTA effect enum (e.g. DELAY, SHUTTLE)" },
-        { name = "severity", type = "INTEGER", description = "MBTA severity, 0 (least) to 10 (most)" },
-        { name = "created_at", type = "TIMESTAMP", description = "When MBTA created the alert" },
-        { name = "updated_at", type = "TIMESTAMP", description = "When MBTA last updated the alert" },
-      ]
-    }
-  }
+  retiring_bronze_tables = {}
 }
 
 # ── Datasets ──────────────────────────────────────────────────────────────────
@@ -399,11 +380,6 @@ resource "google_bigquery_table" "retiring_bronze" {
   }
 
   schema = jsonencode(concat(each.value.columns, local.bronze_audit_columns))
-}
-
-moved {
-  from = google_bigquery_table.bronze["mbta_alerts_legacy"]
-  to   = google_bigquery_table.retiring_bronze["mbta_alerts_legacy"]
 }
 
 # The same tables and schemas in dev_bronze, for local ingest runs. A run's

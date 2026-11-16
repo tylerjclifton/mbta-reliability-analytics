@@ -6,7 +6,7 @@ Guidance for AI coding sessions in this repo. Everything here is a summary; the 
 
 ## Guardrails
 Mistakes here are hard or impossible to undo.
-- **Bronze is append-only.** Never update, delete, or rebuild bronze rows or tables, and never write production bronze from a local run: local ingest goes to `dev_bronze` ([0001](docs/decisions/0001-append-only-bronze.md), [0012](docs/decisions/0012-local-ingest-writes-dev-bronze.md)).
+- **Bronze is append-only.** Never update, delete, or rebuild bronze rows or tables, and never write production bronze from a local run: local ingest goes to `dev_bronze` ([0001](docs/decisions/0001-append-only-bronze.md), [0012](docs/decisions/0012-local-ingest-writes-dev-bronze.md)). The one exception, deleting a table whose data bronze already holds elsewhere, needs the user's say-so and the runbook's two pushes ([0020](docs/decisions/0020-collect-broadly-show-what-is-used.md)).
 - **Never let Terraform replace a bronze table.** Check every plan for one. Renames follow the runbook's BigQuery rename plus `import` procedure; removing a column, changing a type, or changing partitioning isn't done ([0013](docs/decisions/0013-bronze-tables-in-terraform.md)).
 - **Infrastructure changes go through Terraform only**: edit `infra/`, plan locally, push ([0005](docs/decisions/0005-terraform-only-changes.md)).
 - **Deploy by pushing to `main`**; CI builds, applies, and runs the transform ([0006](docs/decisions/0006-deploy-only-through-ci.md)). Watch the run and confirm it passed.

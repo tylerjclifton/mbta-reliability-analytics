@@ -19,8 +19,8 @@ docs/roadmap.md), and silver uses them to tell when each alert ended (README,
 Each alert is stored whole, from the whole feed, so new questions never depend
 on what this script happened to keep; silver filters to rail and splits alerts
 by route (mbta_alerts__by_route). Until 2026-10-24 this job wrote chosen
-columns to what is now bronze.mbta_alerts_legacy, kept frozen as history
-(decision 0002).
+columns to a separate table, since deleted: LAMP holds the same months
+(decisions 0002 and 0020).
 """
 
 # Import standard libraries

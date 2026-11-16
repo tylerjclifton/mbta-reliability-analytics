@@ -37,3 +37,4 @@ Options rejected:
 
 ## History
 - **2026-11-15:** the dashboard shows riders only for modes other than the subway, so its last section, "Riders on every mode", stays one subject; the subway sections above it carry reliability. The commuter rail trains-late card and the ferry's late shares came off. Commuter rail reliability keeps loading, ready for a commuter rail view, and `gold.ferry_performance` keeps its on-time share.
+- **2026-11-16:** commuter rail trains late and the ferry's on-time share are back on the dashboard, in its last section, renamed "Every mode": riders on every mode, and punctuality wherever the MBTA publishes it for every trip ([0020](0020-collect-broadly-show-what-is-used.md)).

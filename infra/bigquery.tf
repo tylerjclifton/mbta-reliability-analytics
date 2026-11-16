@@ -25,25 +25,6 @@ locals {
   # One entry per bronze table. Column names follow the source system; renaming
   # to project conventions happens in silver.
   bronze_tables = {
-    mbta_alerts_legacy = {
-      description = "FROZEN — never written since 2026-10-24, never delete. 15-minute snapshots of the MBTA alerts API (rail routes only) as the old ingest shaped them, 2026-06-07 to 2026-10-24; mbta_alerts replaced it (decision 0002). Grain: alert × route × ingest run."
-      clustering  = ["alert_id", "route"]
-      columns = [
-        { name = "alert_id", type = "STRING", description = "MBTA alert ID" },
-        { name = "route", type = "STRING", description = "MBTA route ID the alert applies to (e.g. Red, Green-B)" },
-        { name = "active_period_start", type = "TIMESTAMP", description = "Start of the alert's first active period; epoch when unset" },
-        { name = "active_period_end", type = "TIMESTAMP", description = "End of the alert's first active period; NULL or epoch when unset" },
-        { name = "duration_certainty", type = "STRING", description = "MBTA duration certainty enum (KNOWN, ESTIMATED, UNKNOWN)" },
-        { name = "header", type = "STRING", description = "Short alert text" },
-        { name = "description", type = "STRING", description = "Long alert text" },
-        { name = "cause", type = "STRING", description = "MBTA cause enum (e.g. SIGNAL_PROBLEM)" },
-        { name = "effect", type = "STRING", description = "MBTA effect enum (e.g. DELAY, SHUTTLE)" },
-        { name = "severity", type = "INTEGER", description = "MBTA severity, 0 (least) to 10 (most)" },
-        { name = "created_at", type = "TIMESTAMP", description = "When MBTA created the alert" },
-        { name = "updated_at", type = "TIMESTAMP", description = "When MBTA last updated the alert" },
-      ]
-    }
-
     mbta_alerts = {
       description = "15-minute snapshots of the MBTA alerts API, each alert's full JSON as returned — including the stops it affects and every active period, which the legacy table dropped. Started 2026-10-24 (rail routes only); the whole feed, every mode, since 2026-10-28 (decision 0011). Grain: alert × ingest run."
       clustering  = ["alert_id"]
@@ -296,6 +277,31 @@ locals {
       ]
     }
   }
+
+  # Bronze tables being deleted: out of the protected set above, with
+  # deletion protection off, for one apply; the next apply removes them
+  # (runbook, "Retire a bronze table"). Only a table whose contents bronze
+  # holds elsewhere is retired (decision 0020).
+  retiring_bronze_tables = {
+    mbta_alerts_legacy = {
+      description = "Being deleted (decision 0020): its months are in lamp_alerts. 15-minute snapshots of the MBTA alerts API (rail routes only) as the old ingest shaped them, 2026-06-07 to 2026-10-24; mbta_alerts replaced it (decision 0002). Grain: alert × route × ingest run."
+      clustering  = ["alert_id", "route"]
+      columns = [
+        { name = "alert_id", type = "STRING", description = "MBTA alert ID" },
+        { name = "route", type = "STRING", description = "MBTA route ID the alert applies to (e.g. Red, Green-B)" },
+        { name = "active_period_start", type = "TIMESTAMP", description = "Start of the alert's first active period; epoch when unset" },
+        { name = "active_period_end", type = "TIMESTAMP", description = "End of the alert's first active period; NULL or epoch when unset" },
+        { name = "duration_certainty", type = "STRING", description = "MBTA duration certainty enum (KNOWN, ESTIMATED, UNKNOWN)" },
+        { name = "header", type = "STRING", description = "Short alert text" },
+        { name = "description", type = "STRING", description = "Long alert text" },
+        { name = "cause", type = "STRING", description = "MBTA cause enum (e.g. SIGNAL_PROBLEM)" },
+        { name = "effect", type = "STRING", description = "MBTA effect enum (e.g. DELAY, SHUTTLE)" },
+        { name = "severity", type = "INTEGER", description = "MBTA severity, 0 (least) to 10 (most)" },
+        { name = "created_at", type = "TIMESTAMP", description = "When MBTA created the alert" },
+        { name = "updated_at", type = "TIMESTAMP", description = "When MBTA last updated the alert" },
+      ]
+    }
+  }
 }
 
 # ── Datasets ──────────────────────────────────────────────────────────────────
@@ -376,11 +382,34 @@ resource "google_bigquery_table" "bronze" {
   }
 }
 
-# The same tables and schemas in dev_bronze, for local ingest runs. Frozen
-# (_legacy) tables are left out, since nothing writes them. A run's rows
-# expire with their ingest-day partition; the tables themselves stay.
+# Retiring tables: the bronze tables' settings without their protection, so an
+# apply can delete them once they leave the map.
+resource "google_bigquery_table" "retiring_bronze" {
+  for_each = local.retiring_bronze_tables
+
+  dataset_id          = google_bigquery_dataset.bronze.dataset_id
+  table_id            = each.key
+  description         = each.value.description
+  deletion_protection = false
+
+  clustering = each.value.clustering
+  time_partitioning {
+    type  = "DAY"
+    field = "ingested_at"
+  }
+
+  schema = jsonencode(concat(each.value.columns, local.bronze_audit_columns))
+}
+
+moved {
+  from = google_bigquery_table.bronze["mbta_alerts_legacy"]
+  to   = google_bigquery_table.retiring_bronze["mbta_alerts_legacy"]
+}
+
+# The same tables and schemas in dev_bronze, for local ingest runs. A run's
+# rows expire with their ingest-day partition; the tables themselves stay.
 resource "google_bigquery_table" "dev_bronze" {
-  for_each = { for name, table in local.bronze_tables : name => table if !endswith(name, "_legacy") }
+  for_each = local.bronze_tables
 
   dataset_id          = google_bigquery_dataset.dev["dev_bronze"].dataset_id
   table_id            = each.key

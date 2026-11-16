@@ -6,7 +6,8 @@ Reads:      gold.rail_incidents, gold.rail_incident_stations,
             gold.rail_ridership, gold.rail_delay_estimates,
             gold.transit_ridership, gold.commuter_rail_boardings,
             gold.ferry_performance, gold.rail_trip_times,
-            gold.transit_rider_satisfaction (cached for 15 minutes)
+            gold.commuter_rail_reliability, gold.transit_rider_satisfaction
+            (cached for 15 minutes)
 Deployed:   Cloud Run service `serve` (infra/cloud-run-services.tf), public at
             tylerclifton.com
 
@@ -27,17 +28,19 @@ Layout:
                           months), days that moved ridership, ridership by
                           alert effect, day of week
   8. Weather            — rain, snow, and temperature vs. typical ridership
-  9. Riders on every mode — every mode's riders against 2019 (tiles, by month,
-                          weekdays vs weekends), commuter rail by day of the
-                          week, ferry riders by route
+  9. Every mode         — every mode's riders against 2019 (tiles, by month,
+                          weekdays vs weekends), ferry riders by route,
+                          commuter rail by day of the week and trains late by
+                          line
   10. Footer            — sources, cadence, method notes
 
 Sections 2–8 are the subway in depth: its incidents, from right now to the
 long run (2–5), what riders felt of them (6), and its riders and what moves
-them (7–8). Section 9 steps back to riders on every mode, riders only.
+them (7–8). Section 9 steps back to every mode: riders, and punctuality
+where the MBTA publishes it for every trip (commuter rail, ferry).
 
 Time windows: every section covers the trailing 12 months, stated in its
-subtitle (riders on every mode: each source's last 12 published months). Six
+subtitle (every mode: each source's last 12 published months). Six
 exceptions, also labeled: delays riders feel runs month by month from 2022,
 when the MBTA's trip times begin; the ridership tiles show the latest
 published month (each tile names it) against the same month a year earlier
@@ -150,7 +153,7 @@ LINE_COLORS = {
 }
 LINES = list(LINE_COLORS)
 
-# Every mode, largest first, for the "Riders on every mode" section: the MBTA's
+# Every mode, largest first, for the "Every mode" section: the MBTA's
 # own mode colors where it has one (bus yellow, commuter rail purple,
 # lightened to read on the dark surface, ferry teal), Green for the Green Line
 # and Mattapan, a neutral for the three heavy rail lines together. Each is
@@ -702,7 +705,7 @@ def load_commuter_rail_boardings():
 def load_ferry_performance():
     """gold.ferry_performance, one row per month × ferry route."""
     df = get_client().query(f"""
-        SELECT month_start, route_name, riders, service_days
+        SELECT month_start, route_name, riders, service_days, measured_legs, on_time_legs
         FROM `{PROJECT_ID}.{GOLD_DATASET}.ferry_performance`
     """).to_dataframe()
     df['month_start'] = pd.to_datetime(df['month_start'])
@@ -724,6 +727,23 @@ def load_trip_times():
         GROUP BY month_start, line_name
     """).to_dataframe()
     df[['month_start', 'through_date']] = df[['month_start', 'through_date']].apply(pd.to_datetime)
+    return df
+
+
+@st.cache_data(ttl=900, show_spinner=False)
+def load_commuter_rail_reliability():
+    """gold.commuter_rail_reliability summed per day × line (peak and off-peak together)."""
+    df = get_client().query(f"""
+        SELECT
+            service_date,
+            line_name,
+            SUM(trains_measured) AS trains_measured,
+            SUM(trains_on_time) AS trains_on_time,
+            SUM(trains_canceled) AS trains_canceled
+        FROM `{PROJECT_ID}.{GOLD_DATASET}.commuter_rail_reliability`
+        GROUP BY service_date, line_name
+    """).to_dataframe()
+    df['service_date'] = pd.to_datetime(df['service_date'])
     return df
 
 
@@ -757,6 +777,7 @@ transit_all = load_transit_ridership()
 commuter_rail_all = load_commuter_rail_boardings()
 ferry_all = load_ferry_performance()
 trip_times_all = load_trip_times()
+commuter_rail_reliability_all = load_commuter_rail_reliability()
 satisfaction_all = load_rider_satisfaction()
 loading.empty()
 st.session_state['loaded'] = True
@@ -2010,15 +2031,15 @@ with temp_col:
         st.caption('Degrees °F, on the daily mean: (high + low) / 2')
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 9. Riders on every mode
+# 9. Every mode
 # ══════════════════════════════════════════════════════════════════════════════
 
 # Riders on every mode, from the MBTA's monthly figures
 # (gold.transit_ridership): they count boardings, a ride with a transfer
 # counting twice, so they're never set beside the subway's gated entries (one
-# source per view, decision 0018). Riders only: the subway sections above
-# cover reliability. The line buttons don't apply; the commuter rail and ferry
-# cards use their own daily and per-trip data.
+# source per view, decision 0018). Punctuality where the MBTA publishes it for
+# every trip: commuter rail's reliability file and the ferry's trip legs
+# (decision 0019); bus has none. The line buttons don't apply.
 
 # The last 12 published months, against 2019, the last full year before the
 # pandemic: twelve consecutive months hold each calendar month once, so the
@@ -2031,11 +2052,11 @@ mode_2019 = riders_per_day_by_mode(transit_all, 'Total', transit_2019).reindex(M
 transit_window_label = f'{transit_window[0]:%b %Y} – {transit_latest:%b %Y}'
 
 section(
-    'Riders on every mode',
+    'Every mode',
     f'{fmt_count(mode_now.sum())} boardings a day on every mode in the 12 months to {transit_latest:%b %Y}, '
     f"{mode_now.sum() / mode_2019.sum() * 100:.0f}% of {BASELINE_YEAR}. From the MBTA's monthly figures, which count "
     'every boarding (a ride with a transfer counts twice), so the subway runs higher here than in its gate entries '
-    "above; the line buttons don't apply.",
+    "above; commuter rail and ferry punctuality come from their own files. The line buttons don't apply.",
 )
 
 kpi_tiles([dict(label=mode, value=fmt_count(mode_now[mode]),
@@ -2097,34 +2118,58 @@ with st.container(key='card_modes'):
         count_axis(fig, top)
     show(fig)
 
+weekend_col, ferry_col = st.columns(2, gap='medium')
+
 # ── Weekdays and weekends against 2019 ────────────────────────────────────────
 # Each mode's last 12 months by day type against 2019's.
 DAY_TYPES = {'Weekday': ('Weekdays', 'circle', INK_2), 'Saturday': ('Saturdays', 'circle', ACCENT),
              'Sunday': ('Sundays', 'diamond', '#c4bdf5')}
 
-with st.container(key='card_weekends'):
-    card_title('Weekdays and weekends',
-               f'{transit_window_label} vs {BASELINE_YEAR} · each mode by day of the week')
-    fig = go.Figure()
-    for day_type, (label, symbol, color) in DAY_TYPES.items():
-        share = (riders_per_day_by_mode(transit_all, day_type, transit_window)
-                 / riders_per_day_by_mode(transit_all, day_type, transit_2019) * 100).reindex(MODES).dropna()
-        fig.add_trace(go.Scatter(
-            x=share.values, y=share.index, mode='markers', name=label,
-            marker=dict(symbol=symbol, size=11, color=color, line=dict(color=CARD, width=1.5)),
-            hovertemplate=f'%{{y}} · {label}: %{{x:.0f}}% of {BASELINE_YEAR}<extra></extra>',
-        ))
-    style(fig, height=max(240, 40 * len(MODES) + 70), legend=True)
-    fig.add_vline(x=100, line=dict(color=AXIS, width=1))
-    fig.update_xaxes(ticksuffix='%', rangemode='tozero')
-    fig.update_yaxes(autorange='reversed', gridcolor='rgba(0,0,0,0)', tickfont=dict(color=INK_2, size=12))
-    show(fig)
-    st.caption(f'100% = {BASELINE_YEAR}. Weekends came back further than weekdays on most modes: '
-               "the trips that didn't return are the commute. Commuter rail's weekend riders more than "
-               "doubled, a rise its operator, Keolis, reports too. The ferry's 2019 figures don't split "
-               'out weekends.')
+with weekend_col:
+    with st.container(key='card_weekends'):
+        card_title('Weekdays and weekends',
+                   f'{transit_window_label} vs {BASELINE_YEAR} · each mode by day of the week')
+        fig = go.Figure()
+        for day_type, (label, symbol, color) in DAY_TYPES.items():
+            share = (riders_per_day_by_mode(transit_all, day_type, transit_window)
+                     / riders_per_day_by_mode(transit_all, day_type, transit_2019) * 100).reindex(MODES).dropna()
+            fig.add_trace(go.Scatter(
+                x=share.values, y=share.index, mode='markers', name=label,
+                marker=dict(symbol=symbol, size=11, color=color, line=dict(color=CARD, width=1.5)),
+                hovertemplate=f'%{{y}} · {label}: %{{x:.0f}}% of {BASELINE_YEAR}<extra></extra>',
+            ))
+        style(fig, height=max(240, 40 * len(MODES) + 70), legend=True)
+        fig.add_vline(x=100, line=dict(color=AXIS, width=1))
+        fig.update_xaxes(ticksuffix='%', rangemode='tozero')
+        fig.update_yaxes(autorange='reversed', gridcolor='rgba(0,0,0,0)', tickfont=dict(color=INK_2, size=12))
+        show(fig)
+        st.caption(f'100% = {BASELINE_YEAR}. Weekends came back further than weekdays on most modes: '
+                   "the trips that didn't return are the commute. Commuter rail's weekend riders more than "
+                   "doubled, a rise its operator, Keolis, reports too. The ferry's 2019 figures don't split "
+                   'out weekends.')
 
-commuter_col, ferry_col = st.columns(2, gap='medium')
+# ── Ferries ───────────────────────────────────────────────────────────────────
+# The last 12 months of trips the MBTA has published, route by route: riders,
+# and how many departures left on time (no more than 5 minutes late, the
+# MBTA's measure), which is nearly all of them on every route.
+ferry_through = ferry_all['month_start'].max()
+ferry_recent = ferry_all[ferry_all['month_start'] > ferry_through - pd.DateOffset(months=12)]
+ferry_routes = ferry_recent.groupby('route_name')[['riders', 'service_days', 'measured_legs', 'on_time_legs']].sum()
+ferry_window_label = f'{ferry_recent["month_start"].min():%b %Y} – {ferry_through:%b %Y}'
+
+with ferry_col:
+    with st.container(key='card_ferries'):
+        card_title('Ferry riders by route',
+                   f'Boardings per day it ran, {ferry_window_label} · seasonal routes over their season')
+        per_day = (ferry_routes['riders'] / ferry_routes['service_days']).sort_values(ascending=False)
+        show(ranked_bars(per_day.index.tolist(), per_day.tolist(), [fmt_count(n) for n in per_day],
+                         [f'{route}<br>{n:,.0f} boardings per day it ran' for route, n in per_day.items()],
+                         colors=MODE_COLORS['Ferry']))
+        on_time = ferry_routes['on_time_legs'] / ferry_routes['measured_legs'] * 100
+        st.caption(f'Departures on time, no more than 5 minutes late: {on_time.min():.1f}% '
+                   f'({on_time.idxmin()}) to {on_time.max():.1f}% ({on_time.idxmax()}) by route.')
+
+commuter_col, commuter_late_col = st.columns(2, gap='medium')
 
 # ── Commuter rail, day by day ─────────────────────────────────────────────────
 with commuter_col:
@@ -2158,21 +2203,30 @@ with commuter_col:
                    f'{cr_record:%a, %b %-d, %Y}' + (f', the {cr_named}' if cr_named else '')
                    + f", {fmt_count(cr_daily[cr_record])} boardings. Estimates, which the MBTA doesn't guarantee.")
 
-# ── Ferries ───────────────────────────────────────────────────────────────────
-# The last 12 months of trips the MBTA has published, route by route.
-ferry_through = ferry_all['month_start'].max()
-ferry_recent = ferry_all[ferry_all['month_start'] > ferry_through - pd.DateOffset(months=12)]
-ferry_routes = ferry_recent.groupby('route_name')[['riders', 'service_days']].sum()
-ferry_window_label = f'{ferry_recent["month_start"].min():%b %Y} – {ferry_through:%b %Y}'
+# ── Commuter rail trains late ─────────────────────────────────────────────────
+# The last 12 months the MBTA has published, line by line. Late is a measured
+# train not on time, by the MBTA's measure; canceled trains are counted apart.
+cr_reliability_through = commuter_rail_reliability_all['service_date'].max()
+cr_reliability_recent = commuter_rail_reliability_all[
+    commuter_rail_reliability_all['service_date'] > cr_reliability_through - pd.DateOffset(months=12)]
+cr_lines = cr_reliability_recent.groupby('line_name')[['trains_measured', 'trains_on_time', 'trains_canceled']].sum()
 
-with ferry_col:
-    with st.container(key='card_ferries'):
-        card_title('Ferry riders by route',
-                   f'Boardings per day it ran, {ferry_window_label} · seasonal routes over their season')
-        per_day = (ferry_routes['riders'] / ferry_routes['service_days']).sort_values(ascending=False)
-        show(ranked_bars(per_day.index.tolist(), per_day.tolist(), [fmt_count(n) for n in per_day],
-                         [f'{route}<br>{n:,.0f} boardings per day it ran' for route, n in per_day.items()],
-                         colors=MODE_COLORS['Ferry']))
+with commuter_late_col:
+    with st.container(key='card_commuter_rail_late'):
+        card_title('Commuter rail trains late',
+                   f"Share of trains, 12 months to {cr_reliability_through:%b %-d, %Y} · the MBTA's on-time measure")
+        late = (100 - cr_lines['trains_on_time'] / cr_lines['trains_measured'] * 100).sort_values(ascending=False)
+        show(ranked_bars(late.index.tolist(), late.tolist(), [f'{p:.0f}%' for p in late],
+                         [f"{line}<br>{p:.1f}% of {cr_lines.loc[line, 'trains_measured']:,} trains late · "
+                          f"{cr_lines.loc[line, 'trains_canceled']:,} canceled" for line, p in late.items()],
+                         colors=MODE_COLORS['Commuter Rail']))
+        # Every line, a year at a time: 2019, and the last full year.
+        cr_years = commuter_rail_reliability_all.groupby(commuter_rail_reliability_all['service_date'].dt.year)[
+            ['trains_measured', 'trains_on_time']].sum()
+        cr_late_by_year = 100 - cr_years['trains_on_time'] / cr_years['trains_measured'] * 100
+        cr_last_full = cr_reliability_through.year - 1
+        st.caption(f'Every line: {cr_late_by_year[BASELINE_YEAR]:.0f}% of trains late in {BASELINE_YEAR}, '
+                   f'{cr_late_by_year[cr_last_full]:.0f}% in {cr_last_full}.')
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 10. Footer
@@ -2187,12 +2241,12 @@ st.markdown(f"""
   <b>Sources</b> · MBTA V3 API (alerts since Oct 2026, routes, stops, line shapes) · MBTA LAMP archive (the
   alerts the API's snapshots missed, from Sep 2019; topped up weekly) · MBTA Gated Station Entries (ArcGIS Open
   Data, with its yearly archive from 2014) · MBTA Monthly Ridership by Mode and Line, Commuter Rail Ridership by
-  Service Date and Line, Ferry Daily Ridership by Trip, Heavy Rail Excess Trip Time, and Service Customer
-  Satisfaction (ArcGIS Open Data) · NOAA GHCN-Daily, Boston Logan
+  Service Date and Line, Ferry Daily Ridership by Trip, Heavy Rail Excess Trip Time, Commuter Rail Reliability,
+  and Service Customer Satisfaction (ArcGIS Open Data) · NOAA GHCN-Daily, Boston Logan
   (USW00014739)<br>
   <b>Refresh</b> · Page data hourly, from alerts checked every 15 minutes · Weather daily
-  (NOAA posts ~3 days behind) · Ridership, trip times, and the survey weekly (MBTA posts in batches, weeks to
-  months behind)<br>
+  (NOAA posts ~3 days behind) · Ridership, trip times, reliability, and the survey weekly (MBTA posts in batches,
+  weeks to months behind)<br>
   <b>Incidents</b> · An incident groups the alerts the MBTA posts for one event (same route, cause, effect, and
   station, posted in close succession). Notices and facility issues (elevators, escalators, parking) are excluded.
   An alert ends at the end time the MBTA posted or when the MBTA closed it, whichever comes first; if the close
@@ -2206,10 +2260,11 @@ st.markdown(f"""
   day with the median of the same weekday in the four weeks either side, holidays left out, in entries rather than
   percent, since a percent would inflate recent days against lower ridership; the daily view's bold line is a centered
   7-day average, which evens out the weekdays.<br>
-  <b>Riders on every mode</b> · The MBTA's monthly figures count boardings, a ride with a transfer counting twice, on
-  every mode alike, so modes are compared only with them, never with gated entries. {BASELINE_YEAR} comparisons set
-  the last 12 published months against all of {BASELINE_YEAR}, so the seasons match. Commuter rail boardings are the
-  MBTA's daily estimates, and ferry riders count every trip leg.<br>
+  <b>Every mode</b> · The MBTA's monthly figures count boardings, a ride with a transfer counting twice, on every mode
+  alike, so modes are compared only with them, never with gated entries. {BASELINE_YEAR} comparisons set the last 12
+  published months against all of {BASELINE_YEAR}, so the seasons match. Commuter rail boardings are the MBTA's daily
+  estimates, and ferry riders count every trip leg. Punctuality is the MBTA's own measure: a ferry departure is late
+  more than 5 minutes after schedule, and a commuter rail train's on time is from the MBTA's reliability file.<br>
   <b>Comparisons</b> · Like for like: same line and month, adjusted for day of week, with the ~10 federal holidays a
   year left out, since a holiday isn't a typical day. Durations and baselines are medians, so one shutdown can't skew
   them. Weather bars are the median day in each band vs normal-weather days. Alert-effect bars are the median day

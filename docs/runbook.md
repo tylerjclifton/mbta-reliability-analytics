@@ -167,3 +167,19 @@ Terraform can rename a table only by replacing it, which would lose its history,
 
    **Renaming a job takes two pushes.** Every Cloud Run job has deletion protection on, and Terraform can't destroy a job whose state still says so (2026-11-14: the ridership rename's first apply stopped there). So the first push adds the new job and keeps the old one, unscheduled, with `deletion_protection = false` and `table` set to the renamed table. Once it's applied, the second push removes the old job, along with the `import` blocks.
 4. Plan locally: it must show 1 import and 0 to destroy. Push, and remove the `import` block in a follow-up commit once it's applied.
+
+### Retire a bronze table
+
+Bronze is never trimmed, with one exception: a table whose contents bronze already holds elsewhere ([0020](decisions/0020-collect-broadly-show-what-is-used.md)). Bronze tables are protected twice, by `prevent_destroy` and by deletion protection, so retiring one takes two pushes.
+
+1. In `infra/bigquery.tf`, move the table's entry from `local.bronze_tables` to `local.retiring_bronze_tables`, and add a block so Terraform keeps the same table:
+
+   ```hcl
+   moved {
+     from = google_bigquery_table.bronze["<name>"]
+     to   = google_bigquery_table.retiring_bronze["<name>"]
+   }
+   ```
+
+   Plan locally: it must show the move and deletion protection turning off (1 to change), and 0 to destroy. Push.
+2. Once that's applied, remove the entry and the `moved` block, and the table's declaration in `transform/models/bronze/_bronze__sources.yml`. Plan: 1 to destroy, the retiring table and nothing else. Push.

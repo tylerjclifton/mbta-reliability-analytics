@@ -17,3 +17,6 @@ Several sources keep little or no history. The MBTA alerts API drops an alert th
 - Since rows can't be removed, a local ingest run writes to `dev_bronze`, never production bronze ([0012](0012-local-ingest-writes-dev-bronze.md)).
 - Where an ingest kept only chosen columns, the rest was lost for good ([0002](0002-raw-alert-capture.md)).
 - One deliberate exception: other modes' route and stop history comes from the MBTA's own GTFS archive rather than bronze ([0011](0011-capture-every-mode.md)).
+
+## History
+- **2026-11-16:** one exception: a bronze table may be deleted when bronze holds the same data elsewhere, as `bronze.mbta_alerts_legacy`'s months are in `bronze.lamp_alerts` ([0020](0020-collect-broadly-show-what-is-used.md)).

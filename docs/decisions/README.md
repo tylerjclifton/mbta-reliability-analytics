@@ -38,6 +38,7 @@ Numbers are assigned in the order records are written and never change. The inde
 | [0009](0009-runtime-versions.md) | dbt 1.12 and Python 3.13; dbt v2 skipped for now | Accepted |
 | [0014](0014-bronze-physical-storage-billing.md) | Bill bronze storage on physical (compressed) bytes | Accepted |
 | [0017](0017-slow-changing-models-build-daily.md) | Slow-changing models are built and tested once a day, not hourly | Accepted |
+| [0021](0021-not-null-checks-in-one-test.md) | A model's not-null checks run as one test | Accepted |
 
 ## Writing one
 

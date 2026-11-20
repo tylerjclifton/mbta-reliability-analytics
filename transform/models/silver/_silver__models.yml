@@ -8,7 +8,8 @@ version: 2
 #
 # Tests run in `dbt build` before gold is rebuilt; an error-severity failure
 # skips everything downstream, so bad data never reaches the dashboard.
-#   unique_combination / unique + not_null  → the model's grain holds
+#   unique_combination / unique             → the model's grain holds
+#   not_null_columns                        → keys and required fields are set
 #   accepted_values / relationships         → keys join cleanly across sources
 #   accepted_range                          → values are physically plausible
 # The alert rules also have unit tests on made-up rows
@@ -26,10 +27,15 @@ models:
       lamp_alerts__base; enums as the API sends them), the JSON itself, and
       first/last seen. Incremental table, so each run reads only new alert
       snapshots (see model header).
+    data_tests:
+      - not_null_columns:
+          arguments:
+            columns: [alert_id, alert_effect, alert_created_at, alert_json,
+                      first_seen_at, last_seen_at]
     columns:
       - name: alert_id
         description: "{{ doc('alert_id') }}"
-        data_tests: [unique, not_null]
+        data_tests: [unique]
       - name: alert_header
         description: "{{ doc('alert_header') }}"
       - name: alert_description
@@ -38,7 +44,6 @@ models:
         description: MBTA cause enum (e.g. SIGNAL_PROBLEM).
       - name: alert_effect
         description: MBTA effect enum (e.g. DELAY, SHUTTLE).
-        data_tests: [not_null]
       - name: alert_severity
         description: "{{ doc('alert_severity') }}"
       - name: alert_duration_certainty
@@ -51,7 +56,6 @@ models:
         description: "{{ doc('active_periods') }}"
       - name: alert_created_at
         description: "{{ doc('alert_created_at') }}"
-        data_tests: [not_null]
       - name: alert_updated_at
         description: "{{ doc('alert_updated_at') }}"
       - name: alert_closed_at
@@ -62,13 +66,10 @@ models:
         description: "{{ doc('informed_entities') }}"
       - name: alert_json
         description: The alert's latest JSON:API object, exactly as the API returned it.
-        data_tests: [not_null]
       - name: first_seen_at
         description: "{{ doc('first_seen_at') }}"
-        data_tests: [not_null]
       - name: last_seen_at
         description: "{{ doc('last_seen_at') }}"
-        data_tests: [not_null]
 
   - name: lamp_alerts__base
     description: >
@@ -76,15 +77,18 @@ models:
       renamed toward the API's names, with its informed entities and first
       posted active period. Incremental table that reads bronze only after a
       new load (see model header; decision 0016).
+    data_tests:
+      - not_null_columns:
+          arguments:
+            columns: [alert_id, alert_effect, alert_created_at, ingested_at]
     columns:
       - name: alert_id
         description: "{{ doc('alert_id') }}"
-        data_tests: [unique, not_null]
+        data_tests: [unique]
       - name: alert_cause
         description: MBTA cause enum, as the API's cause (LAMP's cause_detail).
       - name: alert_effect
         description: MBTA effect enum, as the API's effect (LAMP's effect_detail).
-        data_tests: [not_null]
       - name: posted_start_at
         description: >
           Start of the first active period (UTC) in the latest version that
@@ -100,7 +104,6 @@ models:
           first estimate of when it would be over. NULL when it posted none.
       - name: alert_created_at
         description: "{{ doc('alert_created_at') }}"
-        data_tests: [not_null]
       - name: alert_updated_at
         description: When the latest version was posted (UTC).
       - name: alert_closed_at
@@ -111,22 +114,24 @@ models:
           direction_id); a NULL direction means both.
       - name: ingested_at
         description: The latest LAMP load (UTC); the table's incremental marker.
-        data_tests: [not_null]
       - name: ingested_by
         description: "{{ doc('ingested_by') }}"
 
   - name: mbta_routes__base
     description: One row per rail route — the latest snapshot, plus the line it belongs to.
+    data_tests:
+      - not_null_columns:
+          arguments:
+            columns: [route_id, line_name]
     columns:
       - name: route_id
         description: "{{ doc('route_id') }}"
-        data_tests: [unique, not_null]
+        data_tests: [unique]
       - name: route_name
         description: "{{ doc('route_name') }}"
       - name: line_name
         description: "{{ doc('line_name') }}"
         data_tests:
-          - not_null
           - accepted_values:
               arguments:
                 # Anchor reused by mbta_gated_entries__base.line_name below.
@@ -153,24 +158,23 @@ models:
       - unique_combination:
           arguments:
             columns: [shape_id, route_id]
+      - not_null_columns:
+          arguments:
+            columns: [shape_id, route_id, shape_polyline, is_canonical]
     columns:
       - name: shape_id
         description: "{{ doc('shape_id') }}"
-        data_tests: [not_null]
       - name: route_id
         description: "{{ doc('route_id') }}"
         data_tests:
-          - not_null
           - relationships:
               arguments:
                 to: ref('mbta_routes__base')
                 field: route_id
       - name: shape_polyline
         description: "{{ doc('shape_polyline') }}"
-        data_tests: [not_null]
       - name: is_canonical
         description: True for the route's official paths; false for their variants.
-        data_tests: [not_null]
       - name: ingested_at
         description: "{{ doc('ingested_at') }}"
       - name: ingested_by
@@ -185,21 +189,21 @@ models:
       - unique_combination:
           arguments:
             columns: [stop_id, route_id]
+      - not_null_columns:
+          arguments:
+            columns: [stop_id, route_id, station_id]
     columns:
       - name: stop_id
         description: MBTA stop ID — a station (place-…) or a stop inside one (platform, entrance, node).
-        data_tests: [not_null]
       - name: route_id
         description: "Route whose stations were requested. {{ doc('route_id') }}"
         data_tests:
-          - not_null
           - relationships:
               arguments:
                 to: ref('mbta_routes__base')
                 field: route_id
       - name: station_id
         description: "{{ doc('station_id') }} A station's own row has station_id = stop_id."
-        data_tests: [not_null]
       - name: station_name
         description: Station name (child stops carry their station's name).
       - name: stop_type
@@ -240,21 +244,21 @@ models:
       - unique_combination:
           arguments:
             columns: [service_date, line_name]
+      - not_null_columns:
+          arguments:
+            columns: [service_date, line_name, gated_entries]
     columns:
       - name: service_date
         description: "{{ doc('service_date') }}"
-        data_tests: [not_null]
       - name: line_name
         description: "{{ doc('line_name') }}"
         data_tests:
-          - not_null
           - accepted_values:
               arguments:
                 values: *rail_lines
       - name: gated_entries
         description: "{{ doc('gated_entries') }}"
         data_tests:
-          - not_null
           - accepted_range:
               arguments:
                 min_value: 0
@@ -265,10 +269,14 @@ models:
 
   - name: noaa_weather__base
     description: One row per observation date — quality-checked daily weather at Boston Logan, in US units.
+    data_tests:
+      - not_null_columns:
+          arguments:
+            columns: [observation_date]
     columns:
       - name: observation_date
         description: "{{ doc('observation_date') }}"
-        data_tests: [unique, not_null]
+        data_tests: [unique]
       - name: station_id
         description: GHCN station ID (USW00014739 = Boston Logan International Airport).
       - name: avg_temperature_f
@@ -313,14 +321,15 @@ models:
       - unique_combination:
           arguments:
             columns: [month_start, day_type, mode_or_line]
+      - not_null_columns:
+          arguments:
+            columns: [month_start, day_type, mode_or_line]
     columns:
       - name: month_start
         description: First day of the month.
-        data_tests: [not_null]
       - name: day_type
         description: Weekday, Saturday, Sunday, or Total (the three together).
         data_tests:
-          - not_null
           - accepted_values:
               arguments:
                 values: [Weekday, Saturday, Sunday, Total]
@@ -330,7 +339,6 @@ models:
         description: >
           Mode or line as published; Heavy Rail, Light Rail, and All Bus are
           subtotals of others.
-        data_tests: [not_null]
       - name: riders_total
         description: Boardings over the month's days of that type.
         data_tests:
@@ -352,13 +360,14 @@ models:
       - unique_combination:
           arguments:
             columns: [service_date, line_name]
+      - not_null_columns:
+          arguments:
+            columns: [service_date, line_name]
     columns:
       - name: service_date
         description: "{{ doc('service_date') }}"
-        data_tests: [not_null]
       - name: line_name
         description: Commuter rail line (e.g. Fitchburg, Providence/Stoughton).
-        data_tests: [not_null]
       - name: estimated_boardings
         description: Estimated boardings on the line that day.
         data_tests:
@@ -375,13 +384,15 @@ models:
       One row per ferry trip leg as of its latest pull, typed. Incremental
       table that overwrites the service days each new load covers (see model
       header; decision 0018).
+    data_tests:
+      - not_null_columns:
+          arguments:
+            columns: [service_date, route_id, ingested_at]
     columns:
       - name: service_date
         description: "{{ doc('service_date') }}"
-        data_tests: [not_null]
       - name: route_id
         description: Ferry route (e.g. F4).
-        data_tests: [not_null]
       - name: route_name
         description: Route ID and place as published (e.g. F4-Charlestown).
       - name: trip_id
@@ -408,7 +419,6 @@ models:
         description: Riders leaving (published negative; made positive).
       - name: ingested_at
         description: The load the service day's legs came from (UTC); the table's incremental marker.
-        data_tests: [not_null]
       - name: ingested_by
         description: "{{ doc('ingested_by') }}"
 
@@ -422,10 +432,12 @@ models:
       - unique_combination:
           arguments:
             columns: [service_date, half_hour_start, route_id, direction]
+      - not_null_columns:
+          arguments:
+            columns: [service_date, half_hour_start, ingested_at]
     columns:
       - name: service_date
         description: "{{ doc('service_date') }}"
-        data_tests: [not_null]
       - name: day_type
         description: Weekday, Saturday, Sunday, or Holiday.
         data_tests:
@@ -434,7 +446,6 @@ models:
                 values: [Weekday, Saturday, Sunday, Holiday]
       - name: half_hour_start
         description: Start of the half hour, Eastern.
-        data_tests: [not_null]
       - name: service_period
         description: AM PEAK, PM PEAK, or OFF-PEAK (the MBTA's service delivery policy).
         data_tests:
@@ -480,7 +491,6 @@ models:
         description: Riders whose trip ran no more than 30% over the baseline.
       - name: ingested_at
         description: The load the service day's rows came from (UTC).
-        data_tests: [not_null]
       - name: ingested_by
         description: "{{ doc('ingested_by') }}"
 
@@ -490,18 +500,19 @@ models:
       off-peak) — commuter rail trains measured, on time, and canceled, as of
       each day's latest pull (decision 0019). Not unique: sum per line before
       dividing.
+    data_tests:
+      - not_null_columns:
+          arguments:
+            columns: [service_date, route_id, is_peak, ingested_at]
     columns:
       - name: service_date
         description: "{{ doc('service_date') }}"
-        data_tests: [not_null]
       - name: route_id
         description: The line's GTFS route (e.g. CR-Newburyport).
-        data_tests: [not_null]
       - name: route_part_name
         description: The line or branch as published (e.g. Rockport Line).
       - name: is_peak
         description: True for the peak period, false for off-peak.
-        data_tests: [not_null]
       - name: trains_measured
         description: Trains measured for on-time performance.
         data_tests:
@@ -514,7 +525,6 @@ models:
         description: Trains canceled.
       - name: ingested_at
         description: The load the service day's rows came from (UTC).
-        data_tests: [not_null]
       - name: ingested_by
         description: "{{ doc('ingested_by') }}"
 
@@ -527,13 +537,14 @@ models:
       - unique_combination:
           arguments:
             columns: [survey_month, question]
+      - not_null_columns:
+          arguments:
+            columns: [survey_month, question]
     columns:
       - name: survey_month
         description: Survey month, as its first day.
-        data_tests: [not_null]
       - name: question
         description: The question as asked.
-        data_tests: [not_null]
       - name: respondents
         description: Respondents to the question.
       - name: answer_1
@@ -593,13 +604,14 @@ models:
       - unique_combination:
           arguments:
             columns: [alert_id, route_id]
+      - not_null_columns:
+          arguments:
+            columns: [alert_id, route_id, first_seen_at, last_seen_at]
     columns:
       - name: alert_id
         description: "{{ doc('alert_id') }}"
-        data_tests: [not_null]
       - name: route_id
         description: "{{ doc('route_id') }}"
-        data_tests: [not_null]
       - name: posted_start_at
         description: Start the MBTA posted (UTC); NULL when unset (the API's epoch placeholder).
       - name: posted_end_at
@@ -624,10 +636,8 @@ models:
         description: "{{ doc('alert_updated_at') }}"
       - name: first_seen_at
         description: "{{ doc('first_seen_at') }}"
-        data_tests: [not_null]
       - name: last_seen_at
         description: "{{ doc('last_seen_at') }}"
-        data_tests: [not_null]
       - name: alert_closed_at
         description: >
           When the MBTA closed the alert (UTC), if a snapshot caught it after
@@ -643,13 +653,14 @@ models:
       - unique_combination:
           arguments:
             columns: [alert_id, route_id]
+      - not_null_columns:
+          arguments:
+            columns: [alert_id, route_id]
     columns:
       - name: alert_id
         description: "{{ doc('alert_id') }}"
-        data_tests: [not_null]
       - name: route_id
         description: "{{ doc('route_id') }}"
-        data_tests: [not_null]
       - name: alert_closed_at
         description: "{{ doc('alert_closed_at') }}"
 
@@ -664,10 +675,12 @@ models:
       - unique_combination:
           arguments:
             columns: [alert_id, route_id]
+      - not_null_columns:
+          arguments:
+            columns: [is_in_feed, alert_start_at, ingested_at]
     columns:
       - name: is_in_feed
         description: "{{ doc('alert_is_in_feed') }}"
-        data_tests: [not_null]
       - name: left_feed_at
         description: >
           When the alert left the feed (UTC): midway between the last run that
@@ -680,7 +693,6 @@ models:
           alerts, only when a run caught the alert after it closed.
       - name: alert_start_at
         description: "{{ doc('alert_start_at') }}"
-        data_tests: [not_null]
       - name: alert_end_at
         description: "{{ doc('alert_end_at') }}"
       - name: active_periods
@@ -691,7 +703,6 @@ models:
         description: >
           When the run that wrote this version started (UTC): the last-seen
           snapshot, or the LAMP load.
-        data_tests: [not_null]
       - name: ingested_by
         description: "{{ doc('ingested_by') }}"
         data_tests:
@@ -710,16 +721,16 @@ models:
       - unique_combination:
           arguments:
             columns: [alert_id, route_id, period_start_at]
+      - not_null_columns:
+          arguments:
+            columns: [alert_id, route_id, period_start_at]
     columns:
       - name: alert_id
         description: "{{ doc('alert_id') }}"
-        data_tests: [not_null]
       - name: route_id
         description: "{{ doc('route_id') }}"
-        data_tests: [not_null]
       - name: period_start_at
         description: When the period began (UTC).
-        data_tests: [not_null]
       - name: period_end_at
         description: >
           When it ended (UTC): its posted end or when the alert stopped,
@@ -734,21 +745,21 @@ models:
       - unique_combination:
           arguments:
             columns: [alert_id, route_id]
+      - not_null_columns:
+          arguments:
+            columns: [alert_id, route_id, incident_id, alert_start_at]
     columns:
       - name: alert_id
         description: "{{ doc('alert_id') }}"
-        data_tests: [not_null]
       - name: route_id
         description: "{{ doc('route_id') }}"
         data_tests:
-          - not_null
           - relationships:
               arguments:
                 to: ref('mbta_routes__base')
                 field: route_id
       - name: incident_id
         description: "{{ doc('incident_id') }}"
-        data_tests: [not_null]
       - name: alert_header
         description: "{{ doc('alert_header') }}"
       - name: alert_description
@@ -768,7 +779,6 @@ models:
         description: Whether MBTA considers the end time Known, Estimated, or Unknown.
       - name: alert_start_at
         description: "{{ doc('alert_start_at') }}"
-        data_tests: [not_null]
       - name: alert_end_at
         description: "{{ doc('alert_end_at') }}"
       - name: alert_start_date
@@ -818,17 +828,17 @@ models:
       - unique_combination:
           arguments:
             columns: [alert_id, route_id, station_id]
+      - not_null_columns:
+          arguments:
+            columns: [alert_id, route_id, station_id, is_both_directions]
     columns:
       - name: alert_id
         description: "{{ doc('alert_id') }}"
-        data_tests: [not_null]
       - name: route_id
         description: "{{ doc('route_id') }}"
-        data_tests: [not_null]
       - name: station_id
         description: "{{ doc('station_id') }}"
         data_tests:
-          - not_null
           # A stop the stops reference doesn't know keeps its own ID; flag it,
           # since the next weekly stops run usually fills it in.
           - relationships:
@@ -839,7 +849,6 @@ models:
                 severity: warn
       - name: is_both_directions
         description: True when the alert affects the station in both directions (or names no direction).
-        data_tests: [not_null]
       - name: direction_id
         description: >
           The one direction affected (0 or 1, indexing the route's

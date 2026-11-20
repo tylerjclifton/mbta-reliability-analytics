@@ -24,3 +24,6 @@ Options rejected:
 - A failing daily test is caught once a day. Its gold table keeps its last good build until a full run passes.
 - The hourly trigger passes an override, so the scheduler's service account holds `run.jobsExecutorWithOverrides` on the transform job (`infra/iam.tf`); `run.invoker` can't pass overrides.
 - A new model has to decide whether it's `daily`. The test is whether any hourly model reads it.
+
+## History
+- **2026-11-19:** freshness checks follow the same split. Every source but `bronze.mbta_alerts`, the only one written more than once a day, is tagged `daily` (`transform/models/bronze/_bronze__sources.yml`), and `transform/run.py` passes `DBT_EXCLUDE` to `dbt source freshness` too, so an hourly run checks alerts alone: 10 MiB instead of 161 (measured 2026-11-19). A stopped daily or weekly ingest is now caught by the next morning's run rather than the next hour's; its thresholds are days, so that's at most a day later. A new source is tagged `daily` unless its ingest runs more than once a day.

@@ -123,7 +123,7 @@ variable "routes_ingestion_schedule" {
 }
 
 variable "transform_schedule" {
-  description = "Cron for the hourly dbt transform runs, which skip the once-a-day models (tag:daily). At :35, just after the :30 alerts snapshot; skips the hour of transform_full_schedule."
+  description = "Cron for the hourly dbt transform runs, which skip the once-a-day models and freshness checks (tag:daily). At :35, just after the :30 alerts snapshot; skips the hour of transform_full_schedule."
   type        = string
   default     = "35 0-6,8-23 * * *"
 }

@@ -60,7 +60,8 @@ vars:
 # Tag `daily`: built and tested only by the transform's once-a-day full run,
 # not the hourly ones (decision 0017). Only for slow-changing data that no
 # hourly model reads, so routes and stops, which the alert models join, stay
-# hourly.
+# hourly. Sources carry it too (models/bronze/_bronze__sources.yml), for the
+# freshness checks only the daily run makes.
 models:
   mbta_reliability_analytics:
     silver:

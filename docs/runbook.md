@@ -105,7 +105,7 @@ Every deploy ends with a transform run, whose freshness check fails on an empty 
 
 1. Push the ingest job, its bronze table (`local.bronze_tables` in `infra/bigquery.tf`), and its schedule, with no models that read it. Declare the table in `transform/models/bronze/_bronze__sources.yml` with no freshness check yet, so prose may name it (the conventions check) and the deploy's freshness check skips it.
 2. Once that deploy passes, seed the table: `gcloud run jobs execute ingest-<source>-<entity> --region us-east1 --wait`. Check the rows landed in `bronze.<source>_<entity>`.
-3. Push the table's freshness check and the models that read it.
+3. Push the table's freshness check, tagged `daily` unless its ingest runs more than once a day ([0017](decisions/0017-slow-changing-models-build-daily.md)), and the models that read it.
 
 ### Clean up after renaming a dbt model
 

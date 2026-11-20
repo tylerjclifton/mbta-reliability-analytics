@@ -18,15 +18,16 @@ models:
       - unique_combination:
           arguments:
             columns: [incident_id, route_id]
+      - not_null_columns:
+          arguments:
+            columns: [incident_id, line_name, incident_start_at]
     columns:
       - name: incident_id
         description: "{{ doc('incident_id') }}"
-        data_tests: [not_null]
       - name: route_id
         description: "{{ doc('route_id') }}"
       - name: line_name
         description: "{{ doc('line_name') }}"
-        data_tests: [not_null]
       - name: incident_cause
         description: "{{ doc('incident_cause') }}"
       - name: incident_effect
@@ -39,7 +40,6 @@ models:
         description: Highest severity among the incident's alerts (0–10).
       - name: incident_start_at
         description: "{{ doc('incident_start_at') }}"
-        data_tests: [not_null]
       - name: incident_end_at
         description: "{{ doc('incident_end_at') }}"
       - name: incident_duration_minutes
@@ -77,21 +77,20 @@ models:
       - unique_combination:
           arguments:
             columns: [incident_id, route_id, station_id]
+      - not_null_columns:
+          arguments:
+            columns: [incident_id, route_id, station_id, line_name]
     columns:
       - name: incident_id
         description: "{{ doc('incident_id') }}"
-        data_tests: [not_null]
       - name: route_id
         description: "{{ doc('route_id') }}"
-        data_tests: [not_null]
       - name: station_id
         description: "{{ doc('station_id') }}"
-        data_tests: [not_null]
       - name: route_name
         description: "{{ doc('route_name') }}"
       - name: line_name
         description: "{{ doc('line_name') }}"
-        data_tests: [not_null]
       - name: station_name
         description: "{{ doc('station_name') }}"
         data_tests:
@@ -134,27 +133,25 @@ models:
       - unique_combination:
           arguments:
             columns: [alert_id, route_id, period_start_at]
+      - not_null_columns:
+          arguments:
+            columns: [incident_id, route_id, line_name, incident_effect,
+                      alert_id, period_start_at, period_start_date]
     columns:
       - name: incident_id
         description: "{{ doc('incident_id') }}"
-        data_tests: [not_null]
       - name: route_id
         description: "{{ doc('route_id') }}"
-        data_tests: [not_null]
       - name: route_name
         description: "{{ doc('route_name') }}"
       - name: line_name
         description: "{{ doc('line_name') }}"
-        data_tests: [not_null]
       - name: incident_effect
         description: "{{ doc('incident_effect') }}"
-        data_tests: [not_null]
       - name: alert_id
         description: The alert that posted the period; an incident's alerts can post the same one.
-        data_tests: [not_null]
       - name: period_start_at
         description: When the period began (UTC).
-        data_tests: [not_null]
       - name: period_end_at
         description: >
           When it ended (UTC): its posted end or when its alert stopped,
@@ -163,7 +160,6 @@ models:
         description: >
           Service date the period starts on (Eastern; a service day runs 3 AM
           to 3 AM, macros/service_date.sql).
-        data_tests: [not_null]
       - name: period_end_date
         description: Service date it ends on; NULL while it has no end.
 
@@ -175,19 +171,18 @@ models:
       - unique_combination:
           arguments:
             columns: [shape_id, route_id]
+      - not_null_columns:
+          arguments:
+            columns: [shape_id, route_id, line_name, shape_polyline]
     columns:
       - name: shape_id
         description: "{{ doc('shape_id') }}"
-        data_tests: [not_null]
       - name: route_id
         description: "{{ doc('route_id') }}"
-        data_tests: [not_null]
       - name: line_name
         description: "{{ doc('line_name') }}"
-        data_tests: [not_null]
       - name: shape_polyline
         description: "{{ doc('shape_polyline') }}"
-        data_tests: [not_null]
       - name: ingested_at
         description: "{{ doc('ingested_at') }}"
 
@@ -200,24 +195,23 @@ models:
       - unique_combination:
           arguments:
             columns: [alert_id, line_name]
+      - not_null_columns:
+          arguments:
+            columns: [alert_id, line_name, alert_created_at,
+                      first_posted_end_at, alert_closed_at]
     columns:
       - name: alert_id
         description: "{{ doc('alert_id') }}"
-        data_tests: [not_null]
       - name: line_name
         description: "{{ doc('line_name') }}"
-        data_tests: [not_null]
       - name: alert_cause
         description: MBTA cause enum, as the API's cause.
       - name: alert_created_at
         description: "{{ doc('alert_created_at') }}"
-        data_tests: [not_null]
       - name: first_posted_end_at
         description: The earliest end the alert's first version posted (UTC).
-        data_tests: [not_null]
       - name: alert_closed_at
         description: When the MBTA closed the alert (UTC), the all-clear.
-        data_tests: [not_null]
       - name: estimated_minutes
         description: Minutes from posting to the first estimated end.
       - name: actual_minutes
@@ -237,18 +231,18 @@ models:
       - unique_combination:
           arguments:
             columns: [month_start, day_type, service]
+      - not_null_columns:
+          arguments:
+            columns: [month_start, day_type, service]
     columns:
       - name: month_start
         description: First day of the month.
-        data_tests: [not_null]
       - name: day_type
         description: Weekday, Saturday, Sunday, or Total (the three together).
-        data_tests: [not_null]
       - name: day_count
         description: Days of that type in the month.
       - name: service
         description: Mode or line as published (e.g. Bus, Red Line, Ferry).
-        data_tests: [not_null]
       - name: mode
         description: >
           The service's mode, named for what it holds: "Red, Orange, Blue",
@@ -276,13 +270,14 @@ models:
       - unique_combination:
           arguments:
             columns: [service_date, line_name]
+      - not_null_columns:
+          arguments:
+            columns: [service_date, line_name]
     columns:
       - name: service_date
         description: "{{ doc('service_date') }}"
-        data_tests: [not_null]
       - name: line_name
         description: Commuter rail line.
-        data_tests: [not_null]
       - name: estimated_boardings
         description: Estimated boardings on the line that day.
       - name: ingested_at
@@ -297,13 +292,14 @@ models:
       - unique_combination:
           arguments:
             columns: [month_start, route_name]
+      - not_null_columns:
+          arguments:
+            columns: [month_start, route_name]
     columns:
       - name: month_start
         description: First day of the month.
-        data_tests: [not_null]
       - name: route_name
         description: The route's place (e.g. Charlestown, Hingham/Hull).
-        data_tests: [not_null]
       - name: legs
         description: Trip legs run.
       - name: riders
@@ -331,16 +327,16 @@ models:
       - unique_combination:
           arguments:
             columns: [service_date, line_name, service_period]
+      - not_null_columns:
+          arguments:
+            columns: [service_date, line_name, service_period]
     columns:
       - name: service_date
         description: "{{ doc('service_date') }}"
-        data_tests: [not_null]
       - name: line_name
         description: Red Line, Orange Line, or Blue Line.
-        data_tests: [not_null]
       - name: service_period
         description: AM PEAK, PM PEAK, or OFF-PEAK.
-        data_tests: [not_null]
       - name: day_type
         description: Weekday, Saturday, Sunday, or Holiday.
       - name: riders_estimated
@@ -373,19 +369,18 @@ models:
       - unique_combination:
           arguments:
             columns: [service_date, route_id, is_peak]
+      - not_null_columns:
+          arguments:
+            columns: [service_date, route_id, line_name, is_peak]
     columns:
       - name: service_date
         description: "{{ doc('service_date') }}"
-        data_tests: [not_null]
       - name: route_id
         description: The line's GTFS route (e.g. CR-Newburyport).
-        data_tests: [not_null]
       - name: line_name
         description: The line, named as the daily boardings name it (e.g. Newburyport/Rockport).
-        data_tests: [not_null]
       - name: is_peak
         description: True for the peak period, false for off-peak.
-        data_tests: [not_null]
       - name: trains_measured
         description: Trains measured for on-time performance.
       - name: trains_on_time
@@ -408,10 +403,12 @@ models:
       - unique_combination:
           arguments:
             columns: [survey_month, question]
+      - not_null_columns:
+          arguments:
+            columns: [survey_month]
     columns:
       - name: survey_month
         description: Survey month, as its first day.
-        data_tests: [not_null]
       - name: question_label
         description: What a positive answer means (e.g. Agree the MBTA is reliable).
         data_tests:
@@ -451,22 +448,21 @@ models:
       - unique_combination:
           arguments:
             columns: [station_id, line_name]
+      - not_null_columns:
+          arguments:
+            columns: [station_id, line_name, station_name, station_latitude,
+                      station_longitude]
     columns:
       - name: station_id
         description: "{{ doc('station_id') }}"
-        data_tests: [not_null]
       - name: line_name
         description: "{{ doc('line_name') }}"
-        data_tests: [not_null]
       - name: station_name
         description: "{{ doc('station_name') }}"
-        data_tests: [not_null]
       - name: station_latitude
         description: "{{ doc('station_latitude') }}"
-        data_tests: [not_null]
       - name: station_longitude
         description: "{{ doc('station_longitude') }}"
-        data_tests: [not_null]
       - name: is_wheelchair_accessible
         description: "{{ doc('is_wheelchair_accessible') }}"
       - name: ingested_at
@@ -481,6 +477,9 @@ models:
       - unique_combination:
           arguments:
             columns: [service_date, line_name]
+      - not_null_columns:
+          arguments:
+            columns: [is_fare_free, is_calm_day]
     columns:
       - name: service_date
         description: "{{ doc('service_date') }}"
@@ -493,7 +492,6 @@ models:
           True on days the MBTA made the line free to ride
           (mbta_fare_free_periods): the gates stood open, so gated_entries
           undercounts riders, and the dashboard leaves the day out.
-        data_tests: [not_null]
       - name: active_incident_count
         description: Distinct incidents on any of the line's routes active at some point that service date.
       - name: most_severe_effect
@@ -513,7 +511,6 @@ models:
           disrupt the line. Any other effect makes the day not calm. Only
           meaningful once alert tracking had begun — earlier days read as calm
           because no alerts were recorded.
-        data_tests: [not_null]
       - name: avg_temperature_f
         description: "{{ doc('avg_temperature_f') }}"
         data_tests:

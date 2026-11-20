@@ -22,19 +22,19 @@ seeds:
       - unique_combination:
           arguments:
             columns: [line_name, start_date]
+      - not_null_columns:
+          arguments:
+            columns: [line_name, start_date, end_date]
     columns:
       - name: line_name
         description: "{{ doc('line_name') }}"
         data_tests:
-          - not_null
           - accepted_values:
               arguments:
                 values: [Red Line, Orange Line, Blue Line, Green Line]
       - name: start_date
         description: First fare-free service date (Eastern).
-        data_tests: [not_null]
       - name: end_date
         description: Last fare-free service date (Eastern).
-        data_tests: [not_null]
       - name: reason
         description: Why the MBTA waived fares, in a few words.

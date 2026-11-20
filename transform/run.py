@@ -3,14 +3,14 @@ Transform job — the entrypoint the Dockerfile runs
 
 Runs, in order, stopping at the first failure:
   1. `dbt build` — models + data and unit tests in DAG order; a failing test
-     skips everything downstream of it, so bad data never reaches gold.
-     DBT_EXCLUDE, when set, is passed to --exclude: the hourly trigger sets it
-     to skip the models built once a day (decision 0017)
+     skips everything downstream of it, so bad data never reaches gold
   2. `dbt source freshness` — fails the run if an ingest job has stopped
      writing to bronze (thresholds in models/bronze/_bronze__sources.yml)
 Both use the gcp target (attached service account, no keyfile) unless
 DBT_TARGET says otherwise — e.g. DBT_TARGET=local to try it against the dev
-datasets.
+datasets. DBT_EXCLUDE, when set, is passed to both as --exclude: the hourly
+trigger sets it to skip the models, tests, and freshness checks run once a day
+(decision 0017).
 
 dbt's output streams to the job's logs unchanged. On failure, the job also logs
 one structured failure report holding dbt's failure summary — which models,
@@ -39,7 +39,7 @@ STEPS = {
         pathlib.Path('target/run_results.json'),
     ),
     'dbt source freshness': (
-        ['dbt', 'source', 'freshness', '--profiles-dir', '.', '--target', TARGET],
+        ['dbt', 'source', 'freshness', '--profiles-dir', '.', '--target', TARGET, *EXCLUDE],
         pathlib.Path('target/sources.json'),
     ),
 }

@@ -242,7 +242,7 @@ resource "google_cloud_run_v2_job" "transform" {
         resources {
           limits = {
             memory = "1Gi"
-            cpu    = "2000m"
+            cpu    = "1000m" # dbt mostly waits on BigQuery; a second vCPU doubled the billed vCPU-seconds
           }
         }
       }

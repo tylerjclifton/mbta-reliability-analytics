@@ -10,7 +10,10 @@ version: 2
 #
 # Freshness: `dbt source freshness` (run after `dbt build` in the transform
 # job) fails the run when a table hasn't been written for longer than its ingest
-# schedule allows — i.e. when an ingest job has stopped working.
+# schedule allows — i.e. when an ingest job has stopped working. A table
+# written daily or less often is tagged `daily`, so only the transform's daily
+# full run checks it, and the hourly runs check mbta_alerts alone
+# (decision 0017).
 # ══════════════════════════════════════════════════════════════════════════════
 
 sources:
@@ -27,6 +30,7 @@ sources:
           saw from it (decision 0016). Grain: alert × version × informed
           entity × active period × ingest run.
         config:
+          tags: [daily]
           freshness:
             # Weekly job.
             warn_after: {count: 8, period: day}
@@ -51,6 +55,7 @@ sources:
           canonical patterns and their variants, as encoded polylines.
           Grain: shape × route × ingest run.
         config:
+          tags: [daily]
           freshness:
             # Weekly job.
             warn_after: {count: 8, period: day}
@@ -62,6 +67,7 @@ sources:
           platforms, entrances, and nodes inside them.
           Grain: stop × route × ingest run.
         config:
+          tags: [daily]
           freshness:
             # Weekly job.
             warn_after: {count: 8, period: day}
@@ -72,6 +78,7 @@ sources:
           Snapshots of the MBTA routes API (rail routes only).
           Grain: route × ingest run.
         config:
+          tags: [daily]
           freshness:
             # Yearly job.
             error_after: {count: 400, period: day}
@@ -83,6 +90,7 @@ sources:
           its yearly archive (decision 0015). Grain:
           service date × line × ingest run.
         config:
+          tags: [daily]
           freshness:
             # Weekly job.
             warn_after: {count: 8, period: day}
@@ -94,6 +102,7 @@ sources:
           National Transit Database: unlinked trips, subtotals included
           (decision 0018). Grain: month × day type × mode or line × ingest run.
         config:
+          tags: [daily]
           freshness:
             # Weekly job.
             warn_after: {count: 8, period: day}
@@ -105,6 +114,7 @@ sources:
           2020-06-22; the whole file every run (decision 0018). Grain:
           service date × line × ingest run.
         config:
+          tags: [daily]
           freshness:
             # Weekly job.
             warn_after: {count: 8, period: day}
@@ -116,6 +126,7 @@ sources:
           actual times, as published (decision 0018). Grain: trip leg × ingest
           run.
         config:
+          tags: [daily]
           freshness:
             # Weekly job.
             warn_after: {count: 8, period: day}
@@ -128,6 +139,7 @@ sources:
           service every run (decision 0019). Grain: service date × half hour ×
           line × direction × ingest run.
         config:
+          tags: [daily]
           freshness:
             # Weekly job.
             warn_after: {count: 8, period: day}
@@ -141,6 +153,7 @@ sources:
           service every run (decision 0019). Grain: row of the file × ingest
           run.
         config:
+          tags: [daily]
           freshness:
             # Weekly job.
             warn_after: {count: 8, period: day}
@@ -153,6 +166,7 @@ sources:
           file every run (decision 0019). Grain: survey × question × ingest
           run.
         config:
+          tags: [daily]
           freshness:
             # Weekly job.
             warn_after: {count: 8, period: day}
@@ -163,6 +177,7 @@ sources:
           NOAA GHCN-Daily values for Boston Logan in source units (tenths of °C,
           tenths of mm, mm) with QC flags. Grain: observation date × ingest run.
         config:
+          tags: [daily]
           freshness:
             # Daily job.
             warn_after: {count: 2, period: day}

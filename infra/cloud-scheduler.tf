@@ -68,8 +68,8 @@ resource "google_cloud_scheduler_job" "transform" {
   http_target {
     http_method = "POST"
     uri         = "${local.run_jobs_api}/${google_cloud_run_v2_job.transform.name}:run"
-    # DBT_EXCLUDE is passed to `dbt build --exclude` (transform/run.py), for
-    # this run only.
+    # DBT_EXCLUDE is passed to dbt's --exclude (transform/run.py), for this
+    # run only.
     headers = each.value.exclude == null ? {} : { "Content-Type" = "application/json" }
     body = each.value.exclude == null ? null : base64encode(jsonencode({
       overrides = { containerOverrides = [{ env = [{ name = "DBT_EXCLUDE", value = each.value.exclude }] }] }
